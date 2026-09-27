@@ -359,6 +359,21 @@
           if (Math.abs(v - (d.at || 0)) < (d.h || 0.9) && Math.abs(u) < (d.w || hu - 1)) res = 200 + 4;
           break;
         }
+        case 'face': { // tiny face: eye blocks (dark or glowing), optional angry brows (mat2), mouth, beard below `band` (mat2)
+          const pts = d.pts || [[-2, 0], [2, 0]];
+          const ew = d.size || 0.6, eh = d.h || ew;
+          if (d.band != null && v < d.band) res = 100 + cur;
+          for (const q of pts) {
+            const du = Math.abs(u - q[0]), dv = v - q[1];
+            if (du < ew && Math.abs(dv) < eh) res = d.glow ? 204 : (d.dark != null ? d.dark : 0);
+            else if (d.brow) {
+              const by = q[1] + eh + 0.7 + (d.angry ? (Math.abs(u) - Math.abs(q[0])) * 0.45 : 0);
+              if (du < ew + 0.7 && Math.abs(v - by) < 0.55) res = 100 + Math.max(0, Math.min(1, cur - 2));
+            }
+          }
+          if (d.v != null && Math.abs(v - d.v) < 0.5 && Math.abs(u) < (d.mw || 1.2)) res = d.band != null && d.v < d.band ? 100 : 0;
+          break;
+        }
         case 'tread': {
           const off = scene.treadOffset ? scene.treadOffset[p._unit] || 0 : 0;
           const k = d.axis === 'v' ? v : u;
