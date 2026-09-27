@@ -1,0 +1,759 @@
+// Mecha Factory — application: hangar, WASD control, editor panel, production line, export.
+(function () {
+  const MF = window.MF;
+  const G = MF.Gen;
+  const $ = (id) => document.getElementById(id);
+  const TAU = Math.PI * 2;
+  const DIR_NAMES = ['S', 'SE', 'E', 'NE', 'N', 'NW', 'W', 'SW'];
+
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('mf.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem('mf.' + k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
+  };
+
+  // ------------------------------------------------------------ state
+  const S = {
+    units: [],
+    nextId: 1,
+    selected: new Set(),
+    activeId: null,
+    locks: store.get('locks', {}),
+    settings: Object.assign({ zoom: 3, pitch: 0.55, lightAng: -0.9, floor: 'tiles', shadows: true, snap: true }, store.get('settings', {})),
+    preview: { spin: true, step: false, walk: false },
+    keys: new Set(),
+    cam: { x: 0, z: 0 },
+    time: 0,
+    history: [],
+  };
+
+  // ------------------------------------------------------------ units
+  function makeUnit(bp, x = 0, z = 0, yaw = 0) {
+    const u = { id: S.nextId++, bp: sanitize(bp), x, z, yaw, targetYaw: yaw, phase: 0, move: 0, dist: 0, t: Math.random() * 10 };
+    rebuild(u);
+    return u;
+  }
+  function sanitize(bp) {
+    const b = JSON.parse(JSON.stringify(bp));
+    b.colors = Object.assign({}, MF.PALETTES[b.palette] || MF.PALETTES['Rust Crab'], b.colors || {});
+    return b;
+  }
+  function rebuild(u) {
+    u.rig = G.build(u.bp);
+    u.pal = MF.buildPalette(u.bp.colors);
+  }
+  const active = () => S.units.find((u) => u.id === S.activeId) || S.units[0];
+
+  function lightVec() {
+    const a = S.settings.lightAng;
+    return [Math.sin(a) * 0.62, 0.78, Math.cos(a) * 0.62];
+  }
+
+  function posedPrims(u, x, z, yaw) {
+    u.rig.animate({ phase: u.phase, move: u.move, t: u.t });
+    const w = MF.matFromEuler(MF.mat(), x, u.rig.hover || 0, z, 0, yaw, 0);
+    return MF.updateRig(u.rig.root, w, []);
+  }
+
+  // ------------------------------------------------------------ hangar rendering
+  const hangar = $('hangar');
+  const hctx = hangar.getContext('2d');
+  const R = new MF.Renderer(320, 200);
+  const bufCanvas = document.createElement('canvas');
+  let viewW = 320, viewH = 200;
+
+  function resizeHangar() {
+    const box = $('stageInner').getBoundingClientRect();
+    const z = S.settings.zoom;
+    viewW = Math.max(40, Math.floor(box.width / z));
+    viewH = Math.max(40, Math.floor(box.height / z));
+    R.resize(viewW, viewH);
+    hangar.width = viewW; hangar.height = viewH;
+    hangar.style.width = viewW * z + 'px';
+    hangar.style.height = viewH * z + 'px';
+    bufCanvas.width = viewW; bufCanvas.height = viewH;
+  }
+  new ResizeObserver(resizeHangar).observe($('stageInner'));
+
+  function stagePalette() {
+    const a = active();
+    return a ? a.pal : MF.buildPalette(MF.PALETTES['Snowcat']);
+  }
+
+  function renderHangar() {
+    const pal = stagePalette();
+    const scene = {
+      units: S.units.map((u) => ({ prims: posedPrims(u, u.x, u.z, u.yaw), pal: u.pal, x: u.x, z: u.z, radius: u.rig.radius, height: u.rig.height + (u.rig.hover || 0), selected: S.selected.has(u.id) })),
+      cam: { x: Math.round(S.cam.x), z: Math.round(S.cam.z), pitch: S.settings.pitch, ox: Math.floor(viewW / 2), oy: Math.floor(viewH * 0.62) },
+      floor: S.settings.floor, bg: pal.bg, floorRamp: pal.floor, shadows: S.settings.shadows, light: lightVec(), time: S.time,
+      treadOffset: S.units.map((u) => u.dist),
+    };
+    R.render(scene);
+    hctx.putImageData(R.image, 0, 0);
+  }
+
+  // ------------------------------------------------------------ preview (turntable)
+  const pv = $('preview');
+  const pctx = pv.getContext('2d');
+  const PR = new MF.Renderer(pv.width, pv.height);
+  let pvYaw = 0.6, pvPhase = 0;
+  function renderPreview(dt) {
+    const u = active();
+    if (!u) return;
+    if (S.preview.spin) pvYaw += dt * 0.9;
+    let yaw = pvYaw;
+    if (S.preview.step) yaw = Math.round(pvYaw / (TAU / 8)) * (TAU / 8);
+    const savePh = u.phase, saveMove = u.move;
+    if (S.preview.walk) { pvPhase += dt * 6; u.phase = pvPhase; u.move = 1; } else { u.move = 0; }
+    const prims = posedPrims(u, 0, 0, yaw);
+    u.phase = savePh; u.move = saveMove;
+    const h = u.rig.height + (u.rig.hover || 0);
+    PR.render({
+      units: [{ prims, pal: u.pal, x: 0, z: 0, radius: u.rig.radius, height: h }],
+      cam: { x: 0, z: 0, pitch: S.settings.pitch, ox: pv.width / 2, oy: Math.round(pv.height * 0.5 + h * 0.42) },
+      floor: 'plain', bg: u.pal.bg, floorRamp: u.pal.floor, shadows: S.settings.shadows, light: lightVec(), time: S.time,
+    });
+    pctx.putImageData(PR.image, 0, 0);
+  }
+
+  // ------------------------------------------------------------ simulation
+  function update(dt) {
+    S.time += dt;
+    let vx = 0, vz = 0;
+    const k = S.keys;
+    if (k.has('KeyW') || k.has('ArrowUp')) vz -= 1;
+    if (k.has('KeyS') || k.has('ArrowDown')) vz += 1;
+    if (k.has('KeyA') || k.has('ArrowLeft')) vx -= 1;
+    if (k.has('KeyD') || k.has('ArrowRight')) vx += 1;
+    const moving = vx !== 0 || vz !== 0;
+    const len = Math.hypot(vx, vz) || 1;
+    vx /= len; vz /= len;
+    const run = k.has('ShiftLeft') || k.has('ShiftRight');
+
+    for (const u of S.units) {
+      u.t += dt;
+      const sel = S.selected.has(u.id);
+      const go = sel && moving;
+      if (go) {
+        let ty = Math.atan2(vx, vz);
+        if (S.settings.snap) ty = Math.round(ty / (TAU / 8)) * (TAU / 8);
+        u.targetYaw = ty;
+      }
+      // turn toward target (fast, shortest way)
+      let dy = ((u.targetYaw - u.yaw + Math.PI * 3) % TAU) - Math.PI;
+      const turnRate = 14 * dt;
+      u.yaw += Math.abs(dy) < turnRate ? dy : Math.sign(dy) * turnRate;
+      const facingOk = Math.abs(dy) < 0.8;
+      const target = go ? (run ? 1.25 : 1) : 0;
+      u.move += (Math.min(1, target) - u.move) * Math.min(1, dt * 9);
+      if (u.move < 0.002) u.move = 0;
+      if (go && facingOk) {
+        const speed = (u.rig.stride / 1.25) * (run ? 1.8 : 1) * (u.bp.frame === 'hover' ? 1.1 : 1);
+        const sp = Math.min(70, Math.max(22, speed));
+        const d = sp * dt;
+        u.x += vx * d; u.z += vz * d;
+        u.dist += d;
+        u.phase += (d / u.rig.stride) * TAU;
+      } else if (u.move > 0.01) {
+        // settle the stride
+        u.phase += dt * 3 * u.move;
+      }
+    }
+    // keep units from overlapping
+    for (let i = 0; i < S.units.length; i++) for (let j = i + 1; j < S.units.length; j++) {
+      const a = S.units[i], b = S.units[j];
+      const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz) || 0.01;
+      const min = (a.rig.radius + b.rig.radius) * 0.55;
+      if (d < min) {
+        const push = (min - d) / 2, nx = dx / d, nz = dz / d;
+        const aw = S.selected.has(a.id) && !S.selected.has(b.id) ? 0.2 : 1, bw = S.selected.has(b.id) && !S.selected.has(a.id) ? 0.2 : 1;
+        a.x -= nx * push * aw; a.z -= nz * push * aw; b.x += nx * push * bw; b.z += nz * push * bw;
+      }
+    }
+    // camera follows selection
+    const focus = S.units.filter((u) => S.selected.has(u.id));
+    const list = focus.length ? focus : S.units;
+    if (list.length) {
+      let fx = 0, fz = 0;
+      for (const u of list) { fx += u.x; fz += u.z; }
+      fx /= list.length; fz /= list.length;
+      const f = Math.min(1, dt * 3);
+      S.cam.x += (fx - S.cam.x) * f; S.cam.z += (fz - S.cam.z) * f;
+    }
+  }
+
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    update(dt);
+    renderHangar();
+    renderPreview(dt);
+    requestAnimationFrame(loop);
+  }
+
+  // ------------------------------------------------------------ input
+  const isTyping = (el) => el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['range', 'checkbox', 'color'].includes(el.type)));
+  window.addEventListener('keydown', (e) => {
+    if (isTyping(e.target) || !$('modal').hidden) { if (e.key === 'Escape') closeModal(); return; }
+    const code = e.code;
+    if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight'].includes(code)) {
+      if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'range' && code.startsWith('Arrow')) return;
+      if (e.target && e.target.tagName === 'SELECT') e.target.blur();
+      S.keys.add(code);
+      if (code.startsWith('Arrow')) e.preventDefault();
+      return;
+    }
+    if (e.ctrlKey || e.metaKey) {
+      if (code === 'KeyZ') { e.preventDefault(); undo(); }
+      return;
+    }
+    if (e.altKey) return;
+    if (code === 'Tab') { e.preventDefault(); cycle(e.shiftKey ? -1 : 1); }
+    else if (/^Digit[1-9]$/.test(code)) { const u = S.units[+code.slice(5) - 1]; if (u) selectOnly(u.id); }
+    else if (code === 'KeyG') { S.units.forEach((u) => S.selected.add(u.id)); refreshRoster(); }
+    else if (code === 'KeyR') randomizeActive();
+    else if (code === 'KeyM') mutateActive();
+    else if (code === 'KeyN') deployCopy();
+    else if (code === 'Delete' || code === 'Backspace') scrapSelected();
+  });
+  window.addEventListener('keyup', (e) => S.keys.delete(e.code));
+  window.addEventListener('blur', () => S.keys.clear());
+
+  hangar.addEventListener('pointerdown', (e) => {
+    hangar.focus();
+    const rect = hangar.getBoundingClientRect();
+    const X = Math.floor(((e.clientX - rect.left) / rect.width) * viewW), Y = Math.floor(((e.clientY - rect.top) / rect.height) * viewH);
+    if (X < 0 || Y < 0 || X >= viewW || Y >= viewH) return;
+    const ui = R.unitIx[Y * viewW + X];
+    if (ui >= 0) {
+      const u = S.units[ui];
+      if (e.shiftKey || e.ctrlKey || e.metaKey) {
+        if (S.selected.has(u.id) && S.selected.size > 1) S.selected.delete(u.id); else S.selected.add(u.id);
+        S.activeId = u.id; syncEditor(); refreshRoster();
+      } else selectOnly(u.id);
+    }
+  });
+
+  function selectOnly(id) {
+    S.selected = new Set([id]);
+    S.activeId = id;
+    syncEditor(); refreshRoster();
+  }
+  function cycle(dir) {
+    if (!S.units.length) return;
+    const i = S.units.findIndex((u) => u.id === S.activeId);
+    const n = S.units[(i + dir + S.units.length) % S.units.length];
+    selectOnly(n.id);
+  }
+
+  // ------------------------------------------------------------ roster
+  function refreshRoster() {
+    const el = $('roster');
+    el.innerHTML = '';
+    S.units.forEach((u, i) => {
+      const b = document.createElement('button');
+      b.className = 'unit-chip' + (S.selected.has(u.id) ? ' is-sel' : '') + (u.id === S.activeId ? ' is-active' : '');
+      b.innerHTML = `<b>${i + 1}</b><i style="background:${u.bp.colors.primary}"></i>${escapeHtml(u.bp.name.split(' ').slice(-1)[0])}`;
+      b.title = u.bp.name + ' — click to select, shift-click to group';
+      b.addEventListener('click', (e) => {
+        if (e.shiftKey) { S.selected.add(u.id); S.activeId = u.id; syncEditor(); refreshRoster(); }
+        else selectOnly(u.id);
+        hangar.focus();
+      });
+      el.appendChild(b);
+    });
+  }
+  const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // ------------------------------------------------------------ editor
+  const SLOT_DEFS = [
+    ['frame', 'Chassis', G.OPTIONS.frame, G.LABELS.frame],
+    ['torso', 'Torso', G.OPTIONS.torso, G.LABELS.torso],
+    ['head', 'Head', G.OPTIONS.head, G.LABELS.head],
+    ['armL', 'Left arm', G.OPTIONS.arm, G.LABELS.arm],
+    ['armR', 'Right arm', G.OPTIONS.arm, G.LABELS.arm],
+    ['shoulders', 'Shoulders', G.OPTIONS.shoulders, G.LABELS.shoulders],
+    ['back', 'Backpack', G.OPTIONS.back, G.LABELS.back],
+    ['scheme', 'Paint split', G.OPTIONS.scheme, G.LABELS.scheme],
+  ];
+  const SLIDERS = [
+    ['bulk', 'Bulk', 0.7, 1.5, 0.05],
+    ['legLen', 'Legs', 0.6, 1.5, 0.05],
+    ['tall', 'Torso', 0.7, 1.5, 0.05],
+    ['armLen', 'Arms', 0.7, 1.4, 0.05],
+    ['edge', 'Bevel', 0, 3, 0.1],
+  ];
+  const SWATCHES = [['primary', 'Armor'], ['secondary', 'Trim'], ['metal', 'Frame'], ['accent', 'Glow'], ['glass', 'Glass'], ['outline', 'Line'], ['bg', 'Backdrop'], ['floor', 'Floor']];
+  const DICE = '<svg viewBox="0 0 14 14" aria-hidden="true"><rect x="1" y="1" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="4.5" cy="4.5" r="1.2" fill="currentColor"/><circle cx="9.5" cy="9.5" r="1.2" fill="currentColor"/><circle cx="7" cy="7" r="1.2" fill="currentColor"/></svg>';
+
+  function buildEditor() {
+    const slots = $('slots');
+    for (const [key, label, opts, labels] of SLOT_DEFS) {
+      const row = document.createElement('div');
+      row.className = 'slot';
+      row.innerHTML = `<label class="slot-label" for="sl-${key}">${label}</label>
+        <select class="select" id="sl-${key}">${opts.map((o) => `<option value="${o}">${labels[o]}</option>`).join('')}</select>
+        <button class="dice" id="dice-${key}" title="Reroll ${label.toLowerCase()}" aria-label="Reroll ${label.toLowerCase()}">${DICE}</button>
+        <label class="lock" title="Lock ${label.toLowerCase()}"><input type="checkbox" id="lock-${key}" aria-label="Lock ${label.toLowerCase()}"><span></span></label>`;
+      slots.appendChild(row);
+      const sel = row.querySelector('select');
+      sel.addEventListener('change', () => { editActive((bp) => { bp[key] = sel.value; }); sel.blur(); });
+      row.querySelector('.dice').addEventListener('click', () => rerollSlot(key));
+      const lk = row.querySelector('input[type=checkbox]');
+      lk.checked = !!S.locks[key];
+      lk.addEventListener('change', () => { S.locks[key] = lk.checked; store.set('locks', S.locks); });
+    }
+    const sliders = $('sliders');
+    for (const [key, label, min, max, step] of SLIDERS) {
+      const row = document.createElement('div');
+      row.className = 'slider';
+      row.innerHTML = `<label class="slot-label" for="sd-${key}">${label}</label><input type="range" id="sd-${key}" min="${min}" max="${max}" step="${step}"><output id="so-${key}"></output>`;
+      sliders.appendChild(row);
+      const inp = row.querySelector('input');
+      inp.addEventListener('input', () => { $('so-' + key).textContent = (+inp.value).toFixed(2); editActive((bp) => { bp[key] = +inp.value; }, true); });
+      inp.addEventListener('change', () => { pushHistory(); inp.blur(); });
+    }
+    const pre = $('palPreset');
+    pre.innerHTML = Object.keys(MF.PALETTES).map((k) => `<option value="${k}">${k}</option>`).join('') + '<option value="custom">Custom</option>';
+    pre.addEventListener('change', () => {
+      if (pre.value !== 'custom') editActive((bp) => { bp.palette = pre.value; bp.colors = { ...MF.PALETTES[pre.value] }; });
+      pre.blur();
+    });
+    $('palShuffle').addEventListener('click', () => editActive((bp) => { bp.colors = randomColors(MF.randomSeed()); bp.palette = 'custom'; }));
+    const lp = $('lock-palette');
+    lp.checked = !!S.locks.palette;
+    lp.addEventListener('change', () => { S.locks.palette = lp.checked; store.set('locks', S.locks); });
+    const sw = $('swatches');
+    for (const [key, label] of SWATCHES) {
+      const d = document.createElement('label');
+      d.className = 'swatch';
+      d.innerHTML = `<span>${label}</span><input type="color" id="sw-${key}" aria-label="${label} colour">`;
+      sw.appendChild(d);
+      const inp = d.querySelector('input');
+      inp.addEventListener('input', () => editActive((bp) => { bp.colors[key] = inp.value; bp.palette = 'custom'; }, true));
+      inp.addEventListener('change', () => pushHistory());
+    }
+    $('mName').addEventListener('input', (e) => editActive((bp) => { bp.name = e.target.value || 'Unnamed'; }, true, true));
+    $('mNumber').addEventListener('input', (e) => {
+      const v = e.target.value.replace(/[^0-9-]/g, '').slice(0, 3);
+      editActive((bp) => { bp.number = v || '0'; }, true);
+    });
+  }
+
+  function syncEditor() {
+    const u = active();
+    if (!u) return;
+    const bp = u.bp;
+    for (const [key] of SLOT_DEFS) $('sl-' + key).value = bp[key];
+    for (const [key] of SLIDERS) { $('sd-' + key).value = bp[key]; $('so-' + key).textContent = (+bp[key]).toFixed(2); }
+    $('palPreset').value = MF.PALETTES[bp.palette] ? bp.palette : 'custom';
+    for (const [key] of SWATCHES) $('sw-' + key).value = bp.colors[key];
+    if (document.activeElement !== $('mName')) $('mName').value = bp.name;
+    if (document.activeElement !== $('mNumber')) $('mNumber').value = bp.number;
+    $('mSpec').textContent = `seed ${bp.seed}\n${Math.round(u.rig.height + (u.rig.hover || 0))}px tall · ${G.LABELS.frame[bp.frame]}`;
+    const ramps = $('ramps');
+    ramps.innerHTML = '';
+    for (const k of ['primary', 'secondary', 'metal', 'accent', 'glass']) {
+      const r = document.createElement('div');
+      r.className = 'ramp';
+      r.innerHTML = u.pal.ramps[k].map((c) => `<i style="background:${MF.color.rgbToHex(c)}"></i>`).join('');
+      ramps.appendChild(r);
+    }
+  }
+
+  function pushHistory() {
+    const u = active();
+    if (!u) return;
+    const snap = JSON.stringify({ id: u.id, bp: u.bp });
+    if (S.history[S.history.length - 1] !== snap) S.history.push(snap);
+    if (S.history.length > 80) S.history.shift();
+  }
+  function undo() {
+    if (S.history.length < 2) { toast('Nothing to undo'); return; }
+    S.history.pop();
+    const prev = JSON.parse(S.history[S.history.length - 1]);
+    const u = S.units.find((x) => x.id === prev.id);
+    if (!u) return;
+    u.bp = prev.bp; rebuild(u);
+    S.activeId = u.id; S.selected = new Set([u.id]);
+    syncEditor(); refreshRoster(); saveHangar();
+  }
+
+  // apply a change to the active unit (and all selected units for paint-free part edits)
+  function editActive(fn, live = false, skipSync = false) {
+    const u = active();
+    if (!u) return;
+    fn(u.bp);
+    rebuild(u);
+    if (!live) pushHistory();
+    if (!skipSync) syncEditor();
+    refreshRoster();
+    saveHangar();
+  }
+
+  function rerollSlot(key) {
+    editActive((bp) => {
+      const seed = MF.randomSeed();
+      const locks = {};
+      for (const [k] of SLOT_DEFS) locks[k] = k !== key;
+      for (const k of ['bulk', 'legLen', 'tall', 'armLen', 'edge', 'palette', 'number', 'name']) locks[k] = true;
+      const fresh = G.randomBlueprint(seed, locks, bp);
+      let tries = 0;
+      let val = fresh[key];
+      while (val === bp[key] && tries++ < 8) val = G.randomBlueprint(MF.randomSeed(), locks, bp)[key];
+      bp[key] = val;
+    });
+  }
+
+  function randomizeActive() {
+    const u = active();
+    if (!u) return;
+    const nb = G.randomBlueprint(MF.randomSeed(), S.locks, u.bp);
+    u.bp = sanitize(nb); rebuild(u);
+    pushHistory(); syncEditor(); refreshRoster(); saveHangar();
+  }
+
+  function mutateActive() {
+    const u = active();
+    if (!u) return;
+    const free = SLOT_DEFS.map((d) => d[0]).filter((k) => !S.locks[k]);
+    const n = 1 + (Math.random() < 0.4 ? 1 : 0);
+    editActive((bp) => {
+      for (let i = 0; i < n && free.length; i++) {
+        const key = free.splice(Math.floor(Math.random() * free.length), 1)[0];
+        const locks = {};
+        for (const [k] of SLOT_DEFS) locks[k] = k !== key;
+        Object.assign(locks, { bulk: 1, legLen: 1, tall: 1, armLen: 1, edge: 1, palette: 1, number: 1, name: 1 });
+        bp[key] = G.randomBlueprint(MF.randomSeed(), locks, bp)[key];
+      }
+      for (const [k, , min, max] of SLIDERS) if (!S.locks[k] && Math.random() < 0.5) bp[k] = +Math.min(max, Math.max(min, bp[k] + (Math.random() - 0.5) * 0.25)).toFixed(2);
+    });
+  }
+
+  function spawnPoint() {
+    // find a free spot near the camera
+    for (let r = 0; r < 12; r++) {
+      const a = Math.random() * TAU, d = 30 + r * 12;
+      const x = S.cam.x + Math.cos(a) * d, z = S.cam.z + Math.sin(a) * d * 0.6;
+      if (S.units.every((u) => Math.hypot(u.x - x, u.z - z) > 36)) return [x, z];
+    }
+    return [S.cam.x + 40, S.cam.z];
+  }
+  function deploy(bp, select = true) {
+    if (S.units.length >= 12) { toast('Hangar is full (12 units). Scrap one first.'); return null; }
+    const [x, z] = spawnPoint();
+    const u = makeUnit(bp, x, z, 0);
+    S.units.push(u);
+    if (select) selectOnly(u.id); else refreshRoster();
+    pushHistory(); saveHangar();
+    return u;
+  }
+  function deployCopy() {
+    const u = active();
+    const bp = u ? JSON.parse(JSON.stringify(u.bp)) : G.randomBlueprint(MF.randomSeed());
+    deploy(bp);
+    toast('Deployed ' + bp.name);
+  }
+  function scrapSelected() {
+    if (S.units.length <= 1) { toast('Keep at least one unit in the hangar'); return; }
+    const before = S.units.length;
+    S.units = S.units.filter((u) => !S.selected.has(u.id));
+    if (!S.units.length) S.units.push(makeUnit(G.randomBlueprint(MF.randomSeed())));
+    const n = before - S.units.length;
+    selectOnly(S.units[0].id);
+    saveHangar();
+    toast(`Scrapped ${n} unit${n === 1 ? '' : 's'}`);
+  }
+
+  // random harmonious colours
+  function randomColors(seed) {
+    const r = new MF.RNG(seed);
+    const { hslToRgb, rgbToHex } = MF.color;
+    const h = r.range(0, 360);
+    const mode = r.pick(['comp', 'analog', 'triad', 'mono']);
+    const h2 = mode === 'comp' ? h + 180 + r.range(-20, 20) : mode === 'analog' ? h + r.pick([-40, 40]) : mode === 'triad' ? h + 120 : h + r.range(-10, 10);
+    const pl = r.range(0.35, 0.7), ps = r.range(0.25, 0.65);
+    const hex = (hh, s, l) => rgbToHex(hslToRgb([hh, s, l]));
+    const light = r.chance(0.35);
+    const bgL = light ? r.range(0.72, 0.86) : r.range(0.1, 0.2);
+    const bgH = r.chance(0.5) ? h + 180 : r.range(0, 360);
+    return {
+      primary: hex(h, ps, light ? r.range(0.72, 0.85) : pl),
+      secondary: hex(h2, r.range(0.4, 0.8), r.range(0.4, 0.6)),
+      metal: hex(r.range(200, 280), r.range(0.05, 0.2), r.range(0.22, 0.38)),
+      accent: hex(r.pick([h2 + 30, 50, 190, 330, 100]), 1, 0.6),
+      glass: hex(r.range(170, 210), 0.8, 0.72),
+      outline: hex(r.range(240, 290), 0.3, 0.08),
+      bg: hex(bgH, r.range(0.1, 0.35), bgL),
+      floor: hex(bgH, r.range(0.1, 0.3), bgL * 0.9),
+    };
+  }
+
+  // ------------------------------------------------------------ production line
+  const TR = new MF.Renderer(84, 84);
+  function rollLine() {
+    const g = $('gallery');
+    g.innerHTML = '';
+    const base = active() ? active().bp : null;
+    for (let i = 0; i < 10; i++) {
+      const bp = sanitize(G.randomBlueprint(MF.randomSeed(), S.locks, base));
+      const btn = document.createElement('button');
+      btn.className = 'thumb';
+      btn.title = bp.name;
+      const c = document.createElement('canvas');
+      c.width = 84; c.height = 84;
+      const tmp = makeUnit(bp, 0, 0, 0.62);
+      const h = tmp.rig.height + (tmp.rig.hover || 0);
+      const scale = Math.min(1, 62 / h);
+      TR.render({
+        units: [{ prims: posedPrims(tmp, 0, 0, 0.62), pal: tmp.pal, x: 0, z: 0, radius: tmp.rig.radius, height: h }],
+        cam: { x: 0, z: 0, pitch: S.settings.pitch, ox: 42, oy: Math.round(42 + h * 0.45 * scale + 4) },
+        floor: 'plain', bg: tmp.pal.bg, floorRamp: tmp.pal.floor, shadows: S.settings.shadows, light: lightVec(), time: 0,
+      });
+      c.getContext('2d').putImageData(TR.image, 0, 0);
+      const label = document.createElement('span');
+      label.textContent = bp.name;
+      btn.append(c, label);
+      btn.addEventListener('click', (e) => {
+        if (e.shiftKey) { deploy(bp); toast('Deployed ' + bp.name); return; }
+        const u = active();
+        if (!u) { deploy(bp); return; }
+        u.bp = sanitize(bp); rebuild(u);
+        pushHistory(); syncEditor(); refreshRoster(); saveHangar();
+      });
+      g.appendChild(btn);
+    }
+    S.nextId += 0;
+  }
+
+  // ------------------------------------------------------------ export
+  function renderFrame(u, R2, yaw, phase, move, t, opts) {
+    const sp = u.phase, sm = u.move, st = u.t;
+    u.phase = phase; u.move = move; u.t = t;
+    const prims = posedPrims(u, 0, 0, yaw);
+    u.phase = sp; u.move = sm; u.t = st;
+    R2.render({
+      units: [{ prims, pal: u.pal, x: 0, z: 0, radius: u.rig.radius, height: u.rig.height + (u.rig.hover || 0) }],
+      cam: { x: 0, z: 0, pitch: S.settings.pitch, ox: R2.w / 2, oy: Math.round(R2.h * 0.72) },
+      floor: 'none', shadows: opts.shadow, light: lightVec(), time: t, treadOffset: [phase * 3],
+      shadowPacked: 0x66000000,
+    });
+    return new Uint32Array(R2.image.data.buffer.slice(0));
+  }
+
+  function buildSheet(u, opts) {
+    const R2 = new MF.Renderer(220, 220);
+    const frames = [];
+    let minX = 1e9, minY = 1e9, maxX = -1, maxY = -1;
+    for (let d = 0; d < 8; d++) {
+      const yaw = (d * TAU) / 8;
+      const row = [];
+      const cols = (opts.idle ? 1 : 0) + opts.frames;
+      for (let f = 0; f < cols; f++) {
+        const isIdle = opts.idle && f === 0;
+        const fi = opts.idle ? f - 1 : f;
+        const px = renderFrame(u, R2, yaw, isIdle ? 0 : (fi / opts.frames) * TAU, isIdle ? 0 : 1, isIdle ? 0 : fi * 0.1, opts);
+        for (let y = 0; y < R2.h; y++) for (let x = 0; x < R2.w; x++) if (px[y * R2.w + x] >>> 24) {
+          if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
+        }
+        row.push(px);
+      }
+      frames.push(row);
+    }
+    const pad = 1;
+    const cw = maxX - minX + 1 + pad * 2, ch = maxY - minY + 1 + pad * 2;
+    const cols = frames[0].length;
+    const sheet = document.createElement('canvas');
+    sheet.width = cw * cols; sheet.height = ch * 8;
+    const sctx = sheet.getContext('2d');
+    const cell = new ImageData(cw, ch);
+    const c32 = new Uint32Array(cell.data.buffer);
+    frames.forEach((row, d) => row.forEach((px, f) => {
+      c32.fill(0);
+      for (let y = 0; y < ch - pad * 2; y++) for (let x = 0; x < cw - pad * 2; x++) c32[(y + pad) * cw + x + pad] = px[(y + minY) * R2.w + x + minX];
+      sctx.putImageData(cell, f * cw, d * ch);
+    }));
+    let out = sheet;
+    if (opts.scale > 1) {
+      out = document.createElement('canvas');
+      out.width = sheet.width * opts.scale; out.height = sheet.height * opts.scale;
+      const o = out.getContext('2d');
+      o.imageSmoothingEnabled = false;
+      o.drawImage(sheet, 0, 0, out.width, out.height);
+    }
+    const meta = {
+      name: u.bp.name, cellWidth: cw * opts.scale, cellHeight: ch * opts.scale, scale: opts.scale,
+      rows: DIR_NAMES, columns: (opts.idle ? ['idle'] : []).concat(Array.from({ length: opts.frames }, (_, i) => 'walk' + i)),
+      anchor: { x: (R2.w / 2 - minX + pad) * opts.scale, y: (Math.round(R2.h * 0.72) - minY + pad) * opts.scale },
+      blueprint: u.bp,
+    };
+    return { canvas: out, meta };
+  }
+
+  const exportOpts = Object.assign({ frames: 8, scale: 1, idle: true, shadow: true }, store.get('exportOpts', {}));
+  function openExport() {
+    const u = active();
+    if (!u) return;
+    const body = $('modalBody');
+    $('modalTitle').textContent = 'Sprite sheet · ' + u.bp.name;
+    body.innerHTML = `
+      <div class="opt-row">
+        <label>Walk frames <select class="select select-sm" id="exFrames">${[4, 6, 8, 12].map((n) => `<option ${n === exportOpts.frames ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+        <label>Scale <select class="select select-sm" id="exScale">${[1, 2, 3, 4].map((n) => `<option value="${n}" ${n === exportOpts.scale ? 'selected' : ''}>${n}×</option>`).join('')}</select></label>
+        <label><input type="checkbox" id="exIdle" ${exportOpts.idle ? 'checked' : ''}> Idle column</label>
+        <label><input type="checkbox" id="exShadow" ${exportOpts.shadow ? 'checked' : ''}> Drop shadow</label>
+        <button class="btn btn-primary btn-sm" id="exPng">Download PNG</button>
+        <button class="btn btn-sm" id="exJson">Download JSON</button>
+      </div>
+      <div class="sheet-view" id="sheetView"></div>
+      <pre class="meta" id="exMeta"></pre>
+      <p class="hint">Rows run S, SE, E, NE, N, NW, W, SW. If your browser blocks the download, right-click the sheet and choose “Save image as”.</p>`;
+    let current = null;
+    const redraw = () => {
+      exportOpts.frames = +$('exFrames').value; exportOpts.scale = +$('exScale').value;
+      exportOpts.idle = $('exIdle').checked; exportOpts.shadow = $('exShadow').checked;
+      store.set('exportOpts', exportOpts);
+      current = buildSheet(u, exportOpts);
+      const img = new Image();
+      img.src = current.canvas.toDataURL('image/png');
+      img.alt = 'Sprite sheet for ' + u.bp.name;
+      const disp = Math.max(1, Math.round(2 / exportOpts.scale));
+      img.style.width = current.canvas.width * disp + 'px';
+      $('sheetView').innerHTML = '';
+      $('sheetView').appendChild(img);
+      $('exMeta').textContent = `${current.canvas.width}×${current.canvas.height}px · cell ${current.meta.cellWidth}×${current.meta.cellHeight} · ${current.meta.columns.length} columns × 8 directions · feet anchor (${current.meta.anchor.x}, ${current.meta.anchor.y})`;
+    };
+    ['exFrames', 'exScale', 'exIdle', 'exShadow'].forEach((id) => $(id).addEventListener('change', redraw));
+    const slug = u.bp.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    $('exPng').addEventListener('click', () => download(current.canvas.toDataURL('image/png'), slug + '-sheet.png'));
+    $('exJson').addEventListener('click', () => download('data:application/json,' + encodeURIComponent(JSON.stringify(current.meta, null, 2)), slug + '-sheet.json'));
+    openModal();
+    redraw();
+  }
+
+  function download(href, name) {
+    const a = document.createElement('a');
+    a.href = href; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  function openCode() {
+    const u = active();
+    if (!u) return;
+    const code = encodeBp(u.bp);
+    $('modalTitle').textContent = 'Blueprint code';
+    $('modalBody').innerHTML = `
+      <p class="hint">This code rebuilds ${escapeHtml(u.bp.name)} exactly, paint included. Paste a code below to load it into the active unit.</p>
+      <textarea class="code-area" id="codeOut" readonly spellcheck="false">${code}</textarea>
+      <div class="opt-row"><button class="btn btn-primary btn-sm" id="codeCopy">Copy code</button></div>
+      <textarea class="code-area" id="codeIn" spellcheck="false" placeholder="Paste a blueprint code here"></textarea>
+      <div class="opt-row"><button class="btn btn-sm" id="codeLoad">Load into active unit</button><button class="btn btn-sm" id="codeDeploy">Deploy as new unit</button></div>`;
+    $('codeCopy').addEventListener('click', () => {
+      const ta = $('codeOut');
+      const done = () => toast('Blueprint code copied');
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done, () => { ta.select(); toast('Code selected. Press Ctrl+C to copy.'); });
+      else { ta.select(); toast('Code selected. Press Ctrl+C to copy.'); }
+    });
+    const read = () => { try { return decodeBp($('codeIn').value.trim()); } catch (e) { toast('That code could not be read. Check that it was pasted in full.'); return null; } };
+    $('codeLoad').addEventListener('click', () => { const bp = read(); if (!bp) return; const a = active(); a.bp = sanitize(bp); rebuild(a); pushHistory(); syncEditor(); refreshRoster(); saveHangar(); closeModal(); toast('Loaded ' + bp.name); });
+    $('codeDeploy').addEventListener('click', () => { const bp = read(); if (!bp) return; closeModal(); deploy(bp); });
+    openModal();
+  }
+  function encodeBp(bp) { return 'MF1.' + btoa(unescape(encodeURIComponent(JSON.stringify(bp)))); }
+  function decodeBp(code) {
+    const raw = code.startsWith('MF1.') ? code.slice(4) : code;
+    const bp = JSON.parse(decodeURIComponent(escape(atob(raw))));
+    if (!bp || !bp.frame) throw new Error('bad');
+    return bp;
+  }
+
+  function openModal() { $('modal').hidden = false; S.keys.clear(); setTimeout(() => $('modalClose').focus(), 0); }
+  function closeModal() { $('modal').hidden = true; hangar.focus(); }
+  $('modalClose').addEventListener('click', closeModal);
+  $('modal').addEventListener('click', (e) => { if (e.target === $('modal')) closeModal(); });
+
+  let toastTimer = 0;
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  // ------------------------------------------------------------ persistence
+  let saveTimer = 0;
+  function saveHangar() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => store.set('hangar', S.units.map((u) => ({ bp: u.bp, x: Math.round(u.x), z: Math.round(u.z), yaw: u.yaw }))), 300);
+  }
+
+  // ------------------------------------------------------------ hud controls
+  function bindHud() {
+    const st = S.settings;
+    const save = () => store.set('settings', st);
+    $('zoom').value = st.zoom; $('pitch').value = st.pitch; $('lightAng').value = st.lightAng; $('floorMode').value = st.floor;
+    $('zoom').addEventListener('input', (e) => { st.zoom = +e.target.value; resizeHangar(); save(); });
+    $('pitch').addEventListener('input', (e) => { st.pitch = +e.target.value; save(); });
+    $('pitch').addEventListener('change', () => rollLineSoon());
+    $('lightAng').addEventListener('input', (e) => { st.lightAng = +e.target.value; save(); });
+    $('floorMode').addEventListener('change', (e) => { st.floor = e.target.value; save(); e.target.blur(); });
+    const toggle = (id, key) => {
+      const b = $(id);
+      const paint = () => { b.classList.toggle('is-on', !!st[key]); b.setAttribute('aria-pressed', !!st[key]); };
+      paint();
+      b.addEventListener('click', () => { st[key] = !st[key]; paint(); save(); b.blur(); });
+    };
+    toggle('tgShadows', 'shadows');
+    toggle('tgSnap', 'snap');
+    const pvT = (id, key) => {
+      const b = $(id);
+      b.addEventListener('click', () => {
+        S.preview[key] = !S.preview[key];
+        if (key === 'step' && S.preview.step) S.preview.spin = true;
+        for (const [i, k] of [['pvSpin', 'spin'], ['pvStep', 'step'], ['pvWalk', 'walk']]) { $(i).classList.toggle('is-on', S.preview[k]); $(i).setAttribute('aria-pressed', S.preview[k]); }
+        b.blur();
+      });
+    };
+    pvT('pvSpin', 'spin'); pvT('pvStep', 'step'); pvT('pvWalk', 'walk');
+    $('btnRandom').addEventListener('click', randomizeActive);
+    $('btnMutate').addEventListener('click', mutateActive);
+    $('btnDeploy').addEventListener('click', deployCopy);
+    $('btnUndo').addEventListener('click', undo);
+    $('btnExport').addEventListener('click', openExport);
+    $('btnCode').addEventListener('click', openCode);
+    $('btnLine').addEventListener('click', rollLine);
+  }
+  let lineTimer = 0;
+  const rollLineSoon = () => { clearTimeout(lineTimer); lineTimer = setTimeout(rollLine, 200); };
+
+  // ------------------------------------------------------------ starter hangar
+  function starterBlueprints() {
+    const mk = (seed, o) => Object.assign(G.randomBlueprint(seed), o);
+    return [
+      mk(318, { frame: 'spider', torso: 'core', head: 'none', armL: 'none', armR: 'none', shoulders: 'none', back: 'missiles', scheme: 'split', bulk: 1.2, legLen: 1.05, tall: 1.05, edge: 2.2, palette: 'Rust Crab', colors: { ...MF.PALETTES['Rust Crab'] }, number: '318', name: 'TX-318 Tarantula' }),
+      mk(77, { frame: 'biped', torso: 'hunch', head: 'visor', armL: 'fist', armR: 'cannon', shoulders: 'pauldron', back: 'artillery', scheme: 'mono', bulk: 1.15, legLen: 0.95, tall: 1.05, armLen: 1.1, edge: 1.4, palette: 'Snowcat', colors: { ...MF.PALETTES['Snowcat'] }, number: '077', name: 'RX-077 Yeti' }),
+      mk(412, { frame: 'biped', torso: 'block', head: 'mono', armL: 'missiles', armR: 'gatling', shoulders: 'launcher', back: 'antenna', scheme: 'split', bulk: 1.25, legLen: 0.85, tall: 1.2, armLen: 1, edge: 0.8, palette: 'Jade Sentinel', colors: { ...MF.PALETTES['Jade Sentinel'] }, number: '412', name: 'KV-412 Bastion' }),
+      mk(905, { frame: 'strider', torso: 'wedge', head: 'cockpit', armL: 'gatling', armR: 'gatling', shoulders: 'round', back: 'exhaust', scheme: 'split', bulk: 1, legLen: 1.15, tall: 0.95, edge: 1.6, palette: 'Hazard', colors: { ...MF.PALETTES['Hazard'] }, number: '905', name: 'VT-905 Raptor' }),
+    ];
+  }
+
+  function init() {
+    buildEditor();
+    bindHud();
+    resizeHangar();
+    const saved = store.get('hangar', null);
+    const list = Array.isArray(saved) && saved.length ? saved : starterBlueprints().map((bp, i) => ({ bp, x: (i - 1.5) * 56, z: i % 2 ? 14 : -10, yaw: 0 }));
+    for (const s of list) {
+      try { S.units.push(makeUnit(s.bp, s.x, s.z, s.yaw || 0)); } catch (e) { /* skip unreadable saved unit */ }
+    }
+    if (!S.units.length) S.units.push(makeUnit(G.randomBlueprint(MF.randomSeed())));
+    const first = S.units.length > 1 ? S.units[1] : S.units[0];
+    S.cam.x = first.x; S.cam.z = first.z;
+    selectOnly(first.id);
+    pushHistory();
+    rollLine();
+    hangar.focus();
+    requestAnimationFrame(loop);
+    window.MFApp = { S, toast, deploy, active, buildSheet, openExport };
+  }
+  init();
+})();

@@ -1,0 +1,20 @@
+const { chromium } = require('playwright');
+(async () => {
+  const [,, out, w, h] = process.argv;
+  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const p = await b.newPage({ viewport: { width: +w || 1500, height: +h || 900 } });
+  const errs = [];
+  p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type()==='error'||m.type()==='warning') errs.push(m.text()); });
+  await p.goto('file://' + process.cwd() + '/index.html');
+  await p.waitForTimeout(700);
+  await p.screenshot({ path: out + '-a.png' });
+  await p.click('#hangar', { position: { x: 20, y: 300 } });
+  await p.keyboard.down('KeyD'); await p.keyboard.down('KeyS'); await p.waitForTimeout(900); await p.keyboard.up('KeyS');
+  await p.waitForTimeout(400);
+  await p.screenshot({ path: out + '-b.png' });
+  await p.keyboard.up('KeyD');
+  const fps = await p.evaluate(() => new Promise(r => { let n=0; const t0=performance.now(); function f(){ n++; if (performance.now()-t0<1000) requestAnimationFrame(f); else r(n);} requestAnimationFrame(f); }));
+  console.log('fps', fps);
+  if (errs.length) console.log('ERRORS:', errs.join('\n'));
+  await b.close();
+})();
