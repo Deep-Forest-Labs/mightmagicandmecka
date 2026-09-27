@@ -367,6 +367,7 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
       <button id="btnDeploy" class="btn" title="Deploy a copy into the hangar (N)">Deploy copy <kbd>N</kbd></button>
       <button id="btnUndo" class="btn" title="Undo (Ctrl+Z)">Undo</button>
       <button id="btnExport" class="btn" title="Export an 8-direction sprite sheet">Sprite sheet</button>
+      <button id="btnSnap" class="btn" title="Save the hangar view as a PNG (P)">Snapshot</button>
       <button id="btnCode" class="btn" title="Copy or paste a blueprint code">Blueprint code</button>
     </nav>
   </header>
@@ -441,8 +442,10 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
         <div class="keys">
           <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk</span>
           <span><kbd>Shift</kbd> run</span>
+          <span><kbd>Space</kbd> fire</span>
           <span><kbd>Tab</kbd> / <kbd>1</kbd>–<kbd>9</kbd> select</span>
           <span><kbd>G</kbd> select all</span>
+          <span><kbd>L</kbd> line up</span>
           <span>Shift-click to group</span>
           <span><kbd>Del</kbd> scrap</span>
         </div>
@@ -767,12 +770,18 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     box(w, h, d, opts) { const p = makeBox(w * K, h * K, d * K, scaleOpts(opts)); p.node = this; this.prims.push(p); return p; }
     cyl(axis, r, len, opts = {}) { const p = makeFrustum(axis, r * K, r * K, len * K, scaleOpts(opts)); p.node = this; this.prims.push(p); return p; }
     cone(axis, r1, r2, len, opts = {}) { const p = makeFrustum(axis, r1 * K, r2 * K, len * K, scaleOpts(opts)); p.node = this; this.prims.push(p); return p; }
-    reset() { this.pos = this.base.pos.slice(); this.rot = this.base.rot.slice(); for (const c of this.children) c.reset(); }
+    reset() {
+      const p = this.pos, bp = this.base.pos, r = this.rot, br = this.base.rot;
+      p[0] = bp[0]; p[1] = bp[1]; p[2] = bp[2]; r[0] = br[0]; r[1] = br[1]; r[2] = br[2];
+      this.hidden = !!this.startHidden;
+      for (const c of this.children) c.reset();
+    }
   }
   MF.Node = Node;
 
   // Update world matrices under a parent transform and collect prims.
   MF.updateRig = function (node, parentWorld, out) {
+    if (node.hidden) return out;
     matFromEuler(node.local, node.pos[0], node.pos[1], node.pos[2], node.rot[0], node.rot[1], node.rot[2]);
     matMul(node.world, parentWorld, node.local);
     for (const p of node.prims) { matMul(p.world, node.world, p.local); out.push(p); }
@@ -1199,21 +1208,21 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
   const PI = Math.PI;
 
   const OPTIONS = {
-    frame: ['biped', 'strider', 'spider', 'crawler', 'tank', 'hover'],
-    torso: ['block', 'wedge', 'barrel', 'hunch', 'core'],
-    head: ['visor', 'mono', 'cockpit', 'horned', 'sensor', 'none'],
-    arm: ['cannon', 'gatling', 'missiles', 'fist', 'claw', 'blade', 'shield', 'drill', 'none'],
-    shoulders: ['pauldron', 'round', 'launcher', 'spiked', 'none'],
-    back: ['missiles', 'exhaust', 'antenna', 'tank', 'radar', 'artillery', 'wings', 'none'],
+    frame: ['biped', 'strider', 'spider', 'crawler', 'quadruped', 'tank', 'hover'],
+    torso: ['block', 'wedge', 'barrel', 'hunch', 'core', 'cockpit'],
+    head: ['visor', 'mono', 'cockpit', 'horned', 'sensor', 'dome', 'skull', 'periscope', 'none'],
+    arm: ['cannon', 'gatling', 'missiles', 'fist', 'claw', 'blade', 'shield', 'drill', 'hammer', 'flamer', 'laser', 'twin', 'none'],
+    shoulders: ['pauldron', 'round', 'launcher', 'spiked', 'shield', 'none'],
+    back: ['missiles', 'exhaust', 'antenna', 'tank', 'radar', 'artillery', 'wings', 'jetpack', 'saw', 'sensor', 'none'],
     scheme: ['mono', 'split', 'inverse'],
   };
   const LABELS = {
-    frame: { biped: 'Biped', strider: 'Reverse-joint', spider: 'Quad spider', crawler: 'Hex crawler', tank: 'Treads', hover: 'Hover' },
-    torso: { block: 'Block', wedge: 'Wedge chest', barrel: 'Barrel', hunch: 'Hunchback', core: 'Turret core' },
-    head: { visor: 'Visor', mono: 'Mono-eye', cockpit: 'Cockpit', horned: 'V-fin', sensor: 'Sensor bar', none: 'Headless' },
-    arm: { cannon: 'Rail cannon', gatling: 'Gatling', missiles: 'Rocket pod', fist: 'Power fist', claw: 'Claw', blade: 'Energy blade', shield: 'Shield', drill: 'Drill', none: 'None' },
-    shoulders: { pauldron: 'Pauldrons', round: 'Round guards', launcher: 'Launchers', spiked: 'Spiked', none: 'None' },
-    back: { missiles: 'Missile rack', exhaust: 'Exhaust stacks', antenna: 'Antenna', tank: 'Fuel tank', radar: 'Radar dish', artillery: 'Artillery', wings: 'Fins', none: 'None' },
+    frame: { biped: 'Biped', strider: 'Reverse-joint', spider: 'Quad spider', crawler: 'Hex crawler', quadruped: 'Quadruped walker', tank: 'Treads', hover: 'Hover' },
+    torso: { block: 'Block', wedge: 'Wedge chest', barrel: 'Barrel', hunch: 'Hunchback', core: 'Turret core', cockpit: 'Cockpit hull' },
+    head: { visor: 'Visor', mono: 'Mono-eye', cockpit: 'Cockpit', horned: 'V-fin', sensor: 'Sensor bar', dome: 'Dome', skull: 'Skull', periscope: 'Periscope', none: 'Headless' },
+    arm: { cannon: 'Rail cannon', gatling: 'Gatling', missiles: 'Rocket pod', fist: 'Power fist', claw: 'Claw', blade: 'Energy blade', shield: 'Shield', drill: 'Drill', hammer: 'Hydraulic hammer', flamer: 'Flamer', laser: 'Laser lance', twin: 'Twin cannon', none: 'None' },
+    shoulders: { pauldron: 'Pauldrons', round: 'Round guards', launcher: 'Launchers', spiked: 'Spiked', shield: 'Shield plates', none: 'None' },
+    back: { missiles: 'Missile rack', exhaust: 'Exhaust stacks', antenna: 'Antenna', tank: 'Fuel tank', radar: 'Radar dish', artillery: 'Artillery', wings: 'Fins', jetpack: 'Jetpack', saw: 'Buzz saw', sensor: 'Sensor mast', none: 'None' },
     scheme: { mono: 'Solid', split: 'Two-tone', inverse: 'Inverted' },
   };
 
@@ -1224,16 +1233,27 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
   function randomBlueprint(seed, locks = {}, prev = null) {
     const r = new RNG(seed);
     const keep = (k, gen) => (locks[k] && prev && prev[k] !== undefined ? prev[k] : gen());
-    const frame = keep('frame', () => r.weighted({ biped: 5, strider: 3, spider: 3, crawler: 2, tank: 2, hover: 2 }));
+    const frame = keep('frame', () => r.weighted({ biped: 5, strider: 3, spider: 3, crawler: 2, quadruped: 3, tank: 2, hover: 2 }));
     const legged = frame === 'biped' || frame === 'strider';
     const bp = { v: 1, seed, frame };
-    bp.torso = keep('torso', () => (frame === 'spider' || frame === 'crawler' ? r.weighted({ core: 5, block: 2, barrel: 2, wedge: 1 }) : r.weighted({ block: 3, wedge: 3, barrel: 2, hunch: 2, core: 1 })));
-    bp.head = keep('head', () => (bp.torso === 'core' ? r.weighted({ none: 4, sensor: 2, mono: 1 }) : r.weighted({ visor: 3, mono: 2, cockpit: 2, horned: 2, sensor: 1, none: 1 })));
-    const armPool = legged || frame === 'hover' ? { cannon: 3, gatling: 3, missiles: 2, fist: 3, claw: 2, blade: 2, shield: 2, drill: 1 } : { cannon: 3, gatling: 3, missiles: 3, claw: 1, drill: 1, none: 2 };
+    bp.torso = keep('torso', () => {
+      if (frame === 'spider' || frame === 'crawler') return r.weighted({ core: 5, block: 2, barrel: 2, wedge: 1, cockpit: 2 });
+      if (frame === 'quadruped') return r.weighted({ core: 3, block: 2, cockpit: 3, wedge: 2, barrel: 1 });
+      if (frame === 'tank') return r.weighted({ block: 3, wedge: 2, barrel: 2, hunch: 1, core: 2, cockpit: 4 });
+      return r.weighted({ block: 3, wedge: 3, barrel: 2, hunch: 2, core: 1, cockpit: 1 });
+    });
+    bp.head = keep('head', () => {
+      if (bp.torso === 'core') return r.weighted({ none: 4, sensor: 2, mono: 1, periscope: 1 });
+      if (bp.torso === 'cockpit') return r.weighted({ none: 3, periscope: 3, sensor: 2, dome: 2, mono: 1 });
+      return r.weighted({ visor: 3, mono: 2, cockpit: 2, horned: 2, sensor: 1, dome: 2, skull: 2, periscope: 1, none: 1 });
+    });
+    const armPool = legged || frame === 'hover'
+      ? { cannon: 3, gatling: 3, missiles: 2, fist: 3, claw: 2, blade: 2, shield: 2, drill: 1, hammer: 2, flamer: 2, laser: 2, twin: 2 }
+      : { cannon: 3, gatling: 3, missiles: 3, claw: 1, drill: 1, flamer: 2, laser: 2, twin: 3, hammer: 1, none: 2 };
     bp.armL = keep('armL', () => r.weighted(armPool));
     bp.armR = keep('armR', () => (r.chance(0.45) ? bp.armL : r.weighted(armPool)));
-    bp.shoulders = keep('shoulders', () => r.weighted({ pauldron: 4, round: 2, launcher: 2, spiked: 1, none: 2 }));
-    bp.back = keep('back', () => r.weighted({ missiles: 3, exhaust: 2, antenna: 2, tank: 2, radar: 1, artillery: 2, wings: 1, none: 2 }));
+    bp.shoulders = keep('shoulders', () => r.weighted({ pauldron: 4, round: 2, launcher: 2, spiked: 1, shield: 2, none: 2 }));
+    bp.back = keep('back', () => r.weighted({ missiles: 3, exhaust: 2, antenna: 2, tank: 2, radar: 1, artillery: 2, wings: 1, jetpack: 2, saw: 1, sensor: 2, none: 2 }));
     bp.scheme = keep('scheme', () => r.weighted({ mono: 2, split: 3, inverse: 1 }));
     bp.bulk = keep('bulk', () => +r.range(0.8, 1.35).toFixed(2));
     bp.legLen = keep('legLen', () => +r.range(0.75, 1.3).toFixed(2));
@@ -1294,6 +1314,7 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
       case 'strider': return frameStrider(ctx);
       case 'spider': return frameLegs(ctx, 4);
       case 'crawler': return frameLegs(ctx, 6);
+      case 'quadruped': return frameQuad(ctx);
       case 'tank': return frameTank(ctx);
       case 'hover': return frameHover(ctx);
       default: return frameBiped(ctx);
@@ -1308,7 +1329,7 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     const hipX = Math.round(4 * bulk + 3);
     const hipY = footH + thighL + shinL;
     const armored = r.chance(0.6);
-    const pelvis = root.child('pelvis', [0, hipY, 0]);
+    const pelvis = root.child('pelvis', [0, hipY + 1, 0]);
     pelvis.box(hipX * 2 - 1, 5, 7, { mat: M, bevel: 1 });
     pelvis.box(hipX * 1.2, 4, 3, { mat: T, at: [0, -1.5, 3.5], cuts: [[0, -1, 1, 2]] });
     if (skirts) for (const s of [-1, 1]) pelvis.box(2, 8, 8, { mat: ctx.A, at: [s * (hipX + legW / 2 + 1.8), -3, 0], rot: [0, 0, s * 0.12], bevel: 0.7, cuts: [[0, -1, 1, 2.5], [0, -1, -1, 2.5]], detail: { type: 'panel', face: 'side', at: 0, dir: 'h' } });
@@ -1362,8 +1383,10 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
       hip.cyl('x', 3.2, 4.5, { mat: M, at: [s * 0.6, 0, 0] });
       hip.box(legW + 1, T1 + 2, legW + 3, { at: [0, -T1 / 2, 0], mat: B, bevel: e, detail: { type: 'panel', face: '+z', at: 0, dir: 'v' } });
       hip.box(legW + 2, T1 * 0.5, 2, { at: [s * 0.3, -T1 * 0.3, legW / 2 + 2], mat: T, bevel: 0.8 });
+      hip.cyl('y', 0.85, T1 * 0.7, { at: [0, -T1 * 0.5, -(legW + 3) / 2 - 0.9], mat: M, sides: 6 }); // hydraulic ram
       const knee = hip.child('knee' + s, [0, -T1, 0], [a2, 0, 0]);
       knee.cyl('x', 2.6, legW + 2, { mat: M });
+      knee.cyl('x', 1.6, legW + 3.4, { mat: T, sides: 8 }); // joint caps
       knee.box(legW, S1, legW, { at: [0, -S1 / 2, 0], mat: M, bevel: 0.8 });
       knee.box(legW + 1, S1 * 0.7, 2, { at: [0, -S1 * 0.45, -legW / 2 - 0.5], mat: B, bevel: 0.8 });
       const ank = knee.child('ankle' + s, [0, -S1, 0], [a3, 0, 0]);
@@ -1415,11 +1438,13 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
       coxa.cyl('y', 3, 6, { mat: M });
       const fem = coxa.child('femur' + i, [1, 1, 0], [0, 0, alpha]);
       fem.box(F + 2, 5, 5 * bulk + 1, { at: [F / 2, 0, 0], mat: B, bevel: e, detail: { type: 'panel', face: '+y', at: 0, dir: 'v' } });
-      fem.box(F * 0.6, 2, 5 * bulk + 2, { at: [F * 0.45, 2.8, 0], mat: T, bevel: 0.6 });
+      if (count === 4) fem.box(F * 0.6, 2, 5 * bulk + 2, { at: [F * 0.45, 2.8, 0], mat: T, bevel: 0.6 });
+      if (count === 4) fem.cyl('x', 0.85, F * 0.65, { at: [F * 0.5, -3.2, 0], mat: M, sides: 6 }); // hydraulic ram
       const knee = fem.child('knee' + i, [F, 0, 0], [0, 0, beta - alpha]);
       knee.cyl('z', 3.3, 5 * bulk + 3, { mat: M });
+      knee.cyl('z', 2, 5 * bulk + 4.4, { mat: T, sides: 8 }); // joint caps
       knee.box(5.5, Tb * 0.62, 5 * bulk + 1.5, { at: [0.8, -Tb * 0.33, 0], mat: A, bevel: e, bevelSet: 'vert', detail: { type: 'bolts', face: 'any', inset: 1.5 } });
-      knee.box(3.5, Tb * 0.4, 3, { at: [0, -Tb * 0.78, 0], mat: M, bevel: 0.6 });
+      knee.cyl('y', 1.5, Tb * 0.4, { at: [0, -Tb * 0.78, 0], mat: M, sides: 6 }); // piston rod
       knee.cone('y', 1.2, 2.6, 4, { at: [0, -Tb + 1.5, 0], mat: M, sides: 6 });
       legs.push({ i, side, g: groups[i] });
     });
@@ -1436,6 +1461,76 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
         n['femur' + L.i].rot[2] += lift * 0.35;
         n['knee' + L.i].rot[2] -= lift * 0.2;
       }
+    });
+    ctx.gait = 'legs';
+    return hub;
+  }
+
+  // Four legs under a long chassis, front and back (mammal walker, not a splayed spider).
+  // Front legs: elbow points back, forearm down-forward, short pastern. Hind legs: Z-shaped
+  // (stifle forward, hock back). Diagonal pairs move together.
+  function frameQuad(ctx) {
+    const { root, bulk, legLen, e, A, B, T, M } = ctx;
+    const legW = Math.round(3.5 * bulk + 1.5);
+    const bodyW = Math.round(9 * bulk + 4), bodyL = Math.round(24 * bulk + 13);
+    const footH = 2.5;
+    // hind chain: thigh / shin / metatarsal
+    const T1 = Math.round(9 * legLen + 4), S1 = Math.round(T1 * 0.95), M1 = Math.round(5 * legLen + 3);
+    const hA = [-0.5, 1.15, -0.65];
+    const H = footH + T1 * Math.cos(hA[0]) + S1 * Math.cos(hA[0] + hA[1]) + M1 * Math.cos(hA[0] + hA[1] + hA[2]);
+    // front chain: upper arm (down-back) / forearm (down-forward) / pastern, sized to match hip height
+    const fA = [0.4, -0.65, 0.25], F3 = 3;
+    const F12 = (H - footH - F3 * Math.cos(fA[0] + fA[1] + fA[2])) / (Math.cos(fA[0]) + Math.cos(fA[0] + fA[1]));
+    const F1 = F12, F2 = F12;
+    const hub = root.child('pelvis', [0, H + 1, 0]);
+    hub.box(bodyW, 6, bodyL, { at: [0, -1.5, 0], mat: M, bevel: 1.5, detail: { type: 'vent', face: 'side', pitch: 2, inset: 2 } });
+    hub.box(bodyW + 2, 3, bodyL * 0.8, { at: [0, 1.5, -1], mat: A, bevel: Math.min(e, 1.2), cuts: [[0, 1, 1, 1.5], [0, 1, -1, 1.5]], detail: [{ type: 'panel', face: '+y', at: bodyL * 0.15, dir: 'h' }, { type: 'bolts', face: 'side', inset: 1.2 }] });
+    hub.box(bodyW - 1, 5, 3, { at: [0, -1, bodyL / 2 + 1], mat: T, bevel: 0.8, cuts: [[0, -1, 1, 1.8]], detail: { type: 'light', face: '+z', pts: [[-bodyW * 0.28, 0.6], [bodyW * 0.28, 0.6]], size: 0.7 } });
+    const legs = [];
+    const hipX = bodyW / 2 + legW / 2 + 0.6;
+    // i: 0 FL, 1 FR, 2 HL, 3 HR ; diagonal pairs FL+HR / FR+HL
+    [[-1, 1], [1, 1], [-1, -1], [1, -1]].forEach(([s, f], i) => {
+      const front = f > 0;
+      const ang = front ? fA : hA;
+      const L = front ? [F1, F2, F3] : [T1, S1, M1];
+      const z = f * (bodyL / 2 - legW * 0.9);
+      const hip = hub.child('qhip' + i, [s * hipX, -1, z], [ang[0], 0, 0]);
+      hip.cyl('x', 3, legW + 2.5, { mat: M, sides: 8 });
+      hip.cyl('x', 1.8, legW + 3.6, { mat: T, sides: 8 }); // joint caps
+      hip.box(legW + 1, L[0] + 2, legW + 2, { at: [0, -L[0] / 2, 0], mat: B, bevel: Math.min(e, 1.4), detail: { type: 'panel', face: 'side', at: 0, dir: 'h' } });
+      if (!front) hip.box(1.5, L[0] * 0.7, legW + 2.5, { at: [s * (legW / 2 + 1.1), -L[0] * 0.45, 0], mat: A, bevel: 0.5, detail: { type: 'bolts', face: 'side', inset: 1 } });
+      else hip.box(legW + 1.6, L[0] * 0.55, 2, { at: [0, -L[0] * 0.3, legW / 2 + 1.3], mat: A, bevel: 0.6 });
+      const knee = hip.child('qknee' + i, [0, -L[0], 0], [ang[1], 0, 0]);
+      knee.cyl('x', 2.4, legW + 1.6, { mat: M });
+      knee.box(legW, L[1], legW, { at: [0, -L[1] / 2, 0], mat: M, bevel: 0.8 });
+      // hydraulic piston on the outer face of the shin
+      knee.cyl('y', 0.8, L[1] * 0.65, { at: [0, -L[1] * 0.5, (front ? -1 : 1) * (legW / 2 + 1)], mat: T, sides: 6 });
+      const ank = knee.child('qank' + i, [0, -L[1], 0], [ang[2], 0, 0]);
+      ank.box(legW + 0.5, L[2] + 1, legW + 0.5, { at: [0, -L[2] / 2, 0], mat: front ? M : B, bevel: 0.8 });
+      const foot = ank.child('qfoot' + i, [0, -L[2], 0], [-(ang[0] + ang[1] + ang[2]), 0, 0]);
+      foot.box(legW + 2.5, footH, legW + 5, { at: [0, -footH / 2, 1], mat: M, bevel: 0.8, bevelSet: 'top', cuts: [[0, 1, 1, 1.4]] });
+      legs.push({ i, front, g: i === 0 || i === 3 ? 0 : 1 });
+    });
+    const Aw = 0.3;
+    ctx.stride = 4 * H * Math.sin(Aw) * 0.85;
+    ctx.anims.push((st, n) => {
+      const m = st.move, ph = st.phase;
+      n.pelvis.pos[1] -= (H * (1 - Math.cos(Aw * m * Math.sin(ph))) * 0.85 + Math.sin(st.t * 2) * 0.3 * (1 - m)) * ctx.k;
+      n.pelvis.rot[0] = Math.sin(ph * 2) * 0.025 * m;
+      n.pelvis.rot[2] = Math.sin(ph) * 0.03 * m;
+      for (const L of legs) {
+        const p = ph + L.g * PI;
+        const hip = -Aw * Math.sin(p) * m;
+        const lift = Math.max(0, Math.cos(p)) * m;
+        let dh, dk, da;
+        if (L.front) { dh = hip - lift * 0.1; dk = -lift * 0.75; da = lift * 0.7; }
+        else { dh = hip - lift * 0.3; dk = lift * 0.6; da = -lift * 0.45; }
+        n['qhip' + L.i].rot[0] += dh;
+        n['qknee' + L.i].rot[0] += dk;
+        n['qank' + L.i].rot[0] += da;
+        n['qfoot' + L.i].rot[0] -= dh + dk + da;
+      }
+      if (n.torso) n.torso.rot[1] = -Math.sin(ph) * 0.06 * m;
     });
     ctx.gait = 'legs';
     return hub;
@@ -1533,6 +1628,20 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
         Object.assign(out, { neck: [0, Hc + 1, 1], shY: Hc * 0.55, shX: Wc / 2, backY: Hc * 0.6, backZ: -Dc / 2, topY: Hc, W: Wc, D: Dc });
         break;
       }
+      case 'cockpit': { // low tank-like hull with a glass canopy strip on the sloped glacis
+        const Wc = Math.round(W * 1.05), Hh = Math.round(Ht * 0.7 + 3), Dh = Math.round(D * 1.4 + 2);
+        const cy = 3.5 + Hh / 2, c = Math.round(Math.min(Hh, Dh) * 0.6);
+        const hy = Hh / 2, hz = Dh / 2;
+        torso.box(W * 0.5, 5, D * 0.6, { at: [0, 2.5, 0], mat: M, bevel: 1 });
+        torso.box(Wc, Hh, Dh, { at: [0, cy, 0], mat: A, bevel: Math.min(e, 1.5), cuts: [[0, 1, 1, c], [0, 1, -1, 2.5], [1, 0, 1, 2], [-1, 0, 1, 2]], detail: [{ ...num, face: 'side', u: -Dh * 0.15, v: 0 }, { type: 'panel', face: '+y', at: -Dh * 0.18, dir: 'h' }, { type: 'light', face: '+z', pts: [[-Wc * 0.3, -hy * 0.45], [Wc * 0.3, -hy * 0.45]], size: 0.8 }] });
+        // canopy lies on the 45deg glacis cut: midpoint of the cut edge, nudged out along its normal
+        torso.box(Wc * 0.72, 1.4, c * 1.41 * 0.62, { at: [0, cy + hy - c / 2 + 0.35, hz - c / 2 + 0.35], rot: [PI / 4, 0, 0], mat: 'glass', bevel: 0.4 });
+        torso.box(Wc * 0.8, 1.6, 2.2, { at: [0, cy + hy - 0.2, hz - c - 0.6], mat: T, bevel: 0.5 }); // canopy brow
+        for (const s of [-1, 1]) torso.box(2.6, Hh * 0.6, Dh * 0.85, { at: [s * (Wc / 2 + 1.1), 3.5 + Hh * 0.32, -0.5], mat: B, bevel: 0.7, cuts: [[0, -1, 1, 2], [0, -1, -1, 2]], detail: { type: 'vent', face: 'side', pitch: 2, inset: 1.4 } });
+        torso.cyl('y', 2.6, 1.6, { at: [Wc * 0.2, 3.5 + Hh + 0.6, -Dh * 0.25], mat: T, sides: 8, detail: { type: 'bolts', face: '+y', inset: 1 } });
+        Object.assign(out, { neck: [-Wc * 0.12, 3.5 + Hh + 0.5, -Dh * 0.22], shY: 3.5 + Hh * 0.7, shX: Wc / 2 + 2, backY: 3.5 + Hh * 0.5, backZ: -Dh / 2, topY: 3.5 + Hh, W: Wc + 2, D: Dh });
+        break;
+      }
       default: { // block
         torso.box(W * 0.55, 5, D * 0.6, { at: [0, 2.5, 0], mat: M, bevel: 1, detail: { type: 'vent', face: '+z', pitch: 1.5, inset: 0.6 } });
         torso.box(W, Ht, D, { at: [0, 4 + Ht / 2, 0], mat: A, bevel: e, detail: [num, { type: 'panel', face: '+z', at: 0, dir: 'v' }] });
@@ -1607,6 +1716,36 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
         head.box(1.6, 1.6, 1.6, { at: [(hw + 5) / 2 - 1, 12, -1], mat: 'accent' });
         break;
       }
+      case 'dome': { // octagonal dome with a wraparound glass band
+        const R = Math.round(hw / 2 + 0.5);
+        head.cyl('x', 1.7, 2 * R + 3, { at: [0, 2.8, -0.3], mat: M, sides: 8 }); // ear cans
+        head.cyl('y', R, 3.6, { at: [0, 2.8, 0], mat: A, sides: 8, detail: { type: 'panel', face: '+z', at: -0.6, dir: 'h' } });
+        head.cyl('y', R + 0.35, 2.2, { at: [0, 5.7, 0], mat: 'glass', sides: 8, detail: { type: 'eye', face: '+z', at: 0, h: 0.55, w: 1.6 } });
+        head.cone('y', R, R * 0.4, 3.6, { at: [0, 8.6, 0], mat: A, sides: 8 });
+        head.box(1.2, 2.2, R + 1, { at: [0, 10.6, -0.8], mat: T, cuts: [[0, 1, 1, 1.2]] });
+        break;
+      }
+      case 'skull': { // angular cranium, brow ridge over twin eye lights, V-jaw with grille
+        head.box(hw, hh - 0.5, hd, { at: [0, hh / 2 + 3, -0.6], mat: A, bevel: 1, cuts: [[0, -1, 1, 2.4], [1, 1, 0, 1.6], [-1, 1, 0, 1.6]] });
+        head.box(hw - 1.4, 2, 1.2, { at: [0, hh + 0.6, hd / 2 - 0.6], mat: M });
+        for (const sx of [-1, 1]) head.box(1.6, 1.1, 0.8, { at: [sx * hw * 0.2, hh + 0.6, hd / 2 + 0.1], mat: 'accent', shadow: false });
+        head.box(hw + 0.8, 1.6, 2.6, { at: [0, hh + 2.2, hd / 2 - 0.9], mat: T, bevel: 0.4, cuts: [[0, 1, 1, 1.2], [0, -1, 1, 0.8]] });
+        head.cyl('x', 1.3, hw + 1.2, { at: [0, 3.8, -0.6], mat: M, sides: 6 }); // jaw hinge
+        head.box(hw * 0.8, 3.8, hd * 0.8, { at: [0, 2.6, 1.3], mat: B, bevel: 0.4, cuts: [[1, 0, 1, 2.4], [-1, 0, 1, 2.4], [0, -1, 1, 1.8]], detail: { type: 'vent', face: '+z', pitch: 1.2, inset: 0.5 } });
+        break;
+      }
+      case 'periscope': { // small head with a tall offset sensor mast
+        head.box(hw - 1.5, 4.2, hd - 1.5, { at: [0, 3, 0], mat: A, bevel: 1, detail: { type: 'eye', face: '+z', at: 0.2, h: 0.6, w: (hw - 1.5) / 2 - 1.3 } });
+        head.box(hw - 3, 1.6, 2, { at: [0, 1.4, (hd - 1.5) / 2 + 0.4], mat: M });
+        const sx = r.chance(0.5) ? 1 : -1;
+        const scope = head.child('scope', [sx * ((hw - 1.5) / 2 + 0.3), 4.2, -1.2]);
+        scope.cyl('y', 1.5, 1.6, { at: [0, 0.4, 0], mat: T, sides: 8 });
+        scope.cyl('y', 0.8, 10, { at: [0, 5.5, 0], mat: M, sides: 6 });
+        scope.box(2.8, 2.6, 5, { at: [0, 11.2, 0.8], mat: A, bevel: 0.6, cuts: [[0, 1, 1, 1]] });
+        scope.box(1.8, 1.4, 0.8, { at: [0, 11, 3.5], mat: 'accent', shadow: false });
+        ctx.anims.push((st, n) => { if (n.scope) n.scope.rot[1] = Math.sin(st.t * 0.8) * 0.6; });
+        break;
+      }
       default: { // visor
         head.box(hw, hh, hd, { at: [0, hh / 2 + 1, 0], mat: A, bevel: Math.min(2, e), detail: { type: 'eye', face: '+z', at: 0.5, h: 0.8, w: hw / 2 - 1 } });
         head.box(hw + 1.5, 2, hd * 0.7, { at: [0, hh + 1.2, -0.5], mat: T, bevel: 0.6 });
@@ -1631,7 +1770,7 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     if (type === 'none') return;
     const up = Math.round(8 * armLen + 1), fo = Math.round(8 * armLen + 2);
     const aw = Math.round(4 * bulk + 1);
-    const ranged = type === 'cannon' || type === 'gatling' || type === 'missiles';
+    const ranged = type === 'cannon' || type === 'gatling' || type === 'missiles' || type === 'flamer' || type === 'laser' || type === 'twin';
     let wrist;
     if (hardpoint) {
       // weapon mount pointing forward
@@ -1698,10 +1837,61 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
         ctx.anims.push((st, n) => { n['spin' + s].rot[1] = st.t * (3 + 12 * st.move); });
         break;
       }
+      case 'hammer': { // hydraulic hammer: cuff, twin pistons, heavy head with round strike faces
+        w.box(aw + 1.5, 3.5, aw + 1.5, { at: [0, -1.2, 0], mat: M, bevel: 0.8 });
+        for (const sd of [-1, 1]) w.cyl('y', 0.7, 6.5, { at: [sd * 2.1, -5, 0], mat: T, sides: 6 });
+        const hl = Math.round(11 + 3 * bulk);
+        w.box(aw + 3, 6.5, hl, { at: [0, -10.5, 0], mat: A, bevel: 1, detail: [{ type: 'band', face: 'side', dir: 'v', at: 0, size: 1.2, mat2: 'secondary' }, { type: 'bolts', face: 'side', inset: 1.3 }] });
+        w.cyl('z', 3.4, 2.4, { at: [0, -10.5, hl / 2 + 1], mat: M, sides: 8, twist: PI / 8 });
+        w.cyl('z', 2.6, 1.8, { at: [0, -10.5, -hl / 2 - 0.8], mat: M, sides: 8, twist: PI / 8 });
+        break;
+      }
+      case 'flamer': { // stubby barrel + flared nozzle, fuel tank on top, pilot light at the tip
+        w.box(aw + 2, 5, aw + 2, { at: [0, -2, 0], mat: T, bevel: 1, detail: { type: 'vent', face: 'side', pitch: 1.5, inset: 0.6 } });
+        w.cyl('y', 1.4, 7, { at: [0, -8, 0], mat: M, sides: 6 });
+        w.cone('y', 2.7, 1.5, 4, { at: [0, -13, 0], mat: M, sides: 8, twist: PI / 8 });
+        w.cyl('y', 1.5, 0.6, { at: [0, -15.2, 0], mat: 'accent', sides: 8, twist: PI / 8, shadow: false });
+        w.cyl('y', 2.3, 9, { at: [0, -5, aw / 2 + 2.6], mat: ctx.bp.scheme === 'inverse' ? 'primary' : 'secondary', sides: 8, twist: PI / 8, detail: { type: 'band', at: 0, size: 0.8 } });
+        w.box(1.2, 1.2, 1.4, { at: [0, -14.4, 2.6], mat: 'accent', shadow: false });
+        break;
+      }
+      case 'laser': { // long thin barrel wrapped in glowing coils
+        const len = Math.round(19 + 6 * armLen);
+        w.box(aw + 2, 6, aw + 2.5, { at: [0, -2.5, 0], mat: T, bevel: 1, detail: { type: 'vent', face: 'side', pitch: 1.5, inset: 0.7 } });
+        w.cyl('y', 0.9, len, { at: [0, -5 - len / 2, 0], mat: M, sides: 6 });
+        for (let k = 0; k < 3; k++) w.cyl('y', 1.9, 1.2, { at: [0, -7.5 - k * 3.2, 0], mat: 'accent', sides: 8, shadow: false });
+        w.box(2.6, 2.4, 2.6, { at: [0, -5 - len + 1.2, 0], mat: M, bevel: 0.5 });
+        break;
+      }
+      case 'twin': { // two short cannons stacked one over the other
+        w.box(aw + 2, 5.5, aw + 5, { at: [0, -2.2, 0], mat: A, bevel: 1, detail: [{ type: 'panel', face: 'side', at: 0, dir: 'h' }, { type: 'bolts', face: 'side', inset: 1.2 }] });
+        for (const dz of [-2, 2]) {
+          w.cyl('y', 1.3, 10, { at: [0, -9.5, dz], mat: M, sides: 6 });
+          w.box(3, 2.6, 3, { at: [0, -14.5, dz], mat: M, bevel: 0.6 });
+        }
+        break;
+      }
       default: { // fist
         w.box(aw + 2.5, 5, aw + 2.5, { at: [0, -2.5, 0.3], mat: M, bevel: 1, detail: { type: 'panel', face: '+z', at: -0.8, dir: 'h' } });
         w.box(aw + 3, 2, aw + 3, { at: [0, -0.2, 0.3], mat: T, bevel: 0.6 });
       }
+    }
+    // muzzle flash (Space to fire): hidden flare at the barrel tip plus recoil
+    const tips = { cannon: -4 - Math.round(16 + 6 * armLen) - 1.5, gatling: -15, missiles: -9, flamer: -16, laser: -5 - Math.round(19 + 6 * armLen) - 1.5, twin: -16 };
+    if (tips[type] != null) {
+      const zs = type === 'twin' ? [-2, 2] : [0];
+      zs.forEach((dz, i) => {
+        const mz = w.child('muzzle' + s + i, [type === 'missiles' ? s * 1.5 : 0, tips[type], dz]);
+        mz.startHidden = true;
+        muzzleFlash(mz, type === 'flamer' ? 'flame' : type === 'missiles' ? 'puff' : type === 'laser' ? 'beam' : 'flash');
+      });
+      ctx.anims.push((st, n) => {
+        const on = st.fire > 0.55 || (type === 'flamer' && st.fire > 0.1) || (type === 'gatling' && st.fire > 0.1 && Math.floor(st.t * 30) % 2 === 0);
+        zs.forEach((_, i) => { n['muzzle' + s + i].hidden = !on; });
+        const el = n['elbow' + s];
+        if (el) el.rot[0] -= st.fire * (type === 'gatling' || type === 'flamer' ? 0.05 : 0.22);
+        if (type === 'gatling' && n['spin' + s]) n['spin' + s].rot[1] += st.fire * st.t * 40;
+      });
     }
     if (!hardpoint) {
       ctx.anims.push((st, n) => {
@@ -1710,6 +1900,25 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
         n['shoulder' + s].rot[0] = sw;
         n['upper' + s].rot[2] = s * (0.08 + Math.sin(st.t * 2.2) * 0.02);
       });
+    }
+  }
+
+  // flare shapes pointing down the node's -y axis (the barrel direction)
+  function muzzleFlash(n, kind) {
+    const glow = { mat: 'accent', shadow: false };
+    if (kind === 'flame') {
+      n.cone('y', 0.8, 3.2, 14, { ...glow, at: [0, -7, 0], sides: 6 });
+      n.cone('y', 2.2, 0.4, 4, { ...glow, at: [0, -15.5, 0], sides: 6 });
+    } else if (kind === 'beam') {
+      n.cyl('y', 0.8, 40, { ...glow, at: [0, -20, 0], sides: 6 });
+      n.box(4, 1, 4, { ...glow, at: [0, -0.5, 0] });
+    } else if (kind === 'puff') {
+      n.box(5, 3, 5, { ...glow, at: [0, -1.5, 0], bevel: 1.2 });
+      n.cone('y', 0.2, 2, 6, { ...glow, at: [0, -6, 0], sides: 5 });
+    } else {
+      n.cone('y', 0.2, 2.6, 6, { ...glow, at: [0, -3, 0], sides: 6 });
+      n.box(7, 1.2, 1.2, { ...glow, at: [0, -0.8, 0] });
+      n.box(1.2, 1.2, 7, { ...glow, at: [0, -0.8, 0] });
     }
   }
 
@@ -1727,6 +1936,12 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
         shoulder.box(w, h - 1, d, { at: [s * 2.6, 2, 0], mat: A, bevel: 1.2 });
         shoulder.box(w - 1, 5, d - 2, { at: [s * 2.6, 6.8, -0.5], mat: T, bevel: 0.8, rot: [-0.25, 0, 0], detail: { type: 'grid', face: '+z', cell: 2.5, inset: 0.6 } });
         break;
+      case 'shield': { // layered plates: a cap sloping outward-down, then a big flat side shield
+        shoulder.box(w + 1, 2, d + 1, { at: [s * 2.8, 4.2, 0], mat: T, rot: [0, 0, -s * 0.38], bevel: 0.6, cuts: [[0, 1, 1, 1], [0, 1, -1, 1]] });
+        shoulder.box(w + 2, 2, d + 3, { at: [s * 4.6, 2.6, 0], mat: A, rot: [0, 0, -s * 0.62], bevel: 0.6, detail: [{ type: 'band', face: '+y', dir: 'v', at: s * (w / 2 - 0.6), size: 0.7, mat2: bp.scheme === 'inverse' ? 'primary' : 'secondary' }, { type: 'bolts', face: '+y', inset: 1.2 }] });
+        shoulder.box(1.8, 10, d + 1, { at: [s * (w / 2 + 4.6), -3.2, 0.5], mat: A, rot: [0, 0, s * 0.2], bevel: 0.7, cuts: [[0, -1, 1, 3], [0, -1, -1, 3]], detail: [{ type: 'panel', face: 'side', at: -1, dir: 'h' }, { type: 'bolts', face: 'side', inset: 1.4 }] });
+        break;
+      }
       case 'spiked':
         shoulder.box(w, h, d, { at: [s * 2.6, 2.2, 0], mat: A, bevel: Math.min(2, e) });
         for (const z of [-2.5, 0.5, 3.5]) shoulder.cone('y', 1.4, 0.2, 4, { at: [s * 3, 6.5, z], mat: M, sides: 5 });
@@ -1785,6 +2000,10 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
         gun.box(6, 6, 12, { at: [0, 0, 0], mat: A, bevel: e, detail: { type: 'vent', face: 'side', pitch: 2 } });
         gun.cyl('z', 1.6, 22 + 6 * tall, { at: [0, 0.5, 6 + 11 + 3 * tall], mat: M, sides: 6 });
         gun.box(3.8, 3.8, 4, { at: [0, 0.5, 6 + 22 + 6 * tall], mat: M, bevel: 0.6 });
+        const mz = gun.child('muzzleArt', [0, 0.5, 6 + 24 + 6 * tall], [-PI / 2, 0, 0]);
+        mz.startHidden = true;
+        muzzleFlash(mz, 'flash');
+        ctx.anims.push((st, n) => { n.muzzleArt.hidden = !(st.fire > 0.55 && st.fireN % 2 === 0); n.gun.pos[2] -= st.fire * 2 * ctx.k; });
         break;
       }
       case 'wings': {
@@ -1794,6 +2013,52 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
           wg.box(2, 16 * tall, 7, { at: [0, 8 * tall, 0], mat: A, cuts: [[0, 1, -1, 4]], bevel: 0.6, detail: { type: 'stripe', face: 'side', width: 2, mat2: 'secondary', band: 4, bandH: 1.5 } });
         }
         ctx.anims.push((st, n) => { const f = Math.sin(st.t * 1.5) * 0.04; if (n['wing-1']) { n['wing-1'].rot[2] += f; n['wing1'].rot[2] -= f; } });
+        break;
+      }
+      case 'jetpack': { // pack with two thrusters angled down/back, flickering exhaust
+        back.box(tor.W * 0.6, 10, 5, { at: [0, 2, -2.5], mat: A, bevel: 1.2, detail: [{ type: 'vent', face: '-z', pitch: 2, inset: 2 }, { type: 'bolts', face: '-z', inset: 1.2 }] });
+        const jx = Math.max(4, tor.W * 0.27);
+        for (const s of [-1, 1]) {
+          const j = back.child('jet' + s, [s * jx, 3, -6.5], [0.32, 0, s * -0.1]);
+          j.cone('y', 3.1, 2.1, 12, { at: [0, 1, 0], mat: T, sides: 8, twist: PI / 8, detail: [{ type: 'band', at: 3, size: 0.8, mat2: bp.scheme === 'inverse' ? 'primary' : 'secondary' }, { type: 'panel', at: -2.5, dir: 'h' }] });
+          j.cone('y', 3.4, 2.6, 3, { at: [0, -6.5, 0], mat: M, sides: 8, twist: PI / 8 });
+          const f = j.child('flame' + s, [0, -8, 0]);
+          f.cone('y', 0.5, 2.6, 4, { at: [0, -1.5, 0], mat: 'accent', sides: 8, twist: PI / 8, shadow: false });
+        }
+        ctx.anims.push((st, n) => {
+          for (const s of [-1, 1]) n['flame' + s].pos[1] += (Math.sin(st.t * 37 + s) * 0.35 - 0.5 * st.move) * ctx.k;
+        });
+        break;
+      }
+      case 'saw': { // buzz saw on a boom reaching over one shoulder
+        const sd = bp.armL === 'none' || bp.armL === 'shield' ? -1 : 1;
+        back.box(5.5, 7, 5, { at: [sd * tor.W * 0.25, 2, -2.5], mat: M, bevel: 1, detail: { type: 'vent', face: '-z', pitch: 1.5, inset: 1 } });
+        const Lb = Math.round(12 + 3 * tall);
+        const boom = back.child('sawBoom', [sd * tor.W * 0.28, 4, -3], [0.55, 0, -sd * 0.42]);
+        boom.box(3, Lb, 3.2, { at: [0, Lb / 2, 0], mat: B, bevel: 0.8, detail: { type: 'panel', face: 'side', at: 0, dir: 'h' } });
+        boom.cyl('y', 0.8, Lb * 0.7, { at: [0, Lb * 0.45, -2.4], mat: T, sides: 6 });
+        const hub = boom.child('sawHub', [0, Lb, 0], [-0.55, 0, sd * 0.42]);
+        hub.cyl('x', 2.8, 4, { at: [-sd * 0.5, 0, 0], mat: T, sides: 8 });
+        const bl = hub.child('sawBlade', [sd * 2.6, 0, 0]);
+        const a = Math.round(4.5 * bulk + 1.5);
+        bl.box(0.9, a * 2, a * 2, { mat: M });
+        bl.box(0.9, a * 2, a * 2, { mat: M, rot: [PI / 4, 0, 0] });
+        bl.cyl('x', a * 1.12, 1.3, { mat: T, sides: 12, detail: [{ type: 'panel', face: 'side', at: 0, dir: 'v' }, { type: 'panel', face: 'side', at: 0, dir: 'h' }] });
+        bl.cyl('x', 1.8, 2, { mat: M, sides: 6 });
+        ctx.anims.push((st, n) => { n.sawBlade.rot[0] = -st.t * (5 + 7 * st.move); });
+        break;
+      }
+      case 'sensor': { // tall mast with a spinning radar bar
+        back.box(4.5, 6, 4, { at: [0, 1, -2], mat: M, bevel: 1 });
+        const mh = Math.round(18 * tall + 2);
+        back.cyl('y', 0.9, mh, { at: [0, 4 + mh / 2, -2.5], mat: M, sides: 6 });
+        back.box(3, 1.4, 3, { at: [0, 4 + mh * 0.55, -2.5], mat: T, bevel: 0.3 });
+        const bar = back.child('sensorBar', [0, 4 + mh, -2.5]);
+        bar.cyl('y', 1.7, 1.8, { at: [0, 0.4, 0], mat: T, sides: 8 });
+        const bw = Math.round(10 + 4 * bulk);
+        bar.box(bw, 1.8, 2, { at: [0, 1.9, 0], mat: A, bevel: 0.4, detail: { type: 'light', face: '+z', pts: [[-bw * 0.3, 0], [0, 0], [bw * 0.3, 0]], size: 0.5 } });
+        bar.box(1.3, 1.3, 1.3, { at: [bw / 2 + 0.3, 1.9, 0], mat: 'accent', shadow: false });
+        ctx.anims.push((st, n) => { n.sensorBar.rot[1] = st.t * 2.2; });
         break;
       }
     }
@@ -1854,7 +2119,7 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
   }
 
   function posedPrims(u, x, z, yaw) {
-    u.rig.animate({ phase: u.phase, move: u.move, t: u.t });
+    u.rig.animate({ phase: u.phase, move: u.move, t: u.t, fire: u.fire || 0, fireN: u.fireN || 0 });
     const w = MF.matFromEuler(MF.mat(), x, u.rig.hover || 0, z, 0, yaw, 0);
     return MF.updateRig(u.rig.root, w, []);
   }
@@ -1886,9 +2151,15 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
 
   function renderHangar() {
     const pal = stagePalette();
+    // snap to whole screen pixels so sprites don't shimmer while moving (z is foreshortened by sin(pitch))
+    const sp = Math.sin(S.settings.pitch);
+    const snapZ = (z) => Math.round(z * sp) / sp;
     const scene = {
-      units: S.units.map((u) => ({ prims: posedPrims(u, u.x, u.z, u.yaw), pal: u.pal, x: u.x, z: u.z, radius: u.rig.radius, height: u.rig.height + (u.rig.hover || 0), selected: S.selected.has(u.id) })),
-      cam: { x: Math.round(S.cam.x), z: Math.round(S.cam.z), pitch: S.settings.pitch, ox: Math.floor(viewW / 2), oy: Math.floor(viewH * 0.62) },
+      units: S.units.map((u) => {
+        const x = Math.round(u.x), z = snapZ(u.z);
+        return { prims: posedPrims(u, x, z, u.yaw), pal: u.pal, x, z, radius: u.rig.radius, height: u.rig.height + (u.rig.hover || 0), selected: S.selected.has(u.id) };
+      }),
+      cam: { x: Math.round(S.cam.x), z: snapZ(S.cam.z), pitch: S.settings.pitch, ox: Math.floor(viewW / 2), oy: Math.floor(viewH * 0.62) },
       floor: S.settings.floor, bg: pal.bg, floorRamp: pal.floor, shadows: S.settings.shadows, light: lightVec(), time: S.time,
       treadOffset: S.units.map((u) => u.dist),
     };
@@ -1935,8 +2206,11 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     vx /= len; vz /= len;
     const run = k.has('ShiftLeft') || k.has('ShiftRight') || (S.touchVec && S.touchVec[2]);
 
+    const trigger = k.has('Space');
     for (const u of S.units) {
       u.t += dt;
+      if (u.fire > 0) u.fire = Math.max(0, u.fire - dt * 5);
+      if (trigger && S.selected.has(u.id) && !(u.fire > 0.35)) { u.fire = 1; u.fireN = (u.fireN || 0) + 1; }
       const sel = S.selected.has(u.id);
       const go = sel && moving;
       if (go) {
@@ -2002,7 +2276,8 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
   window.addEventListener('keydown', (e) => {
     if (isTyping(e.target) || !$('modal').hidden) { if (e.key === 'Escape') closeModal(); return; }
     const code = e.code;
-    if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight'].includes(code)) {
+    if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'Space'].includes(code)) {
+      if (code === 'Space') e.preventDefault();
       if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'range' && code.startsWith('Arrow')) return;
       if (e.target && e.target.tagName === 'SELECT') e.target.blur();
       S.keys.add(code);
@@ -2021,6 +2296,8 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     else if (code === 'KeyM') mutateActive();
     else if (code === 'KeyN') deployCopy();
     else if (code === 'Delete' || code === 'Backspace') scrapSelected();
+    else if (code === 'KeyL') lineUp();
+    else if (code === 'KeyP') openSnapshot();
   });
   window.addEventListener('keyup', (e) => S.keys.delete(e.code));
   window.addEventListener('blur', () => S.keys.clear());
@@ -2353,7 +2630,6 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
       });
       g.appendChild(btn);
     }
-    S.nextId += 0;
   }
 
   // ------------------------------------------------------------ export
@@ -2467,6 +2743,43 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     document.body.appendChild(a); a.click(); a.remove();
   }
 
+  function lineUp() {
+    const n = S.units.length;
+    let total = 0;
+    for (const u of S.units) total += u.rig.radius * 1.5 + 6;
+    let x = S.cam.x - total / 2;
+    for (const u of S.units) {
+      const w = u.rig.radius * 1.5 + 6;
+      u.x = x + w / 2; u.z = S.cam.z; u.yaw = u.targetYaw = 0;
+      x += w;
+    }
+    S.selected = new Set(S.units.map((u) => u.id));
+    refreshRoster(); saveHangar();
+    toast(`Lined up ${n} unit${n === 1 ? '' : 's'}`);
+  }
+
+  function openSnapshot() {
+    const z = S.settings.zoom;
+    const c = document.createElement('canvas');
+    c.width = viewW * z; c.height = viewH * z;
+    const cx = c.getContext('2d');
+    cx.imageSmoothingEnabled = false;
+    cx.drawImage(hangar, 0, 0, c.width, c.height);
+    const one = hangar.toDataURL('image/png');
+    const big = c.toDataURL('image/png');
+    $('modalTitle').textContent = 'Hangar snapshot';
+    $('modalBody').innerHTML = `
+      <div class="opt-row">
+        <button class="btn btn-primary btn-sm" id="snapBig">Download ${viewW * z}×${viewH * z}</button>
+        <button class="btn btn-sm" id="snapOne">Download 1× pixels (${viewW}×${viewH})</button>
+      </div>
+      <div class="sheet-view"><img src="${big}" alt="Hangar snapshot" style="width:100%;max-width:${viewW * z}px"></div>
+      <p class="hint">Press L before a snapshot to line every unit up facing the camera. If the download is blocked, right-click the image and choose “Save image as”.</p>`;
+    $('snapBig').addEventListener('click', () => download(big, 'mecha-hangar.png'));
+    $('snapOne').addEventListener('click', () => download(one, 'mecha-hangar-1x.png'));
+    openModal();
+  }
+
   function openCode() {
     const u = active();
     if (!u) return;
@@ -2551,6 +2864,7 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     $('btnExport').addEventListener('click', openExport);
     $('btnCode').addEventListener('click', openCode);
     $('btnLine').addEventListener('click', rollLine);
+    $('btnSnap').addEventListener('click', openSnapshot);
   }
   let lineTimer = 0;
   const rollLineSoon = () => { clearTimeout(lineTimer); lineTimer = setTimeout(rollLine, 200); };
