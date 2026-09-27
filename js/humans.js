@@ -37,15 +37,15 @@
   // lean/headZ posture; crouch knee bend; bob/armSwing/lift/swing motion damping; bevel armour chamfer scale.
   const STYLES = {
     grim: { label: 'Grim heroic', head: 0.66, legs: 1.6, torso: 1.0, legW: 0.95, boot: 0.92, chestW: 1.08, chestD: 1.0, waist: 0.9, taper: 1.3, shX: 1.0,
-      U: 0.78, F: 0.76, aw: 0.95, fore: 1.1, fist: 0.9, pads: 0.95, ws: 1.12, blade: 1.0, lean: 0.45, headZ: 0.5, crouch: 0.55, neck: 1.6,
+      U: 0.78, F: 0.76, aw: 0.95, fore: 1.1, fist: 0.9, pads: 0.95, ws: 1.12, blade: 1.0, headZ: 0.2, neck: 1.6,
       bob: 0.35, armSwing: 0.55, lift: 0.75, swing: 0.85, bevel: 0.4,
       H: { rogue: 46, soldier: 50, berserker: 56, sniper: 50, knight: 52, heavy: 54 } },
     dark: { label: 'Dark stylized', head: 0.9, legs: 0.95, torso: 1.2, legW: 0.8, boot: 1.0, chestW: 1.35, chestD: 1.1, waist: 0.58, taper: 2.2, shX: 1.12,
-      U: 1.12, F: 1.1, aw: 1.05, fore: 1.55, fist: 1.45, pads: 1.0, ws: 1.18, blade: 0.95, lean: 1.0, leanAdd: 0.28, headZ: 1.0, headZAdd: 2, crouch: 1.15, neck: 1.2,
+      U: 1.12, F: 1.1, aw: 1.05, fore: 1.55, fist: 1.45, pads: 1.0, ws: 1.18, blade: 0.95, headZ: 0.2, neck: 1.4,
       bob: 0.45, armSwing: 0.6, lift: 0.8, swing: 0.85, bevel: 0.45,
       H: { rogue: 42, soldier: 46, berserker: 54, sniper: 46, knight: 48, heavy: 50 } },
     real: { label: 'Gritty realistic', head: 0.68, legs: 1.45, torso: 1.0, legW: 0.8, boot: 0.8, chestW: 0.86, chestD: 0.92, waist: 0.85, taper: 1.1, shX: 0.9, bruteW: 0.85,
-      U: 0.8, F: 0.78, aw: 0.78, fore: 1.0, fist: 0.66, pads: 0.55, ws: 0.8, blade: 0.8, lean: 0.5, headZ: 0.4, crouch: 0.5, neck: 1.8,
+      U: 0.8, F: 0.78, aw: 0.78, fore: 1.0, fist: 0.66, pads: 0.55, ws: 0.8, blade: 0.8, headZ: 0.2, neck: 1.8,
       bob: 0.3, armSwing: 0.5, lift: 0.7, swing: 0.8, bevel: 0.3,
       H: { rogue: 50, soldier: 54, berserker: 60, sniper: 54, knight: 55, heavy: 57 } },
   };
@@ -164,6 +164,22 @@
   };
 
   // ------------------------------------------------------------- materials per role / era
+  function matsStyled(role, sci) {
+    if (role === 'rogue' || role === 'sniper') return { // dark leather armour with plate bits
+      thigh: 'leather', shin: 'leather', boot: 'leather', knee: 'metal', greave: null, wrap: 'primary', upper: role === 'rogue' ? 'leather' : 'primary', fore: 'metal', fist: 'leather',
+      cuff: 'metal', joint: 'leather', cuffLen: 0.5,
+    };
+    if (role === 'berserker') return sci ? { // power armour in the barbarian silhouette
+      thigh: 'metal', shin: 'primary', boot: 'primary', knee: 'secondary', greave: 'primary', wrap: 'metal', upper: 'metal', fore: 'primary', fist: 'primary', cuff: 'primary', joint: 'metal', cuffLen: 0.6,
+    } : { // dark steel plate over dark cloth, bare upper arms, huge gauntlets
+      thigh: 'primary', shin: 'metal', boot: 'metal', knee: 'metal', greave: 'metal', wrap: 'leather', upper: 'skin', fore: 'metal', fist: 'metal', cuff: 'metal', joint: 'skin', cuffLen: 0.62,
+    };
+    if (sci) return { thigh: 'primary', shin: 'primary', boot: 'primary', knee: 'secondary', greave: 'primary', wrap: 'metal', upper: 'metal', fore: 'primary', fist: 'primary', cuff: 'secondary', joint: 'metal' };
+    return { // soldier / knight / heavy: heavy plate
+      thigh: 'primary', shin: 'metal', boot: 'metal', knee: 'metal', greave: 'metal', wrap: 'leather', upper: 'metal', fore: 'metal', fist: 'metal', cuff: 'secondary', joint: 'metal',
+    };
+  }
+
   function matsFor(role, era) {
     const sci = era === 'scifi';
     if (role === 'rogue') return {
@@ -188,7 +204,39 @@
   }
 
   // ------------------------------------------------------------- legs
+  // grim / dark / real legs: tapered frustums (thigh > knee > calf > ankle), armoured poleyns and greaves where
+  // the role wears plate, sabatons turned slightly out. The hips sit wide enough to leave a gap from crotch to feet.
+  function buildLegsStyled(ctx, H) {
+    const { P, M, sci } = H;
+    const [a1, a2] = P.crouch;
+    const hipY = P.aY + P.thigh * Math.cos(a1) + P.shin * Math.cos(a1 + a2);
+    const pelvis = ctx.root.child('pelvis', [0, hipY, 0]);
+    P.hipY = hipY;
+    const lw = P.legW, [bw, bh, bl] = P.boot, plate = !!M.greave, brute = H.body === 'brute';
+    for (const s of [-1, 1]) {
+      const hip = pelvis.child('hip' + s, [s * P.hipX, 0, 0], [a1, 0, 0]);
+      hip.cone('y', lw * 0.34, lw * 0.52, P.thigh + 1.6, { at: [0, -P.thigh / 2 + 0.4, 0], mat: M.thigh, sides: 8, twist: PI / 8 });
+      if (plate) hip.box(lw * 0.9, P.thigh * 0.55, lw * 0.5, { at: [0, -P.thigh * 0.55, lw * 0.3], mat: M.greave, cuts: [[1, 0, 1, lw * 0.2], [-1, 0, 1, lw * 0.2], [0, -1, 1, lw * 0.15]] }); // cuisse
+      const knee = hip.child('knee' + s, [0, -P.thigh, 0], [a2, 0, 0]);
+      knee.cone('y', lw * 0.3, lw * 0.44, P.shin * 0.5, { at: [0, -P.shin * 0.28, -0.3], mat: M.shin, sides: 8, twist: PI / 8 }); // calf
+      knee.cone('y', lw * 0.24, lw * 0.3, P.shin * 0.56, { at: [0, -P.shin * 0.74, -0.1], mat: M.shin, sides: 8, twist: PI / 8 }); // to the ankle
+      if (M.knee) knee.box(lw * 0.78, lw * 0.72, lw * 0.5, { at: [0, 0.2, lw * 0.3], mat: M.knee, bevel: 0.3, cuts: [[0, 1, 1, lw * 0.22], [0, -1, 1, lw * 0.22], [1, 0, 1, lw * 0.2], [-1, 0, 1, lw * 0.2]] });
+      if (brute && plate) knee.cone('z', lw * 0.16, 0.2, lw * 0.5, { at: [0, 0.3, lw * 0.72], mat: M.knee, sides: 4 }); // knee spike
+      if (plate) knee.box(lw * 0.72, P.shin * 0.66, lw * 0.36, { at: [0, -P.shin * 0.5, lw * 0.26], mat: M.greave, cuts: [[1, 0, 1, lw * 0.18], [-1, 0, 1, lw * 0.18]] }); // greave
+      else knee.box(lw * 0.64, 1.2, lw * 0.64, { at: [0, -P.shin * 0.62, 0], mat: M.wrap });
+      const ankle = knee.child('ankle' + s, [0, -P.shin, 0], [-(a1 + a2), 0, 0]);
+      const bz = bl * 0.16, toe = [0, s * 0.16, 0]; // toes turned slightly out; yaw keeps the sole flat on y = 0
+      ankle.box(bw * 0.86, bh, bl, { at: [0, -P.aY + bh / 2, bz], rot: toe, mat: M.boot, bevel: 0.4, bevelSet: 'top', cuts: [[0, 1, 1, bh * 0.6], [1, 0, 1, bw * 0.25], [-1, 0, 1, bw * 0.25]] });
+      ankle.box(bw * 0.72, bh * 0.7, bw * 0.8, { at: [0, -P.aY + bh + bh * 0.2, -0.3], rot: toe, mat: plate ? M.boot : M.wrap, bevel: 0.3 });
+      if (plate) ankle.box(bw * 0.7, 1, bl * 0.5, { at: [0, -P.aY + bh + 0.2, bz + bl * 0.2], rot: [0.35, s * 0.16, 0], mat: M.boot, cuts: [[1, 0, 1, 0.8], [-1, 0, 1, 0.8]] }); // sabaton lame
+    }
+    const zA = (h) => -(P.thigh * Math.sin(h) + P.shin * Math.sin(h + a2));
+    ctx.stride = 2 * (zA(a1 - P.swing) - zA(a1 + P.swing));
+    return pelvis;
+  }
+
   function buildLegs(ctx, H) {
+    if (!H.sd) return buildLegsStyled(ctx, H);
     const { P, M, role, sci } = H;
     const [a1, a2] = P.crouch;
     const hipY = P.aY + P.thigh * Math.cos(a1) + P.shin * Math.cos(a1 + a2);
@@ -983,14 +1031,17 @@
   // derive a role's proportions for a non-SD style and rescale lengths so the body reaches the style's target height
   function styledRole(b, S, role) {
     const P = Object.assign({}, b);
-    P.head = b.head * S.head; P.headDrop = b.headDrop * S.head - S.neck; P.headZ = b.headZ * S.headZ + (S.headZAdd || 0);
-    P.thigh = b.thigh * S.legs; P.shin = b.shin * S.legs; P.legW = b.legW * S.legW; P.hipX = b.hipX * S.legW;
+    P.head = b.head * S.head; P.headDrop = b.headDrop * S.head - S.neck; P.headZ = b.headZ * S.headZ;
+    P.thigh = b.thigh * S.legs; P.shin = b.shin * S.legs; P.legW = b.legW * S.legW;
+    P.hipX = Math.max(b.hipX * S.legW, P.legW * 0.52 + 1.25); // a real gap between the thighs
     P.boot = b.boot.map((v) => v * S.boot); P.aY = b.aY * Math.max(0.85, S.boot);
     const bw0 = b.body === 'brute' ? S.bruteW || 1 : 1;
     P.chest = [b.chest[0] * S.chestW * bw0, b.chest[1] * S.torso, b.chest[2] * S.chestD * bw0];
     P.shX = b.shX * S.chestW * S.shX * bw0; P.U = b.U * S.U; P.F = b.F * S.F; P.aw = b.aw * S.aw; P.fist = b.fist * S.fist;
-    P.padScale = b.padScale * S.pads * (b.body === 'brute' ? 0.85 : 1); P.ws = b.ws * S.ws; P.lean = b.lean * S.lean + (S.leanAdd || 0); P.crouch = b.crouch.map((v) => v * S.crouch);
-    P.swing = b.swing * S.swing; P.lift = b.lift * S.lift; P.armSwing = b.armSwing * S.armSwing; P.walkCrouch = b.walkCrouch * 0.6;
+    P.padScale = b.padScale * S.pads * (b.body === 'brute' ? 0.85 : 1); P.ws = b.ws * S.ws;
+    // upright and confident: vertical spine (a touch proud), slight knee bend only
+    P.lean = role === 'rogue' || role === 'sniper' ? 0.04 : -0.03; P.walkLean = 0.05; P.crouch = [-0.08, 0.17]; P.contra = 1;
+    P.swing = b.swing * S.swing; P.lift = b.lift * S.lift; P.armSwing = b.armSwing * S.armSwing; P.walkCrouch = 0.03;
     P.waist = S.waist; P.taper = S.taper; P.fore = S.fore; P.bob = S.bob; P.blade = S.blade; P.sway = b.sway * 0.7; P.shRoll = b.shRoll * 0.7;
     // height: aY + legs + 1.5 + (Ht - headDrop) cos(lean) - headZ sin(lean) + head  ->  solve the length factor f
     const [a1, a2] = P.crouch, L = P.lean;
@@ -1015,7 +1066,7 @@
       thigh: base.thigh * lw, shin: base.shin * lw, legW: base.legW * bw, hipX: base.hipX * bw,
       chest: [base.chest[0] * bw, base.chest[1] * tw, base.chest[2] * bw], shX: base.shX * bw, U: base.U * aw, F: base.F * aw, aw: base.aw * bw,
     });
-    const H = { P, M: matsFor(role, sci ? 'scifi' : 'fantasy'), role, body: base.body, sci, era: sci ? 'scifi' : 'fantasy', bp, sh: {}, tgt: {}, fx: {}, flow: [], weapons: [], style, sd: !S, S: S || {} };
+    const H = { P, M: S ? matsStyled(role, sci) : matsFor(role, sci ? 'scifi' : 'fantasy'), role, body: base.body, sci, era: sci ? 'scifi' : 'fantasy', bp, sh: {}, tgt: {}, fx: {}, flow: [], weapons: [], style, sd: !S, S: S || {} };
     const [W, Ht, D] = P.chest;
     for (const s of [-1, 1]) H.sh[s] = [s * P.shX, Ht - P.shDrop, 0];
     const pelvis = buildLegs(ctx, H);
