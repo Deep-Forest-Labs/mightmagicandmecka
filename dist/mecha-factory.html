@@ -2744,7 +2744,29 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     redraw();
   }
 
-  function download(href, name) {
+  // Inside the claude.ai artifact viewer, saves go through the downloads capability; locally, a plain link.
+  let saver = null;
+  try { if (window.claude && window.claude.use) window.claude.use('downloads').then((d) => { saver = d; }, () => {}); } catch (e) { /* not in a viewer */ }
+  async function download(href, name) {
+    if (saver) {
+      try {
+        const comma = href.indexOf(',');
+        const meta = href.slice(5, comma);
+        const body = href.slice(comma + 1);
+        let blob;
+        if (meta.endsWith(';base64')) {
+          const bin = atob(body), bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          blob = new Blob([bytes], { type: meta.replace(';base64', '') });
+        } else blob = new Blob([decodeURIComponent(body)], { type: meta });
+        await saver.save({ filename: name, data: blob });
+        toast('Saved ' + name);
+      } catch (e) {
+        if (e && e.code === 'declined') return;
+        toast(e && e.code === 'rate_limited' ? 'A save is already open' : 'Save unavailable here. Right-click the image to save it.');
+      }
+      return;
+    }
     const a = document.createElement('a');
     a.href = href; a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
