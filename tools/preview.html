@@ -19,8 +19,8 @@ seeds.forEach((seed, row) => {
   const rig = MF.Gen.build(bp);
   const pal = MF.buildPalette(bp.colors);
   for (let d=0; d<dirs; d++) {
-    const yaw = d*Math.PI*2/dirs;
-    rig.animate({phase, move, t: 0});
+    const walk = q.get('walk'); const yaw = walk ? +walk : d*Math.PI*2/dirs;
+    rig.animate({phase: walk ? d*Math.PI*2/dirs : phase, move: walk ? 1 : move, t: 0});
     const w = MF.matFromEuler(MF.mat(), 0, rig.hover||0, 0, 0, yaw, 0);
     const prims = MF.updateRig(rig.root, w, []);
     R.render({units:[{prims, pal, x:0, z:0, radius: rig.radius, height: rig.height, selected:false}], cam:{x:0,z:0,pitch:0.55,ox:CW/2,oy:CH-12}, floor:'plain', bg: pal.bg, floorRamp: pal.floor, time:0});

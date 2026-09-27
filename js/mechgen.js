@@ -47,6 +47,7 @@
     bp.tall = keep('tall', () => +r.range(0.8, 1.3).toFixed(2));
     bp.armLen = keep('armLen', () => +r.range(0.8, 1.25).toFixed(2));
     bp.edge = keep('edge', () => +r.range(0.8, 2.4).toFixed(1));
+    bp.size = keep('size', () => +r.range(1.0, 1.3).toFixed(2));
     bp.palette = keep('palette', () => r.pick(Object.keys(MF.PALETTES)));
     bp.colors = locks.palette && prev && prev.colors ? { ...prev.colors } : { ...MF.PALETTES[bp.palette] };
     bp.number = keep('number', () => String(r.int(100, 999)));
@@ -61,14 +62,20 @@
     const bulk = bp.bulk || 1, tall = bp.tall || 1, legLen = bp.legLen || 1, armLen = bp.armLen || 1;
     const e = bp.edge == null ? 1.5 : bp.edge;
     const mats = { mono: ['primary', 'primary', 'secondary'], split: ['primary', 'secondary', 'secondary'], inverse: ['secondary', 'secondary', 'primary'] }[bp.scheme || 'split'];
-    const ctx = { bp, r, root, bulk, tall, legLen, armLen, e, A: mats[0], B: mats[1], T: mats[2], M: 'metal', anims: [], stride: 30, hover: 0 };
-
-    const hub = buildFrame(ctx);           // returns node the torso sits on
-    const tor = buildTorso(ctx, hub);       // returns anchors
-    buildHead(ctx, tor);
-    buildArm(ctx, tor, -1, bp.armL);
-    buildArm(ctx, tor, 1, bp.armR);
-    buildBack(ctx, tor);
+    const k = bp.size || 1;
+    const ctx = { bp, r, root, bulk, tall, legLen, armLen, e, k, A: mats[0], B: mats[1], T: mats[2], M: 'metal', anims: [], stride: 30, hover: 0 };
+    MF.setBuildScale(k);
+    try {
+      const hub = buildFrame(ctx);           // returns node the torso sits on
+      const tor = buildTorso(ctx, hub);       // returns anchors
+      buildHead(ctx, tor);
+      buildArm(ctx, tor, -1, bp.armL);
+      buildArm(ctx, tor, 1, bp.armR);
+      buildBack(ctx, tor);
+    } finally {
+      MF.setBuildScale(1);
+    }
+    ctx.stride *= k; ctx.hover *= k;
 
     // bounds for shadows / framing
     const prims = MF.updateRig(root, MF.mat(), []);
@@ -102,7 +109,8 @@
 
   function frameBiped(ctx) {
     const { root, bulk, legLen, e, B, T, M, r } = ctx;
-    const thighL = Math.round(10 * legLen + 2), shinL = Math.round(11 * legLen + 2), footH = 3;
+    const thighL = Math.round(11 * legLen + 3), shinL = Math.round(12 * legLen + 3), footH = 3;
+    const skirts = r.chance(0.6), pistons = r.chance(0.6);
     const legW = Math.round(4.5 * bulk + 1.5);
     const hipX = Math.round(4 * bulk + 3);
     const hipY = footH + thighL + shinL;
@@ -110,6 +118,7 @@
     const pelvis = root.child('pelvis', [0, hipY, 0]);
     pelvis.box(hipX * 2 - 1, 5, 7, { mat: M, bevel: 1 });
     pelvis.box(hipX * 1.2, 4, 3, { mat: T, at: [0, -1.5, 3.5], cuts: [[0, -1, 1, 2]] });
+    if (skirts) for (const s of [-1, 1]) pelvis.box(2, 8, 8, { mat: ctx.A, at: [s * (hipX + legW / 2 + 1.8), -3, 0], rot: [0, 0, s * 0.12], bevel: 0.7, cuts: [[0, -1, 1, 2.5], [0, -1, -1, 2.5]], detail: { type: 'panel', face: 'side', at: 0, dir: 'h' } });
     for (const s of [-1, 1]) {
       const hip = pelvis.child('hip' + s, [s * hipX, -1, 0]);
       hip.cyl('x', 2.6, 4, { mat: M, at: [s * 0.5, 0, 0] });
@@ -119,7 +128,9 @@
       knee.cyl('x', 2.4, legW + 1.2, { mat: M });
       knee.box(legW + 2, shinL, legW + 3, { at: [0, -shinL / 2 - 0.5, 0.4], mat: B, bevel: e, bevelSet: 'vert', detail: armored ? { type: 'vent', face: '+z', pitch: 2, inset: 1.5 } : { type: 'panel', face: '+z', at: 0 } });
       knee.box(legW + 1, 4.5, 3, { at: [0, -0.5, legW / 2 + 2], mat: T, cuts: [[0, 1, 1, 1.6], [0, -1, 1, 1.2]] });
+      if (pistons) knee.cyl('y', 0.9, shinL * 0.55, { at: [0, -shinL * 0.45, -(legW / 2 + 2.2)], mat: M, sides: 6 });
       const ankle = knee.child('ankle' + s, [0, -shinL, 0]);
+      ankle.cyl('x', 1.8, legW + 2.5, { mat: M, at: [0, -0.5, 0] });
       ankle.box(legW + 3.5, footH, legW + 8, { at: [0, -footH / 2, 1.5], mat: M, bevel: 1, bevelSet: 'top' });
       ankle.box(legW + 2.5, 2, 3, { at: [0, -0.6, legW / 2 + 5], mat: T, cuts: [[0, 1, 1, 1.2]] });
     }
@@ -128,7 +139,7 @@
     ctx.anims.push((st, n) => {
       const m = st.move, ph = st.phase;
       const drop = L * (1 - Math.cos(A * m * Math.sin(ph)));
-      n.pelvis.pos[1] -= drop + Math.sin(st.t * 2.2) * 0.35 * (1 - m);
+      n.pelvis.pos[1] -= (drop + Math.sin(st.t * 2.2) * 0.35 * (1 - m)) * ctx.k;
       n.pelvis.rot[1] = Math.sin(ph) * 0.07 * m;
       for (const s of [-1, 1]) {
         const p = s < 0 ? ph : ph + PI;
@@ -173,7 +184,7 @@
     ctx.stride = 4 * L * Math.sin(A) * 0.8;
     ctx.anims.push((st, n) => {
       const m = st.move, ph = st.phase;
-      n.pelvis.pos[1] -= L * (1 - Math.cos(A * m * Math.sin(ph))) * 0.8 + Math.sin(st.t * 2.4) * 0.35 * (1 - m);
+      n.pelvis.pos[1] -= (L * (1 - Math.cos(A * m * Math.sin(ph))) * 0.8 + Math.sin(st.t * 2.4) * 0.35 * (1 - m)) * ctx.k;
       n.pelvis.rot[0] = 0.05 * m;
       for (const s of [-1, 1]) {
         const p = s < 0 ? ph : ph + PI;
@@ -224,7 +235,7 @@
     ctx.stride = 2 * reach * Math.sin(sweep) * 2;
     ctx.anims.push((st, n) => {
       const m = st.move;
-      n.pelvis.pos[1] += Math.sin(st.phase * 2) * 0.5 * m + Math.sin(st.t * 2) * 0.3 * (1 - m);
+      n.pelvis.pos[1] += (Math.sin(st.phase * 2) * 0.5 * m + Math.sin(st.t * 2) * 0.3 * (1 - m)) * ctx.k;
       for (const L of legs) {
         const p = st.phase + L.g * PI + (count === 6 ? 0 : 0);
         const lift = Math.max(0, Math.sin(p)) * m;
@@ -278,7 +289,7 @@
     ctx.hover = lift;
     ctx.stride = 60;
     ctx.anims.push((st, n) => {
-      n.pelvis.pos[1] += Math.sin(st.t * 3) * 1.2;
+      n.pelvis.pos[1] += Math.sin(st.t * 3) * 1.2 * ctx.k;
       n.pelvis.rot[0] = 0.18 * st.move;
       n.pelvis.rot[2] = Math.sin(st.t * 1.7) * 0.03;
     });
@@ -337,10 +348,30 @@
         Object.assign(out, { neck: [0, 4 + Ht + 1.5, 0.5], shY: 4 + Ht - 3, shX: W / 2, backY: 4 + Ht * 0.55, backZ: -D / 2, topY: 4 + Ht });
       }
     }
+    greebleTorso(ctx, out);
     ctx.anims.push((st, n) => {
-      n.torso.pos[1] += Math.sin(st.t * 2.2 + 0.6) * 0.3 * (1 - st.move);
+      n.torso.pos[1] += Math.sin(st.t * 2.2 + 0.6) * 0.3 * (1 - st.move) * ctx.k;
     });
     return out;
+  }
+
+  function greebleTorso(ctx, t) {
+    const { r, M, T } = ctx;
+    const n = t.node;
+    const midY = (t.shY + (t.topY || t.shY)) / 2 - 2;
+    if (r.chance(0.55) && ctx.bp.torso !== 'barrel') {
+      // side vent pods under the shoulders
+      for (const s of [-1, 1]) n.box(2, 4, Math.max(4, t.D * 0.45), { at: [s * (t.W / 2 + 0.8), Math.max(5, t.shY - 5), -0.5], mat: M, bevel: 0.5, detail: { type: 'vent', face: 'side', pitch: 1.5, inset: 0.4 } });
+    }
+    if (r.chance(0.5)) {
+      // twin exhaust pipes low on the back
+      for (const s of [-1, 1]) n.cyl('z', 1.1, 4, { at: [s * t.W * 0.22, 5.5, -t.D / 2 - 1.5], mat: M, sides: 6 });
+    }
+    if (r.chance(0.45)) {
+      // hose from chest to back
+      n.cyl('x', 0.8, t.W * 0.5, { at: [0, midY, -t.D / 2 - 0.6], mat: M, sides: 6 });
+    }
+    if (r.chance(0.5)) n.box(1.4, 1.4, 1.2, { at: [t.W * 0.3, t.shY + 1, t.D / 2 + 0.2], mat: 'accent', shadow: false });
   }
 
   // ------------------------------------------------------------- head
@@ -419,6 +450,7 @@
       upper.box(aw, up, aw, { at: [0, -up / 2, 0], mat: M, bevel: 0.8 });
       const elbow = upper.child('elbow' + s, [0, -up, 0], [ranged ? -1.25 : -0.3, 0, 0]);
       elbow.cyl('x', 2.2, aw + 1, { mat: M });
+      if (!ranged) elbow.box(aw + 1, 3, 2, { at: [0, 0.5, -aw / 2 - 1.2], mat: T, cuts: [[0, 1, -1, 1.2]] });
       elbow.box(aw + 2, fo, aw + 2, { at: [0, -fo / 2, 0], mat: B, bevel: e, bevelSet: 'vert', detail: { type: 'panel', face: 'side', at: 0, dir: 'h' } });
       wrist = elbow.child('wrist' + s, [0, -fo, 0]);
     }
@@ -463,7 +495,7 @@
       case 'shield': {
         w.box(aw + 1, 4, aw + 1, { at: [0, -1.5, 0], mat: M, bevel: 1 });
         const sh = w.child('shield' + s, [s * (aw / 2 + 2), 3, 0]);
-        sh.box(2, 18 * armLen, 12 * bulk, { at: [0, -3, 0], mat: A, bevel: 1, cuts: [[0, -1, 1, 4], [0, -1, -1, 4]], detail: [{ type: 'stripe', face: 'side', width: 2.5, mat2: 'secondary', band: -2, bandH: 2 }, { type: 'bolts', face: 'side', inset: 1.5 }] });
+        sh.box(2, 18 * armLen, 12 * bulk, { at: [0, -3, 0], mat: A, bevel: 1, cuts: [[0, -1, 1, 4], [0, -1, -1, 4]], detail: [{ type: 'band', face: 'side', at: -3, size: 1.2, mat2: 'secondary' }, { type: 'band', face: 'side', at: 0.5, size: 0.6, mat2: 'secondary' }, { type: 'bolts', face: 'side', inset: 1.5 }] });
         break;
       }
       case 'drill': {

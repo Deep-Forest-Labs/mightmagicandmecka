@@ -259,6 +259,26 @@
   MF.makeBox = makeBox; MF.makeFrustum = makeFrustum; MF.chamfer = chamfer; MF.Prim = Prim;
 
   // ---------------------------------------------------------------- rig nodes
+  // Build-time size multiplier: part dimensions and joint offsets scale, pixel-sized details don't.
+  let K = 1;
+  MF.setBuildScale = (k) => { K = k; };
+  const sc = (a) => (a ? a.map((v) => v * K) : a);
+  function scaleOpts(o) {
+    if (!o || K === 1) return o || {};
+    const r = { ...o };
+    if (o.at) r.at = sc(o.at);
+    if (o.bevel) r.bevel = o.bevel * K;
+    if (o.cuts) r.cuts = o.cuts.map((c) => [c[0], c[1], c[2], c[3] * K]);
+    if (o.detail) r.detail = Array.isArray(o.detail) ? o.detail.map(scaleDetail) : scaleDetail(o.detail);
+    return r;
+  }
+  function scaleDetail(d) {
+    const r = { ...d };
+    for (const k of ['at', 'u', 'v', 'w', 'band']) if (typeof d[k] === 'number') r[k] = d[k] * K;
+    if (d.pts) r.pts = d.pts.map((p) => [p[0] * K, p[1] * K]);
+    return r;
+  }
+
   class Node {
     constructor(name, pos = [0, 0, 0], rot = [0, 0, 0]) {
       this.name = name;
@@ -268,10 +288,10 @@
       this.local = mat(); this.world = mat();
     }
     add(child) { this.children.push(child); return child; }
-    child(name, pos, rot) { return this.add(new Node(name, pos, rot)); }
-    box(w, h, d, opts) { const p = makeBox(w, h, d, opts); p.node = this; this.prims.push(p); return p; }
-    cyl(axis, r, len, opts = {}) { const p = makeFrustum(axis, r, r, len, opts); p.node = this; this.prims.push(p); return p; }
-    cone(axis, r1, r2, len, opts = {}) { const p = makeFrustum(axis, r1, r2, len, opts); p.node = this; this.prims.push(p); return p; }
+    child(name, pos, rot) { return this.add(new Node(name, sc(pos || [0, 0, 0]), rot)); }
+    box(w, h, d, opts) { const p = makeBox(w * K, h * K, d * K, scaleOpts(opts)); p.node = this; this.prims.push(p); return p; }
+    cyl(axis, r, len, opts = {}) { const p = makeFrustum(axis, r * K, r * K, len * K, scaleOpts(opts)); p.node = this; this.prims.push(p); return p; }
+    cone(axis, r1, r2, len, opts = {}) { const p = makeFrustum(axis, r1 * K, r2 * K, len * K, scaleOpts(opts)); p.node = this; this.prims.push(p); return p; }
     reset() { this.pos = this.base.pos.slice(); this.rot = this.base.rot.slice(); for (const c of this.children) c.reset(); }
   }
   MF.Node = Node;
