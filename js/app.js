@@ -350,7 +350,9 @@
       const row = slotRow(d.key, d.label, d.options.map((o) => `<option value="${o}">${(d.labels && d.labels[o]) || o}</option>`).join(''));
       slots.appendChild(row);
       const sel = row.querySelector('select');
-      sel.addEventListener('change', () => { editActive((b) => { b[d.key] = sel.value; }); sel.blur(); });
+      // the first slot of a stylized line (role, archetype) re-dresses the unit to match, keeping locked slots
+      const cascade = G.lineOf(bp).id !== 'modular' && d === slotDefs(bp)[0];
+      sel.addEventListener('change', () => { if (cascade) recast(d.key, sel.value); else editActive((b) => { b[d.key] = sel.value; }); sel.blur(); });
     }
     slotsLine = G.lineOf(bp).id;
   }
@@ -370,6 +372,16 @@
       inp.addEventListener('input', () => editActive((b) => { b.colors[key] = inp.value; b.palette = 'custom'; }, true));
       inp.addEventListener('change', () => pushHistory());
     }
+  }
+
+  function recast(key, value) {
+    const u = active();
+    if (!u) return;
+    const locks = Object.assign({}, S.locks, { line: 1, [key]: 1, bulk: 1, legLen: 1, tall: 1, armLen: 1, edge: 1, size: 1, palette: 1, number: 1, name: 1 });
+    const prev = Object.assign({}, u.bp, { [key]: value });
+    u.bp = sanitize(G.randomBlueprint(MF.randomSeed(), locks, prev));
+    rebuild(u);
+    pushHistory(); syncEditor(); refreshRoster(); saveHangar();
   }
 
   // switching line keeps paint only when it suits the new group
@@ -863,7 +875,7 @@
   let saveTimer = 0;
   function saveHangar() {
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => store.set('hangar', S.units.map((u) => ({ bp: u.bp, x: Math.round(u.x), z: Math.round(u.z), yaw: u.yaw }))), 300);
+    saveTimer = setTimeout(() => store.set('hangar.v2', S.units.map((u) => ({ bp: u.bp, x: Math.round(u.x), z: Math.round(u.z), yaw: u.yaw }))), 300);
   }
 
   // ------------------------------------------------------------ hud controls
@@ -914,12 +926,22 @@
 
   // ------------------------------------------------------------ starter hangar
   function starterBlueprints() {
-    const mk = (seed, o) => Object.assign(G.randomBlueprint(seed), o);
+    const mk = (seed, o) => Object.assign(G.randomBlueprint(seed, {}, null, { line: 'modular' }), o);
+    // a stylized unit: fixed slots are locked so the rest of the kit rolls to match
+    const mkLine = (seed, line, fixed, palette, extra = {}) => {
+      const prev = Object.assign({ line, palette, colors: { ...MF.PALETTES[palette] } }, fixed);
+      const locks = { line: 1, palette: 1 };
+      for (const k in fixed) locks[k] = 1;
+      return Object.assign(G.randomBlueprint(seed, locks, prev, { line }), extra);
+    };
     return [
-      mk(318, { frame: 'spider', torso: 'core', head: 'none', armL: 'none', armR: 'none', shoulders: 'none', back: 'missiles', scheme: 'split', bulk: 1.2, legLen: 1.05, tall: 1.05, edge: 2.2, palette: 'Rust Crab', colors: { ...MF.PALETTES['Rust Crab'] }, number: '318', name: 'TX-318 Tarantula' }),
-      mk(77, { frame: 'biped', torso: 'hunch', head: 'visor', armL: 'fist', armR: 'cannon', shoulders: 'pauldron', back: 'artillery', scheme: 'mono', bulk: 1.15, legLen: 0.95, tall: 1.05, armLen: 1.1, edge: 1.4, palette: 'Snowcat', colors: { ...MF.PALETTES['Snowcat'] }, number: '077', name: 'RX-077 Yeti' }),
-      mk(412, { frame: 'biped', torso: 'block', head: 'mono', armL: 'missiles', armR: 'gatling', shoulders: 'launcher', back: 'antenna', scheme: 'split', bulk: 1.25, legLen: 0.85, tall: 1.2, armLen: 1, edge: 0.8, palette: 'Jade Sentinel', colors: { ...MF.PALETTES['Jade Sentinel'] }, number: '412', name: 'KV-412 Bastion' }),
-      mk(905, { frame: 'strider', torso: 'wedge', head: 'cockpit', armL: 'gatling', armR: 'gatling', shoulders: 'round', back: 'exhaust', scheme: 'split', bulk: 1, legLen: 1.15, tall: 0.95, edge: 1.6, palette: 'Hazard', colors: { ...MF.PALETTES['Hazard'] }, number: '905', name: 'VT-905 Raptor' }),
+      mkLine(12, 'sd', { sdType: 'hero' }, 'Tricolor', { name: 'RX-078 Paragon', number: '078' }),
+      mkLine(21, 'sd', { sdType: 'commander' }, 'Zaku Green', { name: 'MS-06 Warlord', number: '006' }),
+      mkLine(33, 'sd', { sdType: 'knight' }, 'Red Comet', { name: 'XM-07 Ronin', number: '007' }),
+      mkLine(2, 'human', { role: 'rogue', era: 'fantasy', head: 'hood', weaponR: 'dagger', weaponL: 'dagger' }, 'Night Blade', { name: 'Vex Nightstep' }),
+      mkLine(6, 'human', { role: 'soldier', era: 'scifi', head: 'helm', shoulders: 'pauldrons', weaponR: 'mg' }, 'Ultramarine', { name: 'Sgt. Harlan "Lucky"' }),
+      mkLine(3, 'human', { role: 'berserker', era: 'fantasy', head: 'horned', shoulders: 'fur', weaponR: 'greatsword' }, 'Blood Oath', { name: 'Ulfgar Oathbreaker' }),
+      mk(318, { frame: 'spider', torso: 'core', head: 'none', armL: 'none', armR: 'none', shoulders: 'none', back: 'missiles', scheme: 'split', bulk: 1.2, legLen: 1.05, tall: 1.05, edge: 2.2, size: 1.15, palette: 'Rust Crab', colors: { ...MF.PALETTES['Rust Crab'] }, number: '318', name: 'TX-318 Tarantula' }),
     ];
   }
 
@@ -927,13 +949,18 @@
     buildEditor();
     bindHud();
     resizeHangar();
-    const saved = store.get('hangar', null);
-    const list = Array.isArray(saved) && saved.length ? saved : starterBlueprints().map((bp, i) => ({ bp, x: (i - 1.5) * 56, z: i % 2 ? 14 : -10, yaw: 0 }));
+    const saved = store.get('hangar.v2', null);
+    const starter = () => {
+      // humans in front, mechs behind
+      const xs = [-80, 0, 80, -54, -8, 42, 150], zs = [-26, -26, -26, 30, 30, 30, 0];
+      return starterBlueprints().map((bp, i) => ({ bp, x: xs[i], z: zs[i], yaw: 0 }));
+    };
+    const list = Array.isArray(saved) && saved.length ? saved : starter();
     for (const s of list) {
       try { S.units.push(makeUnit(s.bp, s.x, s.z, s.yaw || 0)); } catch (e) { /* skip unreadable saved unit */ }
     }
     if (!S.units.length) S.units.push(makeUnit(G.randomBlueprint(MF.randomSeed())));
-    const first = S.units.length > 1 ? S.units[1] : S.units[0];
+    const first = S.units.find((u) => G.lineOf(u.bp).group === 'Humans') || S.units[0];
     S.cam.x = first.x; S.cam.z = first.z;
     selectOnly(first.id);
     pushHistory();

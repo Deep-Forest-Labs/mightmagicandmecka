@@ -105,8 +105,8 @@
       padScale: 1.05,
     },
     heavy: {
-      label: 'Heavy flamer', body: 'armored', aY: 4, thigh: 6, shin: 6, legW: 6.2, hipX: 4.6, crouch: [-0.2, 0.4], boot: [7.8, 6, 10.5],
-      chest: [18, 13.5, 12], lean: 0.12, walkLean: 0.06, head: 13.5, headZ: 1, headDrop: 2, U: 6, F: 6.6, aw: 5, fist: 5.4,
+      label: 'Heavy flamer', body: 'armored', aY: 4, thigh: 6.8, shin: 6.6, legW: 6.2, hipX: 4.6, crouch: [-0.2, 0.4], boot: [7.8, 6, 10.5],
+      chest: [18, 15, 12], lean: 0.12, walkLean: 0.06, head: 14, headZ: 1, headDrop: 2, U: 6, F: 6.6, aw: 5, fist: 5.4,
       shX: 11, shDrop: 3.4, swing: 0.42, lift: 0.9, sway: 0.05, walkCrouch: 0.05, shRoll: 0.06, armSwing: 3, ws: 1.3,
       padScale: 1.3,
     },
@@ -722,7 +722,7 @@
             }
             const pitch = P.lean + P.walkLean * m + H.fx.lean;
             const low = [H.sh[s][0] * 0.35, P.chest[1] * 0.1 + Math.sin(st.phase * 2) * 0.4 * m, P.chest[2] * 0.5 + 1.5];
-            const aimP = [H.sh[s][0] * 0.45, H.sh[s][1] - 2.2, P.chest[2] * 0.5 + 1];
+            const aimP = [H.sh[s][0] * 0.4, H.sh[s][1] + 0.6, P.chest[2] * 0.5 - 0.5];
             const p = mix3(low, aimP, up);
             p[2] -= kick * 1.5; p[1] += kick * 0.4;
             const th = lerp(-0.3, 0.02 + kick * 0.18, up) + pitch;
@@ -802,9 +802,9 @@
             const shs = H.sh[s];
             // rest: grip in front of the chest, blade over the shoulder (angle th: 0 = forward, PI/2 = up, PI = back)
             // th is the blade's pitch in world terms (0 forward, PI/2 up, PI back); chest pitch is added below
-            const rest = { p: [shs[0] * 0.55, P.chest[1] * 0.45 + Math.sin(st.phase * 2) * 0.5 * m, P.chest[2] * 0.5 + 2.5], th: 2.28, lat: s * 0.3, roll: -s * 1.2 };
-            const wind = { p: [shs[0] * 0.15, shs[1] + P.U * 0.9, -1], th: 2.85, lat: s * 0.1, roll: -s * 1.4 };
-            const hit = { p: [-shs[0] * 0.05, -P.chest[1] * 0.1, P.chest[2] * 0.5 + P.F + 2], th: -0.42, lat: -s * 0.05, roll: -s * 1.5 };
+            const rest = { p: [shs[0] * 0.55, P.chest[1] * 0.45 + Math.sin(st.phase * 2) * 0.5 * m, P.chest[2] * 0.5 + 2.5], th: 2.42, lat: s * 0.3, roll: -s * 1.2 };
+            const wind = { p: [shs[0] * 0.15, shs[1] + P.U * 0.6, -1], th: 2.95, lat: s * 0.1, roll: -s * 1.4 };
+            const hit = { p: [-shs[0] * 0.05, -P.chest[1] * 0.1, P.chest[2] * 0.5 + P.F + 2], th: -0.3, lat: -s * 0.05, roll: -s * 1.5 };
             let k = rest;
             if (f > 0) {
               const u = 1 - f;
@@ -918,7 +918,7 @@
       }
       n.pelvis.pos[1] = (P.aY + V) * k;
       n.pelvis.rot[1] = Math.sin(ph) * 0.1 * m1;
-      n.pelvis.rot[2] = Math.sin(ph) * P.sway * m1;
+      n.pelvis.rot[2] = Math.sin(ph) * P.sway * m1 + Math.sin(t * 0.9) * 0.025 * idle; // stride sway / idle weight shift
       const ch = n.chest;
       ch.rot[0] = P.lean + fx.lean + P.walkLean * m1 + breath * 0.02 * idle;
       ch.rot[1] = -n.pelvis.rot[1] * (twoHanded ? 0.9 : 1.6) + fx.twist;

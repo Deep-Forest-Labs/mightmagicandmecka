@@ -13,10 +13,12 @@ const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
 const R = new MF.Renderer(CW, CH);
 const tmp = document.createElement('canvas'); tmp.width=CW; tmp.height=CH;
 seeds.forEach((seed, row) => {
-  const bp = MF.Gen.randomBlueprint(seed, {}, null, { line: q.get('line') || undefined });
-  if (frame) bp.frame = frame;
   const skip = new Set(['seeds','dirs','zoom','phase','move','frame','walk','line','cw','ch','fire','pal']);
-  for (const [k, v] of q.entries()) if (!skip.has(k)) bp[k] = isNaN(+v) ? v : +v;
+  // slot overrides are passed as locks so the remaining slots roll to match them
+  const prev = { line: q.get('line') || 'modular' }, locks = {};
+  for (const [k, v] of q.entries()) if (!skip.has(k)) { prev[k] = isNaN(+v) ? v : +v; locks[k] = 1; }
+  if (frame) { prev.frame = frame; locks.frame = 1; }
+  const bp = MF.Gen.randomBlueprint(seed, locks, prev, { line: q.get('line') || undefined });
   if (q.get('pal')) bp.colors = { ...MF.PALETTES[q.get('pal')] };
   const rig = MF.Gen.build(bp);
   const pal = MF.buildPalette(bp.colors);

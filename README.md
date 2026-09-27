@@ -21,7 +21,8 @@ Because the model is 3D underneath, every mech gets all 8 directions (and every 
 
 | Key | Action |
 | --- | --- |
-| `W` `A` `S` `D` / arrows | Walk the selected mechs (8 directions) |
+| `W` `A` `S` `D` / arrows | Walk the selected units (8 directions) |
+| `Space` | Attack: fire, slash or swing |
 | `Shift` | Run |
 | `Tab`, `1`–`9`, click | Select a unit |
 | Shift-click, `G` | Add to the group, or select all |
@@ -33,20 +34,34 @@ Because the model is 3D underneath, every mech gets all 8 directions (and every 
 
 On touch screens, drag anywhere on the hangar to steer and tap a mech to select it.
 
+## Product lines
+
+Pick a line at the top of the Parts panel. Each line has its own part slots.
+
+- **Heroic frame (SD):** super-deformed, Gundam-inspired mechs. There are seven archetypes: hero, commander, heavy, knight, sniper, brawler and ace. Each has its own head, backpack, and separate weapon slots for the right hand, left hand, right back and left back. Weapons include beam rifles, machine guns, bazookas, rocket launchers, missile and homing-missile pods, shoulder cannons, beam sabers, heat axes, katanas, lances, knuckles and shields.
+- **Human:** heroic SD infantry about 3 heads tall, for 64 px sprite cells. The roles are rogue, soldier, berserker, sniper, knight and heavy flamer trooper. The era can be high fantasy or grimdark sci-fi, and it swaps each role's gear. Head, shoulders, right and left hand weapons, and extras (scarf, cape, backpack, banner) are separate slots.
+- **Modular frame:** the original mechs. Chassis (biped, reverse-joint, quadruped, spider, crawler, treads, hover), torso, head, arms, shoulders and backpack.
+
+Changing the role or archetype re-dresses the unit to match, but locked slots stay as they are.
+
 ## Factory panel
 
-- **Parts:** chassis (biped, reverse-joint, quad spider, hex crawler, treads, hover and more), torso, head, each arm, shoulders, backpack, and how the paint splits. The dice button rerolls one slot. The lock keeps a slot through Randomize, Mutate and the production line.
-- **Proportions:** bulk, leg length, torso height, arm length and bevel softness.
-- **Paint:** ten presets based on the reference art (Rust Crab, Snowcat, Jade Sentinel…). You can also shuffle, or pick base colours yourself. Ramps are generated from each base colour.
-- **Production line:** a batch of ten random mechs that respects your locks. Click one to load it into the active unit. Shift-click to deploy it as a new unit.
-- **Sprite sheet:** 8 rows (S, SE, E, NE, N, NW, W, SW) × idle + 4–12 walk frames. Exports a transparent PNG at 1–4× with an optional drop shadow, plus JSON metadata (cell size, feet anchor, and the blueprint).
-- **Blueprint code:** a copy/paste string that rebuilds a mech exactly.
+- **Parts:** the dice button rerolls one slot. The lock keeps a slot through Randomize, Mutate and the production line.
+- **Proportions:** bulk, legs, torso, arms, overall scale and bevel softness.
+- **Paint:** palettes for each group, plus shuffle and colour pickers. Humans add skin, hair, leather and a third cloth colour. Ramps are generated from each base colour.
+- **Production line:** a batch of ten random units that respects your locks, filterable to All, Mechs or Humans. Click one to load it into the active unit. Shift-click to deploy it as a new unit.
+- **Sprite sheet:** 8 rows (S, SE, E, NE, N, NW, W, SW). The columns are idle, the walk loop, then the attack. Choose a tight crop or fixed 64/96/128 px game cells, where the feet sit at the same anchor in every frame. It exports a transparent PNG at 1–4×, plus JSON with the animation ranges and the blueprint.
+- **Blueprint code:** a copy/paste string that rebuilds a unit exactly.
+
+`docs/ARCHITECTURE.md` explains how this feeds the game: baked sprites for 50+ units on screen, and Armored Core-style loadouts.
 
 ## Files
 
 - `js/core.js`: RNG, transforms, palettes and ramps, convex primitives, and the rig nodes
 - `js/render.js`: the pixel renderer (raster, shadow map, shading, decals, outlines)
-- `js/mechgen.js`: blueprints, the part library, locomotion rigs and walk cycles
+- `js/mechgen.js`: blueprints, the product-line registry, and the modular mech parts, rigs and walk cycles
+- `js/sdmechs.js`: the Heroic frame (SD) line and its shared weapon table (`MF.Gen.sdWeapons`)
+- `js/humans.js`: the Human line: roles, IK arms and its weapon table (`MF.Gen.humanWeapons`)
 - `js/app.js`: the hangar, input, editor, production line and export
 - `tools/build.js`: bundles everything into one file (`dist/mecha-factory.html`)
 - `tools/preview.html`: a dev view that renders blueprints from every direction (`?seeds=1,2&dirs=8&walk=1.57`)

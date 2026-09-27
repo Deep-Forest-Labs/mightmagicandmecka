@@ -284,6 +284,9 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
 .line-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .line-head .block-title { margin: 0; }
 .line-hint { margin: 6px 0 12px; }
+.line-filter { display: flex; gap: 4px; margin-top: 10px; }
+.slot-line { padding-bottom: 6px; margin-bottom: 4px; border-bottom: 1px dashed var(--line-soft); }
+.slot-line .slot-label { color: var(--amber); }
 .gallery { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
 .thumb {
   position: relative;
@@ -465,7 +468,12 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
       <h2 class="block-title">Production line</h2>
       <button id="btnLine" class="btn btn-sm" title="Roll a new batch (respects locks)">New batch</button>
     </div>
-    <p class="hint line-hint">Click to load into the active unit. Shift-click to deploy as a new unit.</p>
+    <div class="line-filter" id="lineFilter" role="group" aria-label="Filter the production line">
+      <button class="chip is-on" data-group="" aria-pressed="true">All</button>
+      <button class="chip" data-group="Mechs" aria-pressed="false">Mechs</button>
+      <button class="chip" data-group="Humans" aria-pressed="false">Humans</button>
+    </div>
+    <p class="hint line-hint">Click to load into the active unit. Shift-click to deploy as a new unit. Lock a slot to roll variations of it.</p>
     <div id="gallery" class="gallery"></div>
   </aside>
 </div>
@@ -621,6 +629,15 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     'Crimson Ronin':{ primary: '#b3242f', secondary: '#2c2733', metal: '#4b4655', accent: '#ffe066', glass: '#ff9f8a', outline: '#150f15', bg: '#1f1b24', floor: '#1a1720' },
     'Midnight':     { primary: '#3c4066', secondary: '#8b5dd8', metal: '#262638', accent: '#ff4fd8', glass: '#6ff7ff', outline: '#0d0c16', bg: '#17151f', floor: '#13111a' },
     'Olive Drab':   { primary: '#6b7443', secondary: '#c9b98b', metal: '#383932', accent: '#ffb347', glass: '#a8e0ff', outline: '#16170f', bg: '#8c8a78', floor: '#7d7b69' },
+    'Tricolor':     { primary: '#e8ebf1', secondary: '#2d5ccc', metal: '#394057', accent: '#ffd23f', glass: '#5ef0a0', tertiary: '#cf2f3a', outline: '#121626', bg: '#2a3350', floor: '#232b44' },
+    'Red Comet':    { primary: '#cf3a44', secondary: '#7d1f2b', metal: '#3b3040', accent: '#ffd23f', glass: '#ff7fb0', tertiary: '#e6dccb', outline: '#1a0e14', bg: '#2a2230', floor: '#231c29' },
+    // human palettes carry skin / hair / leather and a third cloth colour
+    'Field Company':{ human: true, primary: '#5d6d4b', secondary: '#c9b27a', metal: '#3c3e46', accent: '#ffb02e', glass: '#8ee6ff', skin: '#c98d64', hair: '#2e2320', leather: '#5e4632', tertiary: '#9c2f2f', outline: '#15130e', bg: '#8d8878', floor: '#7d786a' },
+    'Night Blade':  { human: true, primary: '#3b3452', secondary: '#9a2f42', metal: '#a3abbb', accent: '#7cf0c0', glass: '#9cf4ff', skin: '#e0ac85', hair: '#1f1a26', leather: '#4a3326', tertiary: '#c9a45a', outline: '#120f18', bg: '#5b5b63', floor: '#4f4f57' },
+    'Blood Oath':   { human: true, primary: '#7d2b23', secondary: '#cbb28a', metal: '#6c717c', accent: '#ff7a2a', glass: '#ffc38a', skin: '#d9a07a', hair: '#c46a2a', leather: '#5a3a26', tertiary: '#302a2a', outline: '#170d0b', bg: '#7c7c7c', floor: '#6e6e6e' },
+    'Ultramarine':  { human: true, primary: '#2f56aa', secondary: '#e0b84a', metal: '#3b3e4b', accent: '#ff4040', glass: '#ff5a5a', skin: '#c28a6a', hair: '#3a2a22', leather: '#4c3a2e', tertiary: '#e9e4d8', outline: '#0f1220', bg: '#3c3f4a', floor: '#343742' },
+    'Goblin Warband':{ human: true, primary: '#5c4b31', secondary: '#8f3232', metal: '#8f949c', accent: '#ffcf3a', glass: '#ffe28a', skin: '#8fb04a', hair: '#2a2438', leather: '#6a4028', tertiary: '#3c5a8a', outline: '#14120c', bg: '#808080', floor: '#747474' },
+    'Arctic Ranger':{ human: true, primary: '#d6dce5', secondary: '#4a6a8a', metal: '#565b67', accent: '#6ff0ff', glass: '#a8f4ff', skin: '#e8b894', hair: '#e6e0cf', leather: '#7a5a44', tertiary: '#b8323c', outline: '#141822', bg: '#4b5566', floor: '#414a5a' },
   };
 
   // Build render-ready palette: RGB ramps per material + packed outline/floor colours.
@@ -631,6 +648,10 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
       metal: makeRamp(base.metal, { shift: 6 }),
       accent: makeRamp(base.accent, { shift: 4 }),
       glass: makeRamp(base.glass, { shift: 4 }),
+      skin: makeRamp(base.skin || '#d99a6c', { shift: 7 }),
+      hair: makeRamp(base.hair || '#3b2a26', { shift: 6 }),
+      leather: makeRamp(base.leather || '#6e4a33', { shift: 7 }),
+      tertiary: makeRamp(base.tertiary || '#b8323c', { shift: 7 }),
     };
     const pack = {};
     for (const k in ramps) pack[k] = ramps[k].map((c) => packRGBA(c[0], c[1], c[2]));
@@ -703,7 +724,13 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     ends: [[0,1,1],[0,-1,1],[0,1,-1],[0,-1,-1]], // z-ends (tank treads)
     xends: [[1,1,0],[1,-1,0],[-1,1,0],[-1,-1,0]],
   };
+  EDGES.corners = [[1,1,1],[1,1,-1],[1,-1,1],[1,-1,-1],[-1,1,1],[-1,1,-1],[-1,-1,1],[-1,-1,-1]];
   function chamfer(set, c, list = []) {
+    if (set === 'round') { // pebble: all edges plus deeper corner cuts
+      chamfer('all', c, list);
+      for (const e of EDGES.corners) list.push([e[0], e[1], e[2], c * 1.9]);
+      return list;
+    }
     for (const e of EDGES[set]) list.push([e[0], e[1], e[2], c]);
     return list;
   }
@@ -1165,6 +1192,21 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
           if (Math.abs(v - (d.at || 0)) < (d.h || 0.9) && Math.abs(u) < (d.w || hu - 1)) res = 200 + 4;
           break;
         }
+        case 'face': { // tiny face: eye blocks (dark or glowing), optional angry brows (mat2), mouth, beard below `band` (mat2)
+          const pts = d.pts || [[-2, 0], [2, 0]];
+          const ew = d.size || 0.6, eh = d.h || ew;
+          if (d.band != null && v < d.band) res = 100 + cur;
+          for (const q of pts) {
+            const du = Math.abs(u - q[0]), dv = v - q[1];
+            if (du < ew && Math.abs(dv) < eh) res = d.glow ? 204 : (d.dark != null ? d.dark : 0);
+            else if (d.brow) {
+              const by = q[1] + eh + 0.7 + (d.angry ? (Math.abs(u) - Math.abs(q[0])) * 0.45 : 0);
+              if (du < ew + 0.7 && Math.abs(v - by) < 0.55) res = 100 + Math.max(0, Math.min(1, cur - 2));
+            }
+          }
+          if (d.v != null && Math.abs(v - d.v) < 0.5 && Math.abs(u) < (d.mw || 1.2)) res = d.band != null && d.v < d.band ? 100 : 0;
+          break;
+        }
         case 'tread': {
           const off = scene.treadOffset ? scene.treadOffset[p._unit] || 0 : 0;
           const k = d.axis === 'v' ? v : u;
@@ -1236,13 +1278,47 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
   const NAMES = ['Bulwark', 'Scorpion', 'Mantis', 'Warden', 'Hornet', 'Goliath', 'Talon', 'Jackal', 'Rook', 'Cinder', 'Paladin', 'Vulture', 'Basilisk', 'Kodiak', 'Stinger', 'Harrier', 'Anvil', 'Wraith', 'Ironclad', 'Tarantula', 'Sabre', 'Colossus', 'Marauder', 'Bastion', 'Onager', 'Kestrel', 'Behemoth', 'Scarab', 'Tempest', 'Grendel', 'Halberd', 'Mule', 'Nomad', 'Specter', 'Hammerhead', 'Locust', 'Raptor', 'Titan', 'Viper', 'Yeti'];
   const PREFIX = ['MK', 'RX', 'VT', 'GX', 'AR', 'TX', 'ZR', 'KV', 'HX', 'M'];
 
+  // ------------------------------------------------------------- product lines
+  // A line is a family of units with its own part slots, random rules and builder.
+  // def: { label, group, slots:[{key,label,options,labels}], weight, random(r, keep, bp), build(ctx),
+  //        palettes?:[names], sizeRange?:[a,b], name?(r, bp), sliders?:[keys] }
+  const LINES = {};
+  function registerLine(id, def) { LINES[id] = Object.assign({ id, weight: 1, group: 'Mechs' }, def); }
+  const lineOf = (bp) => LINES[(bp && bp.line) || 'modular'] || LINES.modular;
+
   // ------------------------------------------------------------- random blueprint
-  function randomBlueprint(seed, locks = {}, prev = null) {
+  // opts.line forces a line (used by the gallery filter); locks keep slot values from prev.
+  function randomBlueprint(seed, locks = {}, prev = null, opts = {}) {
     const r = new RNG(seed);
     const keep = (k, gen) => (locks[k] && prev && prev[k] !== undefined ? prev[k] : gen());
+    const weights = {};
+    for (const id in LINES) if (!opts.group || LINES[id].group === opts.group) weights[id] = LINES[id].weight;
+    let line = keep('line', () => opts.line || r.weighted(weights));
+    if (!LINES[line]) line = 'modular';
+    const def = LINES[line];
+    const bp = { v: 2, seed, line };
+    // a locked slot from another line would be meaningless here
+    const keepL = (k, gen) => (locks[k] && prev && (prev.line || 'modular') === line && prev[k] !== undefined ? prev[k] : gen());
+    def.random(r, keepL, bp);
+    bp.bulk = keep('bulk', () => +r.range(0.8, 1.35).toFixed(2));
+    bp.legLen = keep('legLen', () => +r.range(0.75, 1.3).toFixed(2));
+    bp.tall = keep('tall', () => +r.range(0.8, 1.3).toFixed(2));
+    bp.armLen = keep('armLen', () => +r.range(0.8, 1.25).toFixed(2));
+    bp.edge = keep('edge', () => +r.range(0.8, 2.4).toFixed(1));
+    const sr = def.sizeRange || [1.0, 1.3];
+    bp.size = keepL('size', () => +r.range(sr[0], sr[1]).toFixed(2));
+    const pals = def.palettes || Object.keys(MF.PALETTES).filter((k) => !MF.PALETTES[k].human);
+    bp.palette = keep('palette', () => r.pick(pals));
+    bp.colors = locks.palette && prev && prev.colors ? { ...prev.colors } : { ...MF.PALETTES[bp.palette] };
+    bp.number = keep('number', () => String(r.int(100, 999)));
+    bp.name = keep('name', () => (def.name ? def.name(r, bp) : `${r.pick(PREFIX)}-${bp.number} ${r.pick(NAMES)}`));
+    return bp;
+  }
+
+  function randomModular(r, keep, bp) {
     const frame = keep('frame', () => r.weighted({ biped: 5, strider: 3, spider: 3, crawler: 2, quadruped: 3, tank: 2, hover: 2 }));
     const legged = frame === 'biped' || frame === 'strider';
-    const bp = { v: 1, seed, frame };
+    bp.frame = frame;
     bp.torso = keep('torso', () => {
       if (frame === 'spider' || frame === 'crawler') return r.weighted({ core: 5, block: 2, barrel: 2, wedge: 1, cockpit: 2 });
       if (frame === 'quadruped') return r.weighted({ core: 3, block: 2, cockpit: 3, wedge: 2, barrel: 1 });
@@ -1262,17 +1338,6 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     bp.shoulders = keep('shoulders', () => r.weighted({ pauldron: 4, round: 2, launcher: 2, spiked: 1, shield: 2, none: 2 }));
     bp.back = keep('back', () => r.weighted({ missiles: 3, exhaust: 2, antenna: 2, tank: 2, radar: 1, artillery: 2, wings: 1, jetpack: 2, saw: 1, sensor: 2, none: 2 }));
     bp.scheme = keep('scheme', () => r.weighted({ mono: 2, split: 3, inverse: 1 }));
-    bp.bulk = keep('bulk', () => +r.range(0.8, 1.35).toFixed(2));
-    bp.legLen = keep('legLen', () => +r.range(0.75, 1.3).toFixed(2));
-    bp.tall = keep('tall', () => +r.range(0.8, 1.3).toFixed(2));
-    bp.armLen = keep('armLen', () => +r.range(0.8, 1.25).toFixed(2));
-    bp.edge = keep('edge', () => +r.range(0.8, 2.4).toFixed(1));
-    bp.size = keep('size', () => +r.range(1.0, 1.3).toFixed(2));
-    bp.palette = keep('palette', () => r.pick(Object.keys(MF.PALETTES)));
-    bp.colors = locks.palette && prev && prev.colors ? { ...prev.colors } : { ...MF.PALETTES[bp.palette] };
-    bp.number = keep('number', () => String(r.int(100, 999)));
-    bp.name = keep('name', () => `${r.pick(PREFIX)}-${bp.number} ${r.pick(NAMES)}`);
-    return bp;
   }
 
   // ------------------------------------------------------------- build
@@ -1283,15 +1348,10 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     const e = bp.edge == null ? 1.5 : bp.edge;
     const mats = { mono: ['primary', 'primary', 'secondary'], split: ['primary', 'secondary', 'secondary'], inverse: ['secondary', 'secondary', 'primary'] }[bp.scheme || 'split'];
     const k = bp.size || 1;
-    const ctx = { bp, r, root, bulk, tall, legLen, armLen, e, k, A: mats[0], B: mats[1], T: mats[2], M: 'metal', anims: [], stride: 30, hover: 0 };
+    const ctx = { bp, r, root, bulk, tall, legLen, armLen, e, k, A: mats[0], B: mats[1], T: mats[2], M: 'metal', anims: [], stride: 30, hover: 0, fireDecay: 5 };
     MF.setBuildScale(k);
     try {
-      const hub = buildFrame(ctx);           // returns node the torso sits on
-      const tor = buildTorso(ctx, hub);       // returns anchors
-      buildHead(ctx, tor);
-      buildArm(ctx, tor, -1, bp.armL);
-      buildArm(ctx, tor, 1, bp.armR);
-      buildBack(ctx, tor);
+      lineOf(bp).build(ctx);
     } finally {
       MF.setBuildScale(1);
     }
@@ -1307,7 +1367,7 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     }
     const nodes = MF.findNodes(root);
     return {
-      root, nodes, height: maxY, radius: Math.max(14, rad), stride: ctx.stride, hover: ctx.hover,
+      root, nodes, height: maxY, radius: Math.max(10, rad), stride: ctx.stride, hover: ctx.hover, fireDecay: ctx.fireDecay,
       animate(st) {
         root.reset();
         for (const a of ctx.anims) a(st, nodes);
@@ -2071,7 +2131,1961 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     }
   }
 
-  MF.Gen = { OPTIONS, LABELS, randomBlueprint, build, NAMES, PREFIX };
+  function buildModular(ctx) {
+    const { bp } = ctx;
+    const hub = buildFrame(ctx);           // returns node the torso sits on
+    const tor = buildTorso(ctx, hub);       // returns anchors
+    buildHead(ctx, tor);
+    buildArm(ctx, tor, -1, bp.armL);
+    buildArm(ctx, tor, 1, bp.armR);
+    buildBack(ctx, tor);
+  }
+
+  const slot = (key, label, opt) => ({ key, label, options: OPTIONS[opt || key], labels: LABELS[opt || key] });
+  registerLine('modular', {
+    label: 'Modular frame', group: 'Mechs', weight: 4,
+    slots: [slot('frame', 'Chassis'), slot('torso', 'Torso'), slot('head', 'Head'), slot('armL', 'Left arm', 'arm'), slot('armR', 'Right arm', 'arm'), slot('shoulders', 'Shoulders'), slot('back', 'Backpack'), slot('scheme', 'Paint split')],
+    random: randomModular,
+    build: buildModular,
+  });
+
+  MF.Gen = {
+    OPTIONS, LABELS, randomBlueprint, build, NAMES, PREFIX, LINES, registerLine, lineOf,
+    // building blocks other lines can reuse
+    parts: { buildFrame, frameBiped, buildTorso, greebleTorso, buildHead, buildArm, buildShoulderArmor, buildBack, muzzleFlash },
+  };
+})();
+</script>
+<script>
+// Mecha Factory — "Heroic frame" line: super-deformed, Gundam-inspired mechs.
+// ~3 heads tall: big head with a proper face, big chest block, huge shoulder armour, short thick
+// limbs, big feet, narrow waist with skirt armour and big backpacks. Seven archetypes with their
+// own silhouettes, plus Armored-Core-style hardpoints: right hand, left hand and two shoulder mounts.
+//
+// Weapons are self-contained builders collected in WEAPONS (exposed as MF.Gen.sdWeapons) so other
+// lines can reuse them. Mount-frame convention for every weapon: +z = muzzle / forward,
+// +y = up (the direction a held blade points), x = sideways; the origin is the grip (hand) or the
+// mount bracket. A builder adds its own muzzle flash and its own st.fire animation; when it is
+// given arm joints (o.joints) it also drives the arm through the shared attack motion (armMotion).
+(function () {
+  const MF = window.MF;
+  const G = MF.Gen;
+  const PI = Math.PI;
+
+  // ------------------------------------------------------------------ palettes
+  // Gundam-style tricolour blocking: primary armour, secondary chest, tertiary waist/feet/shield,
+  // accent = yellow V-fin/vents and every emissive bit.
+  Object.assign(MF.PALETTES, {
+    'Zaku Green':    { primary: '#6b9a4f', secondary: '#35593c', metal: '#474c58', accent: '#ffcf3a', glass: '#ff5c9d', tertiary: '#9aa39a', outline: '#111a12', bg: '#c8c3a8', floor: '#b6b196' },
+    'Titans Navy':   { primary: '#33406b', secondary: '#1d2239', metal: '#4d5266', accent: '#ffb02e', glass: '#ff4d5e', tertiary: '#d5d7de', outline: '#0b0d17', bg: '#9ba1b0', floor: '#8b91a0' },
+    'Gold Frame':    { primary: '#f2efe7', secondary: '#d29b2c', metal: '#3b4152', accent: '#fff07a', glass: '#5ef0ff', tertiary: '#2f57bf', outline: '#15131c', bg: '#34445e', floor: '#2c3a52' },
+    'Hazard Orange': { primary: '#f08a2a', secondary: '#2f2e38', metal: '#4b4b57', accent: '#ffe14a', glass: '#6ff0ff', tertiary: '#ebe5d4', outline: '#16120e', bg: '#4a5260', floor: '#404855' },
+    'Black Knight':  { primary: '#3a3a47', secondary: '#bd922e', metal: '#62646f', accent: '#ffd24a', glass: '#ff4a4a', tertiary: '#a3212f', outline: '#0d0c11', bg: '#a39d90', floor: '#948e81' },
+    'Ghost Camo':    { primary: '#808964', secondary: '#4c5741', metal: '#3c3f40', accent: '#ffb347', glass: '#7fffd4', tertiary: '#bdb28b', outline: '#131610', bg: '#5d6470', floor: '#525965' },
+  });
+  const SD_PALETTES = ['Tricolor', 'Red Comet', 'Zaku Green', 'Titans Navy', 'Gold Frame', 'Hazard Orange', 'Black Knight', 'Ghost Camo'];
+
+  // ------------------------------------------------------------------ helpers
+  const smooth = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
+  // keyframed pose deltas: ks = [[u, {sh, el, ry, tw, ln, lu}], ...] with u ascending
+  function keyed(u, ks) {
+    if (u <= ks[0][0]) return ks[0][1];
+    for (let i = 1; i < ks.length; i++) {
+      if (u <= ks[i][0]) {
+        const [u0, a] = ks[i - 1], [u1, b] = ks[i];
+        const t = smooth((u - u0) / (u1 - u0));
+        const o = {};
+        for (const k of ['sh', 'el', 'ry', 'tw', 'ln', 'lu']) o[k] = (a[k] || 0) + ((b[k] || 0) - (a[k] || 0)) * t;
+        return o;
+      }
+    }
+    return ks[ks.length - 1][1];
+  }
+  const Z = {};
+  const MOTIONS = {
+    // overhead chop that ends in a low diagonal follow-through
+    slash: [[0, Z], [0.14, { sh: -2.5, el: -0.7, ry: 0.15, tw: 0.35, ln: -0.06 }], [0.4, { sh: 0.35, el: 0.4, ry: -0.45, tw: -0.45, ln: 0.12, lu: 1.5 }], [0.7, { sh: 0.2, el: 0.3, ry: -0.3, tw: -0.3, ln: 0.08, lu: 1 }], [1, Z]],
+    // lance / spear: pull back, lunge
+    thrust: [[0, Z], [0.16, { sh: 0.35, el: -0.3, tw: 0.3, ln: -0.05 }], [0.38, { sh: -0.35, el: 0.9, tw: -0.35, ln: 0.12, lu: 4 }], [0.7, { sh: -0.3, el: 0.7, tw: -0.25, ln: 0.08, lu: 3 }], [1, Z]],
+    // straight punch from a fist pose
+    punch: [[0, Z], [0.14, { sh: 0.45, el: -1.3, tw: 0.35 }], [0.34, { sh: -1.6, el: 0.3, ry: -0.15, tw: -0.4, ln: 0.1, lu: 2.5 }], [0.65, { sh: -1.4, el: 0.2, tw: -0.3, ln: 0.08, lu: 2 }], [1, Z]],
+    // hold the weapon up in front and twirl it (the weapon spins itself)
+    spin: [[0, Z], [0.12, { sh: -1.2, el: 0.3, ry: -0.2 }], [0.85, { sh: -1.2, el: 0.3, ry: -0.2 }], [1, Z]],
+    // shield bash
+    bash: [[0, Z], [0.15, { sh: 0.25, el: 0.1, tw: 0.25 }], [0.35, { sh: -0.35, el: -0.1, tw: -0.3, ln: 0.08, lu: 2.5 }], [1, Z]],
+  };
+  // Shared attack motion. f = st.fire (1 right after the trigger, decaying to 0).
+  // J = { sh, el, torso, pelvis } node names; s = side (+1 left, -1 right).
+  function armMotion(kind, f, n, J, s, k) {
+    if (!(f > 0) || !kind) return;
+    let d;
+    if (kind === 'shoot') d = { sh: 0.05 * f, el: -0.28 * f };
+    else if (kind === 'heavy') d = { sh: 0.12 * f, el: -0.45 * f, ln: -0.07 * f, lu: -1.2 * f };
+    else if (kind === 'spray') d = { el: -0.06 * f + Math.sin(f * 60) * 0.03 };
+    else d = keyed(1 - f, MOTIONS[kind] || MOTIONS.punch);
+    const sh = J.sh && n[J.sh], el = J.el && n[J.el], tor = J.torso && n[J.torso], pel = J.pelvis && n[J.pelvis];
+    if (sh) { sh.rot[0] += d.sh || 0; sh.rot[1] += (d.ry || 0) * s; }
+    if (el) el.rot[0] = Math.min(0.05, el.rot[0] + (d.el || 0));
+    if (tor) { tor.rot[1] += (d.tw || 0) * s; tor.rot[0] += d.ln || 0; }
+    if (pel) pel.pos[2] += (d.lu || 0) * k;
+  }
+  // fire value for this weapon, honouring alternation between two melee hands
+  const fireOf = (st, o) => (o.alt == null || ((st.fireN | 0) & 1) === o.alt ? st.fire || 0 : 0);
+  const flash = (node, name, at, kind, rot) => {
+    const mz = node.child(name, at, rot || [-PI / 2, 0, 0]); // flare points down local -y -> weapon +z
+    mz.startHidden = true;
+    G.parts.muzzleFlash(mz, kind);
+    return mz;
+  };
+  const GLOW = { mat: 'accent', shadow: false };
+
+  // ------------------------------------------------------------------ weapons
+  // pose: rest pose of the arm holding it (see POSES). attack: armMotion kind.
+  // hand: fits a hand slot. mount: fits a shoulder/back mount. twoHand: the free hand supports it.
+  const WEAPONS = {
+    none: { label: 'Empty hand', hand: true, mount: true, pose: 'fist', attack: null, build() {} },
+
+    beamRifle: {
+      label: 'Beam rifle', hand: true, pose: 'aim', attack: 'shoot',
+      build(ctx, g, s, o) {
+        const id = o.id;
+        const body = g.child(id + 'slide');
+        body.box(3, 4.2, 11, { at: [0, 1.6, 3.2], mat: 'primary', bevel: 0.6, cuts: [[0, 1, 1, 1.4]], detail: { type: 'panel', face: 'side', at: 1, dir: 'v' } });
+        body.box(2.2, 2.4, 4.5, { at: [0, 4.3, 2], mat: 'secondary', bevel: 0.4 }); // sensor
+        body.box(1.4, 1.4, 1, { at: [0, 4.3, 4.4], mat: 'glass', shadow: false });
+        body.cyl('z', 1.1, 7, { at: [0, 2.2, 11.5], mat: 'metal', sides: 6 });
+        body.box(2.4, 3.4, 3, { at: [0, 1.4, -3.4], mat: 'metal', bevel: 0.4 }); // stock
+        body.box(1.6, 3, 1.8, { at: [0, -1.5, 6.5], mat: 'metal' }); // foregrip
+        flash(body, id + 'mz', [0, 2.2, 15.2], 'beam');
+        ctx.anims.push((st, n) => {
+          const f = fireOf(st, o);
+          n[id + 'mz'].hidden = !(f > 0.6);
+          n[id + 'slide'].pos[2] -= f * 1.2 * ctx.k;
+          if (o.joints) armMotion('shoot', f, n, o.joints, s, ctx.k);
+        });
+      },
+    },
+
+    machineGun: {
+      label: 'Machine gun', hand: true, pose: 'aim', attack: 'spray',
+      build(ctx, g, s, o) {
+        const id = o.id;
+        const body = g.child(id + 'slide');
+        body.box(3, 4, 9, { at: [0, 1.5, 2.5], mat: 'metal', bevel: 0.5, detail: { type: 'vent', face: 'side', pitch: 1.2, inset: 0.8 } });
+        body.cyl('x', 3, 2.2, { at: [s * 2.2, 1.2, 1.5], mat: 'secondary', sides: 8, detail: { type: 'bolts', face: 'side', inset: 1.4 } }); // drum magazine
+        body.cyl('z', 0.9, 7, { at: [0, 2.2, 10], mat: 'metal', sides: 6 });
+        body.box(2, 2, 2.4, { at: [0, 2.2, 13.2], mat: 'metal' }); // muzzle brake
+        body.box(1, 2.6, 1, { at: [0, 4.6, 5], mat: 'metal' }); // sight
+        body.box(2.4, 3, 3.6, { at: [0, 0.8, -3.4], mat: 'primary', bevel: 0.4 }); // stock
+        flash(body, id + 'mz', [0, 2.2, 14.6], 'flash');
+        ctx.anims.push((st, n) => {
+          const f = fireOf(st, o);
+          n[id + 'mz'].hidden = !(f > 0.12 && Math.floor(f * 14) % 2 === 0);
+          n[id + 'slide'].pos[2] -= (f > 0.1 ? (Math.floor(f * 14) % 2) * 0.8 : 0) * ctx.k;
+          if (o.joints) armMotion('spray', f, n, o.joints, s, ctx.k);
+        });
+      },
+    },
+
+    bazooka: {
+      label: 'Bazooka', hand: true, pose: 'aim', attack: 'heavy',
+      build(ctx, g, s, o) {
+        const id = o.id;
+        const body = g.child(id + 'slide', [s * 1.5, 4.5, 0]);
+        body.cyl('z', 2.6, 20, { at: [0, 0, 3], mat: 'secondary', sides: 8, twist: PI / 8, detail: { type: 'band', dir: 'h', at: 0, size: 0.8, mat2: 'tertiary' } });
+        body.cone('z', 2.6, 3.4, 3, { at: [0, 0, 14.5], mat: 'metal', sides: 8, twist: PI / 8 });
+        body.cone('z', 3.2, 2.4, 2.5, { at: [0, 0, -8.2], mat: 'metal', sides: 8, twist: PI / 8 });
+        body.box(2.4, 3, 5, { at: [-s * 3.2, 1.2, 4], mat: 'primary', bevel: 0.5 }); // scope
+        body.box(1.6, 4.5, 2, { at: [0, -3.4, 1], mat: 'metal' }); // grip
+        flash(body, id + 'mz', [0, 0, 16.5], 'puff');
+        ctx.anims.push((st, n) => {
+          const f = fireOf(st, o);
+          n[id + 'mz'].hidden = !(f > 0.5);
+          n[id + 'slide'].pos[2] -= f * 2.5 * ctx.k;
+          if (o.joints) armMotion('heavy', f, n, o.joints, s, ctx.k);
+        });
+      },
+    },
+
+    gatling: {
+      label: 'Gatling', hand: true, pose: 'aim', attack: 'spray',
+      build(ctx, g, s, o) {
+        const id = o.id;
+        g.box(5, 5.5, 8, { at: [0, 1.5, 2.5], mat: 'primary', bevel: 0.8, detail: { type: 'vent', face: 'side', pitch: 1.5, inset: 1 } });
+        g.cyl('y', 2.4, 5, { at: [0, -2.5, 1], mat: 'secondary', sides: 8, detail: { type: 'band', at: 0, size: 0.6, mat2: 'tertiary' } }); // ammo drum under
+        const spin = g.child(id + 'spin', [0, 1.5, 7]);
+        for (let i = 0; i < 4; i++) {
+          const a = (i / 4) * PI * 2 + PI / 4;
+          spin.cyl('z', 0.8, 10, { at: [Math.cos(a) * 1.5, Math.sin(a) * 1.5, 5], mat: 'metal', sides: 6 });
+        }
+        spin.cyl('z', 2.6, 1.4, { at: [0, 0, 8.5], mat: 'metal', sides: 8 });
+        flash(g, id + 'mz', [0, 1.5, 17.5], 'flash');
+        ctx.anims.push((st, n) => {
+          const f = fireOf(st, o);
+          n[id + 'spin'].rot[2] = st.t * (2 + 30 * f);
+          n[id + 'mz'].hidden = !(f > 0.1 && Math.floor(st.t * 30 + f * 20) % 2 === 0);
+          if (o.joints) armMotion('spray', f, n, o.joints, s, ctx.k);
+        });
+      },
+    },
+
+    longRifle: {
+      label: 'Long rifle', hand: true, pose: 'aim', attack: 'heavy', twoHand: true,
+      build(ctx, g, s, o) {
+        const id = o.id;
+        const body = g.child(id + 'slide');
+        body.box(3, 4, 15, { at: [0, 1.6, 3], mat: 'primary', bevel: 0.6, cuts: [[0, 1, 1, 1.5]], detail: { type: 'panel', face: 'side', at: 2, dir: 'v' } });
+        body.cyl('z', 1, 20, { at: [0, 2, 20.5], mat: 'metal', sides: 6 });
+        body.box(2.2, 2.2, 3, { at: [0, 2, 31], mat: 'secondary', bevel: 0.4 }); // muzzle
+        body.cyl('z', 1.5, 8, { at: [0, 5.3, 2.5], mat: 'metal', sides: 8, detail: { type: 'band', at: 0, size: 0.5, mat2: 'tertiary' } }); // scope
+        body.box(1.8, 1.8, 0.8, { at: [0, 5.3, 6.8], mat: 'glass', shadow: false });
+        body.box(2.4, 3.6, 5, { at: [0, 1, -6], mat: 'secondary', bevel: 0.5 }); // stock
+        body.box(2, 2, 4, { at: [0, -1.4, 10], mat: 'metal' }); // foregrip
+        flash(body, id + 'mz', [0, 2, 32.8], 'beam');
+        ctx.anims.push((st, n) => {
+          const f = fireOf(st, o);
+          n[id + 'mz'].hidden = !(f > 0.55);
+          n[id + 'slide'].pos[2] -= f * 2 * ctx.k;
+          if (o.joints) armMotion('heavy', f, n, o.joints, s, ctx.k);
+        });
+      },
+    },
+
+    beamSaber: {
+      label: 'Beam saber', hand: true, pose: 'blade', attack: 'slash', melee: true,
+      build(ctx, g, s, o) {
+        const id = o.id;
+        g.cyl('y', 1.1, 5, { at: [0, 0, 0], mat: 'metal', sides: 6, detail: { type: 'band', at: 1, size: 0.5, mat2: 'primary' } });
+        g.cyl('y', 1.2, 19, { ...GLOW, at: [0, 12, 0], sides: 6 });
+        g.cone('y', 1.2, 0.4, 2, { ...GLOW, at: [0, 22.5, 0], sides: 6 });
+        ctx.anims.push((st, n) => { if (o.joints) armMotion('slash', fireOf(st, o), n, o.joints, s, ctx.k); });
+      },
+    },
+
+    heatAxe: {
+      label: 'Heat axe', hand: true, pose: 'blade', attack: 'slash', melee: true,
+      build(ctx, g, s, o) {
+        const id = o.id;
+        g.cyl('y', 1, 16, { at: [0, 5, 0], mat: 'metal', sides: 6 });
+        g.box(1.6, 3.4, 2.6, { at: [0, 12.5, 0.6], mat: 'primary', bevel: 0.3 });
+        g.box(1.2, 10, 8.5, { ...GLOW, at: [0, 12.5, 5.6], cuts: [[0, 1, -1, 3.2], [0, -1, -1, 3.2], [0, 1, 1, 1.4], [0, -1, 1, 1.4]] });
+        g.box(1.5, 2, 3.4, { at: [0, 12.5, -2.6], mat: 'metal', cuts: [[0, 0, -1, 0.6]] });
+        ctx.anims.push((st, n) => { if (o.joints) armMotion('slash', fireOf(st, o), n, o.joints, s, ctx.k); });
+      },
+    },
+
+    katana: {
+      label: 'Great katana', hand: true, pose: 'blade', attack: 'slash', melee: true,
+      build(ctx, g, s, o) {
+        g.cyl('y', 1, 6, { at: [0, 0.5, 0], mat: 'tertiary', sides: 6, detail: { type: 'band', at: 0, size: 0.6, mat2: 'secondary' } });
+        g.box(4.2, 1, 4.2, { at: [0, 3.8, 0], mat: 'secondary', bevel: 0.5 }); // tsuba
+        const bl = g.child(o.id + 'blade', [0, 4.2, 0], [-0.1, 0, 0]);
+        bl.box(1, 27, 2.6, { at: [0, 13.5, 0], mat: 'metal', cuts: [[0, 1, 1, 2.2]], detail: { type: 'panel', face: 'side', at: -0.4, dir: 'v' } });
+        bl.box(0.6, 25, 0.7, { ...GLOW, at: [0, 13, 1.5], cuts: [[0, 1, 1, 0.6]] });
+        ctx.anims.push((st, n) => { if (o.joints) armMotion('slash', fireOf(st, o), n, o.joints, s, ctx.k); });
+      },
+    },
+
+    lance: {
+      label: 'Lance', hand: true, pose: 'lance', attack: 'thrust', melee: true,
+      build(ctx, g, s, o) {
+        g.cone('z', 3.6, 1.4, 4, { at: [0, 0, 2.5], mat: 'tertiary', sides: 8, twist: PI / 8 }); // vamplate
+        g.cone('z', 2.4, 0.25, 26, { at: [0, 0, 17], mat: 'primary', sides: 8, twist: PI / 8, detail: { type: 'band', dir: 'h', at: 0, size: 0.7, mat2: 'secondary' } });
+        g.cyl('z', 1, 7, { at: [0, 0, -3], mat: 'metal', sides: 6 });
+        g.box(0.8, 0.8, 5, { ...GLOW, at: [0, 0, 29] });
+        ctx.anims.push((st, n) => { if (o.joints) armMotion('thrust', fireOf(st, o), n, o.joints, s, ctx.k); });
+      },
+    },
+
+    twinSaber: {
+      label: 'Twin beam saber', hand: true, pose: 'blade', attack: 'spin', melee: true,
+      build(ctx, g, s, o) {
+        const id = o.id;
+        const sp = g.child(id + 'spin');
+        sp.cyl('y', 1.1, 8, { mat: 'metal', sides: 6, detail: { type: 'band', at: 0, size: 0.8, mat2: 'tertiary' } });
+        for (const d of [-1, 1]) sp.cyl('y', 1.2, 19, { ...GLOW, at: [0, d * 13.5, 0], sides: 6 });
+        ctx.anims.push((st, n) => {
+          const f = fireOf(st, o);
+          n[id + 'spin'].rot[2] = (1 - f) * PI * 4 * (f > 0 ? 1 : 0);
+          if (o.joints) armMotion('spin', f, n, o.joints, s, ctx.k);
+        });
+      },
+    },
+
+    knuckle: {
+      label: 'Power knuckle', hand: true, pose: 'fist', attack: 'punch', melee: true,
+      build(ctx, g, s, o) {
+        const h = o.hand || 1;
+        g.box(7 * h, 6.5 * h, 7 * h, { at: [0, 0, 1.5 * h], mat: 'primary', bevel: 1.2 * h, detail: { type: 'panel', face: 'side', at: 0, dir: 'v' } });
+        g.box(7.6 * h, 5 * h, 2.4 * h, { at: [0, -0.3 * h, 5.3 * h], mat: 'tertiary', bevel: 0.6 * h });
+        for (const x of [-2.2, 0, 2.2]) g.box(1.3 * h, 1.3 * h, 1.3 * h, { at: [x * h, 1 * h, 6.8 * h], mat: 'metal', cuts: [[0, 0, 1, 0.5]] });
+        g.box(8 * h, 8 * h, 2.2 * h, { at: [0, 0, -2.4 * h], mat: 'secondary', bevel: 0.6 * h }); // cuff
+        ctx.anims.push((st, n) => { if (o.joints) armMotion('punch', fireOf(st, o), n, o.joints, s, ctx.k); });
+      },
+    },
+
+    claw: {
+      label: 'Crusher claws', hand: true, pose: 'fist', attack: 'punch', melee: true,
+      build(ctx, g, s, o) {
+        const h = o.hand || 1;
+        g.box(6.5 * h, 5 * h, 5 * h, { at: [0, 0, 0.5 * h], mat: 'metal', bevel: 1 * h });
+        for (const [x, y, r] of [[-2.2, 1.2, 0.22], [0, 1.6, 0], [2.2, 1.2, -0.22], [0, -2.2, 0]]) {
+          g.box(1.6 * h, 1.6 * h, 8 * h, { at: [x * h, y * h, 5.5 * h], rot: [y < 0 ? -0.25 : 0.1, r, 0], mat: y < 0 ? 'metal' : 'tertiary', cuts: [[0, -1, 1, 1.3 * h], [0, 1, 1, 0.5 * h]] });
+        }
+        ctx.anims.push((st, n) => { if (o.joints) armMotion('punch', fireOf(st, o), n, o.joints, s, ctx.k); });
+      },
+    },
+
+    shield: {
+      label: 'Shield', hand: true, pose: 'shield', attack: 'bash', shield: true,
+      build(ctx, g, s, o) {
+        const aw = o.armW || 6;
+        const sh = g.child(o.id + 'plate', [s * (aw / 2 + 1.6), 1, -2], [0, -s * 0.55, 0]);
+        sh.box(2, 21, 13, { at: [0, 0, 0], mat: 'primary', bevel: 0.8, cuts: [[0, -1, 1, 6], [0, -1, -1, 6], [0, 1, 1, 1.5], [0, 1, -1, 1.5]], detail: { type: 'band', face: 'side', dir: 'v', at: 0, size: 1.2, mat2: 'tertiary' } });
+        sh.box(2.4, 2, 12, { at: [s * 0.3, 5.5, 0], mat: 'tertiary', bevel: 0.4 });
+        sh.box(2.6, 2.6, 2.6, { at: [s * 0.5, 5.5, 0], rot: [PI / 4, 0, 0], mat: 'accent' });
+        sh.box(1.5, 3, 3, { at: [-s * 1.4, 0, 0], mat: 'metal' }); // mount
+      },
+    },
+
+    kite: {
+      label: 'Kite shield', hand: true, pose: 'shield', attack: 'bash', shield: true,
+      build(ctx, g, s, o) {
+        const aw = o.armW || 6;
+        const sh = g.child(o.id + 'plate', [s * (aw / 2 + 1.6), -1, -2], [0, -s * 0.5, 0]);
+        sh.box(2, 22, 15, { at: [0, 0, 0], mat: 'secondary', bevel: 0.8, cuts: [[0, -1, 1, 9], [0, -1, -1, 9], [0, 1, 1, 1.2], [0, 1, -1, 1.2]], detail: { type: 'band', face: 'side', dir: 'h', at: 4, size: 1.1, mat2: 'tertiary' } });
+        sh.box(2.4, 19, 2, { at: [s * 0.3, -1, 0], mat: 'tertiary', cuts: [[0, -1, 0, 0.5]] });
+        sh.cyl('x', 2.4, 1.2, { at: [s * 1.3, 4, 0], mat: 'accent', sides: 8 });
+        sh.box(1.5, 3, 3, { at: [-s * 1.4, 0, 0], mat: 'metal' });
+      },
+    },
+
+    // ---------------------------------------------------------- shoulder / back mounts
+    cannon: {
+      label: 'Shoulder cannon', mount: true, attack: 'heavy',
+      build(ctx, m, s, o) {
+        const id = o.id;
+        m.box(4.5, 4, 5, { at: [0, 0, -1], mat: 'metal', bevel: 0.6 });
+        const arm = m.child(id + 'arm', [0, 1, -1], [0.35, 0, 0]);
+        arm.box(3, 7.5, 3.2, { at: [0, 3.5, 0], mat: 'secondary', bevel: 0.6 });
+        const gun = arm.child(id + 'gun', [0, 7, 0], [-0.35, 0, 0]);
+        gun.box(5.5, 5.5, 10, { at: [0, 0, 0], mat: 'primary', bevel: 1, detail: { type: 'vent', face: 'side', pitch: 1.5, inset: 1.2 } });
+        const bar = gun.child(id + 'slide');
+        bar.cyl('z', 1.6, 17, { at: [0, 0.3, 13], mat: 'metal', sides: 8, twist: PI / 8 });
+        bar.box(3.8, 3.8, 3.4, { at: [0, 0.3, 21.5], mat: 'secondary', bevel: 0.6, detail: { type: 'vent', face: 'side', pitch: 1.2, inset: 0.6 } });
+        flash(bar, id + 'mz', [0, 0.3, 23.5], 'flash');
+        ctx.anims.push((st, n) => {
+          const f = fireOf(st, o);
+          // folds the barrel up while marching, snaps level to fire
+          n[id + 'gun'].rot[0] -= 0.75 * st.move * (1 - Math.min(1, f * 3));
+          n[id + 'mz'].hidden = !(f > 0.55);
+          n[id + 'slide'].pos[2] -= f * 3.5 * ctx.k;
+          n[id + 'gun'].pos[2] -= f * 1 * ctx.k;
+        });
+      },
+    },
+
+    missilePod: {
+      label: 'Missile pod', mount: true, attack: 'shoot',
+      build(ctx, m, s, o) {
+        const id = o.id;
+        m.box(4, 3, 4, { at: [0, 0, -1], mat: 'metal', bevel: 0.5 });
+        const pod = m.child(id + 'pod', [0, 5.5, 0], [-0.12, 0, 0]);
+        pod.box(9, 8, 8, { mat: 'primary', bevel: 1, detail: { type: 'grid', face: '+z', cell: 2.8, inset: 0.9 } });
+        pod.box(9.6, 2, 8.6, { at: [0, 3.6, -0.4], mat: 'secondary', bevel: 0.5 });
+        pod.box(1.2, 6, 5, { at: [s * 5, -0.5, -1], mat: 'tertiary', bevel: 0.3 });
+        flash(pod, id + 'mz', [0, 0, 4.4], 'puff');
+        ctx.anims.push((st, n) => {
+          const f = fireOf(st, o);
+          n[id + 'mz'].hidden = !(f > 0.5);
+          n[id + 'pod'].rot[0] -= f * 0.12;
+        });
+      },
+    },
+
+    homing: {
+      label: 'Homing missiles', mount: true, attack: 'shoot',
+      build(ctx, m, s, o) {
+        const id = o.id;
+        m.box(4, 3, 4, { at: [0, 0, -1], mat: 'metal', bevel: 0.5 });
+        m.box(8, 7, 8, { at: [0, 5, 0], mat: 'secondary', bevel: 0.8, detail: { type: 'vent', face: 'side', pitch: 1.6, inset: 1.2 } });
+        for (const x of [-1.8, 1.8]) for (const z of [-1.8, 1.8]) m.box(1.6, 1, 1.6, { ...GLOW, at: [x, 8.3, z] });
+        const lid = m.child(id + 'lid', [0, 8.6, -4]);
+        lid.box(8.6, 1.4, 8.6, { at: [0, 0.3, 4.1], mat: 'primary', bevel: 0.5, detail: { type: 'panel', face: '+y', at: 0, dir: 'h' } });
+        for (let i = 0; i < 2; i++) {
+          const ms = m.child(id + 'ms' + i, [(i ? 1.8 : -1.8), 8.5, (i ? 1.8 : -1.8)]);
+          ms.startHidden = true;
+          ms.cyl('y', 0.8, 4, { at: [0, 2, 0], mat: 'primary', sides: 6 });
+          ms.cone('y', 0.8, 0.2, 1.4, { ...GLOW, at: [0, 4.7, 0], sides: 6 });
+          ms.cone('y', 0.2, 1.3, 4, { ...GLOW, at: [0, -2, 0], sides: 6 });
+        }
+        ctx.anims.push((st, n) => {
+          const f = fireOf(st, o);
+          n[id + 'lid'].rot[0] = -1.9 * Math.min(1, f * 3);
+          for (let i = 0; i < 2; i++) {
+            const u = Math.max(0, Math.min(1, (1 - f) * 1.6 - i * 0.35));
+            const ms = n[id + 'ms' + i];
+            ms.hidden = !(f > 0 && u > 0 && u < 1);
+            ms.pos[1] += u * 24 * ctx.k;
+            ms.pos[2] += u * u * 22 * ctx.k;
+            ms.pos[0] += s * u * 4 * ctx.k;
+            ms.rot[0] = u * 1.3;
+          }
+        });
+      },
+    },
+
+    rocket: {
+      label: 'Rocket launcher', mount: true, attack: 'heavy',
+      build(ctx, m, s, o) {
+        const id = o.id;
+        m.box(4, 3, 4, { at: [0, 0, -1], mat: 'metal', bevel: 0.5 });
+        const rk = m.child(id + 'slide', [0, 4.5, 0], [-0.08, 0, 0]);
+        for (const x of [-2.1, 2.1]) {
+          rk.cyl('z', 2, 15, { at: [x, 0, 1.5], mat: 'secondary', sides: 8, twist: PI / 8, detail: { type: 'band', dir: 'h', at: 0, size: 1, mat2: 'tertiary' } });
+          rk.cyl('z', 2.3, 1.4, { at: [x, 0, 9.2], mat: 'metal', sides: 8, twist: PI / 8 });
+        }
+        rk.box(2, 4, 8, { at: [0, 0, 0], mat: 'metal', bevel: 0.4 });
+        flash(rk, id + 'mz', [-2.1 * s, 0, 10], 'puff');
+        ctx.anims.push((st, n) => {
+          const f = fireOf(st, o);
+          n[id + 'mz'].hidden = !(f > 0.5);
+          n[id + 'slide'].pos[2] -= f * 2 * ctx.k;
+        });
+      },
+    },
+
+    radar: {
+      label: 'Radar dish', mount: true, attack: null,
+      build(ctx, m, s, o) {
+        const id = o.id;
+        m.box(4, 3, 4, { at: [0, 0, -1], mat: 'metal', bevel: 0.5 });
+        m.cyl('y', 0.8, 9, { at: [0, 5, -1], mat: 'metal', sides: 6 });
+        const dish = m.child(id + 'dish', [0, 10, -1]);
+        const tilt = dish.child(id + 'tilt', [0, 0, 0], [-0.55, 0, 0]);
+        tilt.cone('y', 5.5, 4, 1.6, { mat: 'primary', sides: 10, detail: { type: 'bolts', face: '+y', inset: 1.5 } });
+        tilt.cyl('y', 0.5, 3.5, { at: [0, 2.3, 0], mat: 'metal', sides: 5 });
+        tilt.box(1.4, 1.4, 1.4, { ...GLOW, at: [0, 4.3, 0] });
+        ctx.anims.push((st, n) => { n[id + 'dish'].rot[1] = st.t * 1.4 + s; });
+      },
+    },
+  };
+  const HAND_W = Object.keys(WEAPONS).filter((k) => WEAPONS[k].hand);
+  const MOUNT_W = ['none'].concat(Object.keys(WEAPONS).filter((k) => WEAPONS[k].mount && k !== 'none'));
+  const labelsOf = (keys) => Object.fromEntries(keys.map((k) => [k, WEAPONS[k].label]));
+
+  // Arm rest poses: shoulder pitch, elbow pitch, outward roll.
+  const POSES = {
+    aim: { sh: -0.12, el: -1.35, rz: 0.12 },
+    blade: { sh: -0.3, el: -0.6, rz: 0.2 },
+    lance: { sh: -0.1, el: -1.38, rz: 0.12 },
+    shield: { sh: -0.08, el: -1.15, rz: 0.2 },
+    fist: { sh: 0.02, el: -0.4, rz: 0.14 },
+    support: { sh: -1.05, el: -0.75, rz: 0.05, ry: -0.55 },
+  };
+
+  // ------------------------------------------------------------------ archetypes
+  const TYPES = {
+    hero: 'Hero (all-rounder)', commander: 'Commander (mono-eye)', heavy: 'Heavy artillery', knight: 'Knight / samurai',
+    sniper: 'Sniper', brawler: 'Brawler', ace: 'Ace (winged)',
+  };
+  const HEADS = { vfin: 'V-fin twin-eye', mono: 'Mono-eye', kabuto: 'Kabuto crest', goggle: 'Goggle visor', scope: 'Sniper scope', fang: 'Fanged brute' };
+  const BACKS = { binders: 'Wing binders', feathers: 'Feather wings', thrusters: 'Thruster pack', funnels: 'Fin funnels', cape: 'Cape', cloak: 'Camo cloak', none: 'Slim pack' };
+
+  // Body proportions per archetype (world px at size 1).
+  const ARCH = {
+    hero:      { head: 1.0,  chestW: 17, chestH: 11, chestD: 12, pad: 'block', padS: 1.0,  legW: 9,   shin: 10, thigh: 4, footL: 14, footW: 9,  hipX: 5,   arm: 1.0,  hand: 1.0,  hunch: 0,    bend: 0.12, splay: 0.05 },
+    commander: { head: 0.98, chestW: 18, chestH: 11, chestD: 13, pad: 'zaku',  padS: 1.0,  legW: 9.5, shin: 10, thigh: 4, footL: 15, footW: 10, hipX: 5.5, arm: 1.0,  hand: 1.05, hunch: 0.05, bend: 0.14, splay: 0.07 },
+    heavy:     { head: 0.66, chestW: 22, chestH: 12, chestD: 15, pad: 'round', padS: 1.0,  legW: 13,  shin: 12, thigh: 5, footL: 19, footW: 13, hipX: 7.5, arm: 1.0,  hand: 1.15, hunch: 0.04, bend: 0.1,  splay: 0.08 },
+    knight:    { head: 0.96, chestW: 17, chestH: 12, chestD: 12, pad: 'sode',  padS: 1.0,  legW: 8.5, shin: 11, thigh: 4, footL: 14, footW: 8.5,hipX: 5,   arm: 1.05, hand: 1.0,  hunch: 0,    bend: 0.08, splay: 0.04 },
+    sniper:    { head: 0.86, chestW: 14, chestH: 11, chestD: 11, pad: 'slim',  padS: 0.85, legW: 7,   shin: 14, thigh: 6, footL: 13, footW: 7.5,hipX: 4.5, arm: 1.2,  hand: 0.9,  hunch: 0.05, bend: 0.1,  splay: 0.03 },
+    brawler:   { head: 0.76, chestW: 21, chestH: 16, chestD: 15, pad: 'dome',  padS: 1.0,  legW: 10,  shin: 10, thigh: 4, footL: 16, footW: 11, hipX: 6,   arm: 1.3,  hand: 1.5,  hunch: 0.5,  bend: 0.25, splay: 0.12 },
+    ace:       { head: 1.0,  chestW: 16, chestH: 11, chestD: 11, pad: 'swept', padS: 0.95, legW: 8,   shin: 11, thigh: 4, footL: 14, footW: 8.5,hipX: 5,   arm: 1.0,  hand: 1.0,  hunch: 0,    bend: 0.1,  splay: 0.04 },
+  };
+
+  // Signature loadouts (weights) per archetype. Any weapon still fits any archetype via the slots.
+  const LOADOUT = {
+    hero:      { head: { vfin: 9, goggle: 1 }, R: { beamRifle: 7, bazooka: 1, beamSaber: 2 }, L: { shield: 7, beamSaber: 2, none: 1 }, back: { binders: 4, thrusters: 5, funnels: 1 }, mount: { none: 8, missilePod: 1, cannon: 1 }, sym: 0.5 },
+    commander: { head: { mono: 9, goggle: 1 }, R: { machineGun: 7, bazooka: 3 }, L: { heatAxe: 7, shield: 2 }, back: { thrusters: 6, none: 2, cape: 1 }, mount: { none: 6, rocket: 2, missilePod: 1 }, sym: 0.2 },
+    heavy:     { head: { goggle: 7, mono: 2 }, R: { gatling: 4, beamRifle: 3, bazooka: 2 }, L: { none: 3, shield: 2, knuckle: 1 }, back: { thrusters: 3, none: 3 }, mount: { cannon: 7, missilePod: 2, homing: 2 }, sym: 0.85 },
+    knight:    { head: { kabuto: 9, vfin: 1 }, R: { katana: 5, lance: 3, beamSaber: 1 }, L: { kite: 5, none: 2 }, back: { cape: 8, binders: 1 }, mount: { none: 12, rocket: 1 }, sym: 0.5 },
+    sniper:    { head: { scope: 8, goggle: 2 }, R: { longRifle: 8, beamRifle: 1 }, L: { none: 6, shield: 1 }, back: { cloak: 7, thrusters: 2 }, mount: { radar: 4, none: 4, missilePod: 1 }, sym: 0 },
+    brawler:   { head: { fang: 7, mono: 2 }, R: { knuckle: 5, claw: 4 }, L: { knuckle: 4, claw: 4, none: 1 }, back: { thrusters: 5, none: 3 }, mount: { none: 5, missilePod: 2, homing: 2 }, sym: 0.7 },
+    ace:       { head: { vfin: 8, kabuto: 1 }, R: { twinSaber: 4, beamRifle: 3, beamSaber: 1 }, L: { shield: 3, beamSaber: 3, none: 2 }, back: { feathers: 8, binders: 2 }, mount: { none: 7, cannon: 2 }, sym: 0.9 },
+  };
+
+  function randomSD(r, keep, bp) {
+    const type = keep('sdType', () => r.weighted({ hero: 5, commander: 4, heavy: 3, knight: 3, sniper: 3, brawler: 3, ace: 3 }));
+    const L = LOADOUT[type] || LOADOUT.hero;
+    bp.sdType = type;
+    bp.sdHead = keep('sdHead', () => r.weighted(L.head));
+    bp.sdWeaponR = keep('sdWeaponR', () => r.weighted(L.R));
+    bp.sdWeaponL = keep('sdWeaponL', () => {
+      if (type === 'brawler' && r.chance(0.7)) return bp.sdWeaponR === 'knuckle' || bp.sdWeaponR === 'claw' ? bp.sdWeaponR : 'knuckle';
+      if (WEAPONS[bp.sdWeaponR] && WEAPONS[bp.sdWeaponR].twoHand) return r.chance(0.8) ? 'none' : 'shield';
+      if (bp.sdWeaponR === 'lance') return r.chance(0.8) ? 'kite' : 'shield';
+      return r.weighted(L.L);
+    });
+    bp.sdBack = keep('sdBack', () => r.weighted(L.back));
+    bp.sdBackL = keep('sdBackL', () => r.weighted(L.mount));
+    bp.sdBackR = keep('sdBackR', () => (r.chance(L.sym) ? bp.sdBackL : r.weighted(L.mount)));
+  }
+
+  const NAME_WORDS = {
+    hero: ['Valor', 'Paragon', 'Vanguard', 'Aurora', 'Resolve', 'Dawnstar', 'Vigil', 'Liberty'],
+    commander: ['Kaiser', 'Warlord', 'Marshal', 'Tyrant', 'Baron', 'Centurion', 'Viceroy'],
+    heavy: ['Bulwark', 'Mortar', 'Bastion', 'Howitzer', 'Rampart', 'Ironside', 'Anvil'],
+    knight: ['Shogun', 'Ronin', 'Templar', 'Paladin', 'Kensei', 'Crusader', 'Daimyo'],
+    sniper: ['Hawkeye', 'Longshot', 'Specter', 'Deadeye', 'Whisper', 'Nightjar', 'Farsight'],
+    brawler: ['Grizzly', 'Rampage', 'Brute', 'Ogre', 'Maul', 'Knuckles', 'Wrecker'],
+    ace: ['Seraph', 'Zephyr', 'Halcyon', 'Archangel', 'Solaris', 'Skylord', 'Valkyrie'],
+  };
+  const NAME_PREFIX = { hero: 'RX', commander: 'MS', heavy: 'RX', knight: 'XM', sniper: 'RGM', brawler: 'MSM', ace: 'XXG' };
+
+  // ------------------------------------------------------------------ build
+  function buildSD(ctx) {
+    const { bp, r } = ctx;
+    const type = ARCH[bp.sdType] ? bp.sdType : 'hero';
+    const A = ARCH[type];
+    const bulk = bp.bulk || 1, legLen = bp.legLen || 1, tall = bp.tall || 1, armLen = bp.armLen || 1;
+    const e = bp.edge == null ? 1.5 : bp.edge;
+    const bev = Math.max(0.5, Math.min(2.2, 0.6 + e * 0.55));
+    const wB = 0.8 + 0.2 * bulk; // gentle width modifier
+    const lL = 0.75 + 0.25 * legLen;
+    const tT = 0.8 + 0.2 * tall;
+    const aL = 0.8 + 0.2 * armLen;
+    const k = ctx.k;
+    const soles = [];
+    const wR = WEAPONS[bp.sdWeaponR] ? bp.sdWeaponR : 'none';
+    const wL = WEAPONS[bp.sdWeaponL] ? bp.sdWeaponL : 'none';
+
+    // ---------------------------------------------------------------- legs & pelvis
+    const legW = A.legW * wB, shin = Math.round(A.shin * lL), thigh = Math.round(A.thigh * lL);
+    const footL = A.footL * (0.9 + 0.1 * bulk), footW = A.footW * wB, footH = 4, ankY = 5.5;
+    const hipX = A.hipX * wB, b = A.bend, sp = A.splay;
+    const hipY = ankY + (thigh + shin) * Math.cos(b);
+    const pelvis = ctx.root.child('pelvis', [0, hipY + 1, 0]);
+    // waist core, V crotch block, skirts
+    pelvis.box(hipX * 2 + 1, 4, 7 * wB, { at: [0, 1, 0], mat: 'metal', bevel: 0.8 });
+    pelvis.box(5 * wB, 5.5, 5, { at: [0, -0.5, 3], mat: 'tertiary', bevel: 0.6, cuts: [[0, -1, 1, 2.5], [1, -1, 0, 1.5], [-1, -1, 0, 1.5]] });
+    pelvis.box(3, 1.2, 1, { ...GLOW, at: [0, 1.4, 5.6] });
+    pelvis.box(hipX * 2 + 3, 5, 2.2, { at: [0, 0, -4.2 * wB], mat: 'primary', bevel: 0.6, rot: [-0.15, 0, 0] });
+    for (const s of [-1, 1]) {
+      const sk = pelvis.child('skF' + s, [s * (hipX * 0.62 + 0.5), 2.5, 3.6 * wB]);
+      sk.box(hipX + 1, 7, 2, { at: [0, -3.5, 0], rot: [-0.12, 0, 0], mat: 'primary', bevel: 0.6, cuts: [[s, -1, 0, 1.6], [-s, -1, 0, 0.6]], detail: { type: 'panel', face: '+z', at: -1.5, dir: 'h' } });
+      pelvis.box(2.2, 8, 7.5 * wB, { at: [s * (hipX + legW / 2 + 1.2), -1.5, 0], rot: [0, 0, s * 0.22], mat: 'primary', bevel: 0.6, cuts: [[0, -1, 1, 2], [0, -1, -1, 2]], detail: { type: 'panel', face: 'side', at: 0, dir: 'h' } });
+    }
+    for (const s of [-1, 1]) {
+      const hs = pelvis.child('hipS' + s, [s * hipX, -1, 0], [0, 0, s * sp]);
+      const hip = hs.child('hip' + s, [0, 0, 0], [-b, 0, 0]);
+      hip.box(legW * 0.78, thigh + 2, legW * 0.8, { at: [0, -thigh / 2, 0], mat: 'metal', bevel: 0.8 });
+      const knee = hip.child('knee' + s, [0, -thigh, 0], [2 * b, 0, 0]);
+      // big boot: shin block, knee guard, flared ankle guard
+      knee.box(legW, shin + 1, legW + 1, { at: [0, -shin / 2 - 0.5, 0], mat: 'primary', bevel: bev, bevelSet: 'vert', cuts: [[0, 1, 1, 2]], detail: { type: 'panel', face: 'side', at: -1, dir: 'h' } });
+      knee.box(legW * 0.8, 5, 3, { at: [0, 0.2, legW / 2 + 1.2], mat: 'secondary', bevel: 0.5, cuts: [[0, 1, 1, 1.5], [1, -1, 1, 1.2], [-1, -1, 1, 1.2]] });
+      knee.box(legW + 1.4, 4, legW + 2.4, { at: [0, -shin + 1.5, 0.2], mat: 'primary', bevel: 0.8, cuts: [[0, 1, 1, 1.5]], detail: { type: 'vent', face: '+z', pitch: 1.2, inset: 1.4 } });
+      const ank = knee.child('ankle' + s, [0, -shin, 0], [-b, 0, 0]);
+      const ft = ank.child('foot' + s, [0, 0, 0], [0, 0, -s * sp]);
+      const fz = footL * 0.12;
+      soles.push(ft.box(footW + 0.6, 1.4, footL, { at: [0, -ankY + 0.7, fz], mat: 'metal' }));
+      ft.box(footW, footH - 1.2, footL - 1.5, { at: [0, -ankY + 1.4 + (footH - 1.2) / 2, fz - 0.4], mat: 'tertiary', bevel: 0.7, bevelSet: 'top', cuts: [[0, 1, 1, 2.2]] });
+      ft.box(footW * 0.62, 2.5, 3, { at: [0, -ankY + 3.2, fz + footL / 2 - 2.5], mat: 'primary', bevel: 0.4, cuts: [[0, 1, 1, 1.4]] }); // toe cap
+      ft.box(footW * 0.7, 3, 2.5, { at: [0, -ankY + 2.4, fz - footL / 2 + 0.6], mat: 'metal', cuts: [[0, 1, -1, 1]] }); // heel
+    }
+
+    // ---------------------------------------------------------------- torso
+    const cW = A.chestW * wB, cH = A.chestH * tT, cD = A.chestD * wB;
+    const torso = pelvis.child('torso', [0, 2.5, 0], [A.hunch, 0, 0]);
+    const abY = 2.2, chestY = 4.2 + cH / 2, topY = 4.2 + cH;
+    torso.box(cW * 0.5, 4.5, cD * 0.6, { at: [0, abY, 0.3], mat: 'primary', bevel: 0.6, detail: { type: 'panel', face: '+z', at: 0, dir: 'v' } });
+    torso.box(cW, cH, cD, { at: [0, chestY, 0], mat: 'secondary', bevel: bev, cuts: [[0, -1, 1, cH * 0.35], [1, 0, 1, 2.2], [-1, 0, 1, 2.2]], detail: { type: 'panel', face: 'side', at: 0, dir: 'h' } });
+    // chest vents: yellow frame with dark slats
+    for (const s of [-1, 1]) {
+      torso.box(cW * 0.3, cH * 0.36, 1.2, { at: [s * cW * 0.22, chestY + cH * 0.14, cD / 2 + 0.2], mat: 'accent' });
+      torso.box(cW * 0.3 - 1.6, cH * 0.36 - 1.4, 1.2, { at: [s * cW * 0.22, chestY + cH * 0.14, cD / 2 + 0.7], mat: 'metal', detail: { type: 'vent', face: '+z', pitch: 1, inset: 0 } });
+    }
+    // cockpit hatch
+    torso.box(cW * 0.26, cH * 0.32, 1.6, { at: [0, chestY - cH * 0.14, cD / 2 - 0.9], rot: [0.5, 0, 0], mat: 'primary', bevel: 0.4, detail: { type: 'bolts', face: 'any', inset: 0.9 } });
+    // collar
+    torso.box(cW * 0.7, 3, cD * 0.75, { at: [0, topY + 0.6, -0.6], mat: 'primary', bevel: 0.8, cuts: [[0, 1, 1, 1.2]] });
+    const shX = cW / 2 + 1.5, shY = topY - 3;
+
+    // ---------------------------------------------------------------- head
+    const hs = A.head * (0.95 + 0.05 * bulk);
+    const neckY = type === 'brawler' ? topY - 1 : topY - 0.2;
+    const neck = torso.child('neck', [0, neckY, type === 'brawler' ? cD * 0.32 : 0.5], [-A.hunch * 0.85, 0, 0]);
+    neck.cyl('y', 2.2, 4, { at: [0, 0.5, 0], mat: 'metal', sides: 6 });
+    const head = neck.child('head', [0, 0.8, 0]);
+    buildHead(ctx, head, bp.sdHead || 'vfin', hs, type);
+
+    // ---------------------------------------------------------------- shoulders & arms
+    const armW = 6 * wB * (type === 'brawler' ? 1.3 : 1);
+    const joints = (s) => ({ sh: 'sh' + s, el: 'el' + s, torso: 'torso', pelvis: 'pelvis' });
+    const R = -1, Lf = 1; // anatomical right is -x (the unit faces +z)
+    const twoR = WEAPONS[wR].twoHand && (wL === 'none'), twoL = WEAPONS[wL].twoHand && (wR === 'none');
+    const attackers = [wR, wL].filter((w) => WEAPONS[w].attack && !WEAPONS[w].shield).length;
+    const arms = {};
+    for (const s of [R, Lf]) {
+      const wt = s === R ? wR : wL;
+      const W = WEAPONS[wt];
+      const support = (s === Lf && twoR) || (s === R && twoL);
+      const pose = POSES[support ? 'support' : W.pose || 'fist'];
+      const pad = torso.child('pad' + s, [s * shX, shY, 0]);
+      buildPad(ctx, pad, s, A.pad, A.padS * (0.9 + 0.1 * bulk), bev);
+      const lean = support ? 0 : type === 'brawler' ? -A.hunch - 0.25 : 0; // gorilla arms hang forward of the hunched chest
+      const sh = torso.child('sh' + s, [s * shX, shY, 0], [pose.sh + lean, (pose.ry || 0) * s, s * pose.rz]);
+      const upL = 5 * aL * A.arm, foL = 8 * aL * A.arm;
+      const up = sh.child('up' + s, [s * 2, -2, 0]);
+      up.box(armW * 0.7, upL + 2, armW * 0.7, { at: [0, -upL / 2, 0], mat: 'metal', bevel: 0.6 });
+      const el = up.child('el' + s, [0, -upL, 0], [pose.el, 0, 0]);
+      el.cyl('x', 2.2, armW * 0.8, { mat: 'metal', sides: 8 });
+      el.box(armW, foL, armW, { at: [0, -foL / 2 - 0.5, 0], mat: 'primary', bevel: bev * 0.8, bevelSet: 'vert', cuts: [[0, 1, -1, 1.6]], detail: { type: 'panel', face: 'side', at: -foL * 0.15, dir: 'h' } });
+      el.box(armW + 0.8, 2, armW + 0.8, { at: [0, -foL + 0.4, 0], mat: type === 'knight' ? 'secondary' : 'tertiary', bevel: 0.5 }); // cuff
+      const wr = el.child('wr' + s, [0, -foL - 0.5, 0]);
+      const hsz = 4.6 * A.hand * wB;
+      if (wt !== 'knuckle' && wt !== 'claw') wr.box(hsz, hsz, hsz, { at: [0, -hsz / 2, 0.3], mat: 'metal', bevel: hsz * 0.22, bevelSet: 'round' });
+      const grip = wr.child('gr' + s, [0, -hsz * 0.55, 0.3], [PI / 2, 0, 0]);
+      const o = { id: (s === R ? 'wR' : 'wL'), armW, hand: A.hand * wB, joints: joints(s) };
+      if (attackers > 1) o.alt = s === R ? 1 : 0; // two attacking hands take turns
+      if (W.shield && attackers > 0) o.joints = null; // shields only bash when nothing else attacks
+      if (W.shield && attackers === 0) W.attack && ctx.anims.push((st, n) => armMotion('bash', st.fire || 0, n, joints(s), s, ctx.k));
+      W.build(ctx, grip, s, o);
+      arms[s] = { swing: support ? 0.04 : W.pose === 'fist' ? 0.5 : W.pose === 'blade' ? 0.3 : 0.12 };
+    }
+    ctx.fireDecay = WEAPONS[wR].melee || WEAPONS[wL].melee ? 2.2 : 5;
+
+    // ---------------------------------------------------------------- backpack & mounts
+    const back = torso.child('pack', [0, chestY + 1, -cD / 2 - 1.5]);
+    buildBack(ctx, back, bp.sdBack || 'none', { cW, cD, cH, topY, chestY, bev, type });
+    const padTop = shY + 7 * A.padS;
+    for (const s of [R, Lf]) {
+      const wt = s === R ? bp.sdBackR : bp.sdBackL;
+      if (!wt || wt === 'none' || !WEAPONS[wt] || !WEAPONS[wt].mount) continue;
+      const mnt = torso.child('mt' + s, [s * (cW / 2 - 0.5), Math.max(topY + 2, padTop - 1), -cD / 2 + 0.5]);
+      WEAPONS[wt].build(ctx, mnt, s, { id: s === R ? 'mR' : 'mL' });
+    }
+
+    // ---------------------------------------------------------------- rest on the ground
+    MF.updateRig(ctx.root, MF.mat(), []);
+    let minY = 1e9;
+    for (const p of soles) minY = Math.min(minY, p.world[10] - p.hy);
+    pelvis.pos[1] -= minY; pelvis.base.pos[1] -= minY;
+
+    // ---------------------------------------------------------------- walk / idle
+    const Lleg = (thigh + shin) * Math.cos(b) + ankY * 0.3, Aw = 0.44;
+    ctx.stride = 4 * Lleg * Math.sin(Aw);
+    ctx.gait = 'biped';
+    ctx.anims.push((st, n) => {
+      const m = st.move || 0, ph = st.phase || 0, t = st.t || 0;
+      const drop = Lleg * (1 - Math.cos(Aw * m * Math.sin(ph)));
+      const stomp = m * 1.1 * Math.pow(Math.max(0, -Math.cos(2 * ph)), 6); // heavy footfall dip
+      const breathe = Math.sin(t * 2.2) * 0.35 * (1 - m);
+      n.pelvis.pos[1] -= (drop + stomp + breathe) * k;
+      n.pelvis.rot[1] += Math.sin(ph) * 0.08 * m;
+      for (const s of [-1, 1]) {
+        const p = s < 0 ? ph : ph + PI;
+        const hip = -Aw * Math.sin(p) * m;
+        const knee = Math.max(0, Math.cos(p)) * 1.05 * m;
+        n['hip' + s].rot[0] += hip;
+        n['knee' + s].rot[0] += knee;
+        n['ankle' + s].rot[0] += -(hip + knee) * 0.92;
+        n['skF' + s].rot[0] += Math.min(0, hip - knee * 0.4) * 0.8;
+        const sw = -s * Math.sin(ph) * arms[s].swing * m;
+        n['sh' + s].rot[0] += sw;
+        n['sh' + s].rot[2] += s * (Math.sin(t * 2.2) * 0.025 * (1 - m) + stomp * 0.04);
+        n['pad' + s].rot[0] += sw * 0.4;
+        n['pad' + s].rot[2] -= s * stomp * 0.05;
+      }
+      n.torso.rot[1] += -Math.sin(ph) * 0.18 * m;
+      n.torso.rot[0] += 0.07 * m + stomp * 0.03;
+      n.torso.rot[2] += Math.sin(ph) * 0.035 * m;
+      n.torso.pos[1] += Math.sin(t * 2.2 + 0.6) * 0.25 * (1 - m) * k;
+      n.head.rot[1] += Math.sin(t * 0.7) * 0.32 * (1 - m) + Math.sin(ph) * 0.12 * m;
+      n.head.rot[0] += Math.sin(t * 0.45) * 0.05 * (1 - m) - stomp * 0.05;
+    });
+  }
+
+  // ------------------------------------------------------------------ heads
+  // head node origin = top of the neck. hs scales the whole head (tiny heads for heavies).
+  function buildHead(ctx, h, kind, hs, type) {
+    const W = 17 * hs, H = 14 * hs, D = 14 * hs;
+    const fz = D / 2; // face plane
+    const eyes = (y, w, tilt) => {
+      for (const s of [-1, 1]) h.box(w, 1.5 * Math.max(0.8, hs), 1.2, { at: [s * W * 0.17, y, fz + 0.45], rot: [-0.5, 0, s * tilt], mat: 'glass', shadow: false, cuts: [[-s, -1, 0, 0.5]] });
+    };
+    switch (kind) {
+      case 'mono': { // Zaku-style: round helmet, mono-eye rail, snout with ribbed pipes
+        h.cone('y', W * 0.52, W * 0.4, H * 0.78, { at: [0, H * 0.42, -0.3], mat: 'primary', sides: 8, twist: PI / 8 });
+        h.cone('y', W * 0.4, W * 0.18, H * 0.28, { at: [0, H * 0.94, -0.3], mat: 'primary', sides: 8, twist: PI / 8 });
+        h.box(W * 0.84, 3.6 * hs, 2, { at: [0, H * 0.55, W * 0.44], mat: 'metal', bevel: 0.3 });
+        const eye = h.child('monoEye', [0, H * 0.55, W * 0.44 + 1.1]);
+        eye.box(3.4 * hs, 3 * hs, 1.2, { mat: 'glass', shadow: false, bevel: 0.5 });
+        h.box(W * 0.36, 4 * hs, 4.5 * hs, { at: [0, H * 0.22, W * 0.4], mat: 'secondary', bevel: 0.6, cuts: [[0, -1, 1, 1.2]], detail: { type: 'vent', face: '+z', pitch: 1, inset: 0.6 } });
+        for (const s of [-1, 1]) h.cyl('z', 1.05 * hs + 0.2, 7 * hs, { at: [s * W * 0.33, H * 0.2, W * 0.14], rot: [0, s * 0.75, 0], mat: 'metal', sides: 6, detail: [{ type: 'tread', face: 'side', axis: 'u' }, { type: 'tread', face: '+y', axis: 'v' }] });
+        if (type === 'commander' || ctx.r.chance(0.3)) {
+          h.box(1.2, 10 * hs, 3.4 * hs, { at: [0, H * 1.2, W * 0.26], rot: [0.45, 0, 0], mat: 'accent', cuts: [[0, 1, 1, 2.4 * hs], [0, 1, -1, 0.8]] });
+        }
+        ctx.anims.push((st, n) => { n.monoEye.pos[0] += Math.sin((st.t || 0) * 1.3) * W * 0.26 * ctx.k * (1 - st.move * 0.7); });
+        break;
+      }
+      case 'kabuto': { // samurai helmet: brim, flared fukigaeshi, tall kuwagata crest, menpo mask
+        h.box(W * 0.84, H * 0.8, D * 0.9, { at: [0, H * 0.45, -0.3], mat: 'primary', bevel: 1.2 * hs });
+        h.box(W * 1.06, H * 0.45, D, { at: [0, H * 0.84, -0.6], mat: 'secondary', bevel: 1.5 * hs, cuts: [[0, 1, 1, 2.5 * hs]] });
+        h.box(W * 1.25, 1.6, D * 1.05, { at: [0, H * 0.62, -0.8], mat: 'secondary', bevel: 0.4, cuts: [[0, 0, 1, 1]] });
+        for (const s of [-1, 1]) h.box(1.6, 6 * hs, 6.5 * hs, { at: [s * W * 0.66, H * 0.55, 0.5], rot: [0, s * 0.35, -s * 0.45], mat: 'tertiary', bevel: 0.4 });
+        h.box(W * 0.62, H * 0.24, 1.4, { at: [0, H * 0.46, fz - 0.4], mat: 'metal' });
+        eyes(H * 0.47, W * 0.2, 0.18);
+        h.box(W * 0.42, H * 0.26, 2, { at: [0, H * 0.18, fz - 0.5], mat: 'metal', bevel: 0.4, cuts: [[0, -1, 1, 1]], detail: { type: 'vent', face: '+z', pitch: 1, inset: 0.5 } });
+        for (const s of [-1, 1]) h.box(1.6, 13 * hs, 1.3, { ...GLOW, shadow: true, at: [s * (1.2 + 3.3 * hs), H * 0.95 + 5.8 * hs, fz - 0.8], rot: [0, 0, -s * 0.42], cuts: [[s, 1, 0, 1]] });
+        h.cyl('z', 1.9 * hs, 1.2, { ...GLOW, at: [0, H * 0.98, fz + 0.1], sides: 8 });
+        break;
+      }
+      case 'goggle': { // GM-style: dome-ish helmet with one wide visor, side antenna
+        h.box(W * 0.95, H * 0.95, D, { at: [0, H * 0.5, -0.3], mat: 'primary', bevel: 2.4 * hs, bevelSet: 'round' });
+        h.box(W * 0.78, 3.2 * hs, 2, { at: [0, H * 0.58, fz - 0.2], rot: [-0.3, 0, 0], mat: 'glass', shadow: false, bevel: 0.4 });
+        h.box(W * 0.9, 2 * hs, D * 0.5, { at: [0, H * 0.86, fz * 0.45], mat: 'secondary', bevel: 0.6 });
+        h.box(W * 0.4, 3 * hs, 2, { at: [0, H * 0.2, fz - 0.3], mat: 'metal', bevel: 0.4, detail: { type: 'vent', face: '+z', pitch: 1, inset: 0.4 } });
+        h.box(1, 7 * hs, 1, { ...GLOW, shadow: true, at: [W * 0.5, H * 0.95, -1], rot: [0, 0, -0.2] });
+        h.cyl('x', 2 * hs, W + 1.2, { at: [0, H * 0.5, -0.5], mat: 'metal', sides: 8 });
+        break;
+      }
+      case 'scope': { // sniper: narrow head, big scope over the right eye, flat visor, long antenna
+        h.box(W * 0.8, H * 0.9, D * 0.95, { at: [0, H * 0.47, -0.3], mat: 'primary', bevel: 1.2 * hs, cuts: [[0, 1, 1, 2.5 * hs]] });
+        h.box(W * 0.66, 2 * hs, 1.4, { at: [0, H * 0.55, fz - 0.2], rot: [-0.3, 0, 0], mat: 'glass', shadow: false });
+        h.cyl('z', 2 * hs, 6 * hs, { at: [-W * 0.34, H * 0.6, fz + 0.5], mat: 'secondary', sides: 8, twist: PI / 8 });
+        h.cyl('z', 1.3 * hs, 1, { at: [-W * 0.34, H * 0.6, fz + 3.6 * hs], mat: 'glass', shadow: false, sides: 8 });
+        h.box(W * 0.36, 2.6 * hs, 1.6, { at: [0, H * 0.2, fz - 0.4], mat: 'metal', detail: { type: 'vent', face: '+z', pitch: 1, inset: 0.3 } });
+        h.box(0.9, 12 * hs, 0.9, { ...GLOW, shadow: true, at: [W * 0.3, H * 1.1, -2], rot: [-0.35, 0, -0.1] });
+        h.box(2.4, 2.2 * hs, 3, { at: [0, H * 0.95, 0], mat: 'tertiary', bevel: 0.3 });
+        break;
+      }
+      case 'fang': { // brute: low skull, brow ridge, glaring slits, fanged jaw, swept horns
+        h.box(W * 0.9, H * 0.7, D * 0.95, { at: [0, H * 0.55, -0.6], mat: 'primary', bevel: 1.4 * hs, cuts: [[0, 1, 1, 2 * hs]] });
+        h.box(W, 2.2 * hs, 3, { at: [0, H * 0.72, fz - 0.8], mat: 'secondary', bevel: 0.4, cuts: [[0, -1, 1, 1]] });
+        for (const s of [-1, 1]) h.box(W * 0.24, 1.2 * Math.max(1, hs), 1, { at: [s * W * 0.2, H * 0.55, fz - 0.2], rot: [-0.3, 0, s * 0.3], mat: 'glass', shadow: false });
+        h.box(W * 0.72, H * 0.34, D * 0.6, { at: [0, H * 0.2, 1.8], mat: 'tertiary', bevel: 0.6, cuts: [[0, -1, 1, 1.5]], detail: { type: 'vent', face: '+z', pitch: 1, inset: 0.6 } });
+        for (const s of [-1, 1]) h.cone('y', 0.9, 0.1, 2.2, { at: [s * W * 0.2, H * 0.28, fz + 1.7], mat: 'primary', sides: 4 });
+        for (const s of [-1, 1]) h.cone('y', 1.5 * hs + 0.3, 0.2, 8 * hs, { ...GLOW, shadow: true, at: [s * W * 0.52, H * 0.95, -1], rot: [-0.5, 0, -s * 0.9], sides: 5 });
+        break;
+      }
+      default: { // vfin: the Gundam face
+        h.box(W, H, D, { at: [0, H / 2, -0.4], mat: 'primary', bevel: 2 * hs, cuts: [[0, 1, 1, 3.2 * hs], [1, -1, 1, 2 * hs], [-1, -1, 1, 2 * hs]] });
+        h.box(W * 0.64, H * 0.56, 1.4, { at: [0, H * 0.42, fz - 0.35], mat: 'metal' }); // face recess
+        eyes(H * 0.55, W * 0.24, 0.26);
+        h.box(W * 0.34, H * 0.26, 1.8, { at: [0, H * 0.24, fz + 0.1], mat: 'primary', bevel: 0.4, detail: { type: 'vent', face: '+z', pitch: 1, inset: 0.6 } }); // mouthplate
+        h.box(W * 0.26, 1.8 * hs, 2.2, { at: [0, H * 0.07, fz - 0.2], mat: 'tertiary', cuts: [[0, -1, 1, 1]] }); // chin
+        h.box(2.8 * hs, 2.4 * hs, 1.6, { at: [0, H * 0.8, fz - 0.9], mat: 'tertiary', cuts: [[0, 1, 1, 0.7]] }); // forehead sensor
+        const th = 0.92, fl = 11 * hs;
+        for (const s of [-1, 1]) {
+          h.box(1.8 * Math.max(0.8, hs), fl, 1.3, { ...GLOW, shadow: true, at: [s * (0.9 + Math.sin(th) * fl / 2), H * 0.8 + Math.cos(th) * fl / 2, fz - 0.6], rot: [0, 0, -s * th], cuts: [[s, 1, 0, 0.9]] });
+          h.box(1.5, 1.5, 1.4, { at: [s * W * 0.37, H * 0.78, fz - 1.1], mat: 'metal' }); // head vulcans
+        }
+        h.cyl('x', 2.2 * hs, W + 1.2, { at: [0, H * 0.45, -0.6], mat: 'metal', sides: 8 });
+        h.box(2, 2.4 * hs, D * 0.6, { at: [0, H + 0.4, -1.5], mat: 'primary', bevel: 0.4, cuts: [[0, 1, 1, 1.2]] }); // top crest
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------ shoulder armour
+  function buildPad(ctx, p, s, kind, sc, bev) {
+    const S = sc;
+    switch (kind) {
+      case 'zaku': {
+        if (s > 0) { // left: spiked pauldron
+          p.box(10 * S, 9 * S, 12 * S, { at: [s * 4.5 * S, 2 * S, 0], mat: 'primary', bevel: 2.4 * S, bevelSet: 'round' });
+          for (const z of [-3.4, 0, 3.4]) p.cone('y', 2, 0.15, 6.5, { at: [s * 7 * S, 7.5 * S, z * S], rot: [0, 0, -s * 0.55], mat: 'metal', sides: 5 });
+          p.box(10.5 * S, 1.6, 12.5 * S, { at: [s * 4.5 * S, -1.2 * S, 0], mat: 'secondary', bevel: 0.5 });
+        } else { // right: big shoulder shield plate
+          p.box(6 * S, 6 * S, 8 * S, { at: [s * 3.5 * S, 2 * S, 0], mat: 'metal', bevel: 1 });
+          p.box(3, 17 * S, 15 * S, { at: [s * 8.4 * S, 0.5 * S, 1.5], rot: [0, s * 0.5, s * 0.12], mat: 'primary', bevel: 1, cuts: [[0, 1, 1, 3], [0, 1, -1, 3], [0, -1, 1, 3], [0, -1, -1, 3]], detail: { type: 'band', face: 'side', dir: 'h', at: 3.5 * S, size: 1, mat2: 'secondary' } });
+        }
+        break;
+      }
+      case 'round': { // heavy: big rounded blocks with a rim
+        p.box(12 * S, 11 * S, 13 * S, { at: [s * 5 * S, 2 * S, 0], mat: 'primary', bevel: 3 * S, bevelSet: 'round', detail: { type: 'bolts', face: 'side', inset: 2.2 } });
+        p.box(12.6 * S, 2.2, 13.6 * S, { at: [s * 5 * S, -2.6 * S, 0], mat: 'tertiary', bevel: 0.6 });
+        break;
+      }
+      case 'sode': { // samurai: layered hanging plates
+        p.box(9 * S, 3.5, 11 * S, { at: [s * 3.5 * S, 4.6 * S, 0], mat: 'secondary', bevel: 0.8, cuts: [[s, 1, 0, 1.4]] });
+        for (let i = 0; i < 3; i++) {
+          p.box(2, 5.2 * S, (12.5 + i) * S, { at: [s * (6.8 + i * 1.3) * S, (2.2 - i * 3.6) * S, 0], rot: [0, 0, s * 0.3], mat: i === 1 ? 'tertiary' : 'primary', bevel: 0.5, cuts: [[0, -1, 1, 1.2], [0, -1, -1, 1.2]] });
+        }
+        break;
+      }
+      case 'slim': {
+        p.box(7.5 * S, 7 * S, 9.5 * S, { at: [s * 3.8 * S, 2 * S, 0], mat: 'primary', bevel: bev, cuts: [[s, 1, 0, 2]] });
+        p.box(1.6, 5 * S, 8 * S, { at: [s * 7.8 * S, 1 * S, 0], mat: 'secondary', bevel: 0.4 });
+        break;
+      }
+      case 'dome': { // brawler: enormous domed pauldrons with a spike ridge
+        p.box(13 * S, 12 * S, 13 * S, { at: [s * 5 * S, 2.5 * S, -0.5], mat: 'primary', bevel: 3.6 * S, bevelSet: 'round', detail: { type: 'panel', face: 'side', at: 0, dir: 'v' } });
+        p.box(13.6 * S, 2.4, 13.6 * S, { at: [s * 5 * S, -2.6 * S, -0.5], mat: 'tertiary', bevel: 0.6 });
+        for (const z of [-3, 1.5]) p.cone('y', 1.6, 0.2, 5, { at: [s * 6 * S, 9 * S, z * S], rot: [-0.3, 0, -s * 0.3], mat: 'metal', sides: 5 });
+        break;
+      }
+      case 'swept': { // ace: angular pads with swept-up fins
+        p.box(9 * S, 8 * S, 11 * S, { at: [s * 4 * S, 2 * S, 0], mat: 'primary', bevel: bev, cuts: [[s, 1, 0, 3], [0, -1, 1, 2]] });
+        p.box(1.6, 10 * S, 6 * S, { at: [s * 7 * S, 8.5 * S, -2 * S], rot: [-0.45, 0, -s * 0.35], mat: 'secondary', cuts: [[0, 1, 1, 3], [0, 1, -1, 1]] });
+        p.box(9.5 * S, 1.6, 11.5 * S, { at: [s * 4 * S, -1.4 * S, 0], mat: 'tertiary', bevel: 0.4 });
+        break;
+      }
+      default: { // block: Gundam box pads
+        p.box(10 * S, 10 * S, 12 * S, { at: [s * 4.5 * S, 2 * S, 0], mat: 'primary', bevel: bev, cuts: [[s, 1, 0, 2.5]], detail: { type: 'panel', face: 'side', at: -1, dir: 'h' } });
+        p.box(10.6 * S, 2, 12.6 * S, { at: [s * 4.5 * S, -2.8 * S, 0], mat: 'secondary', bevel: 0.5 });
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------ backpacks
+  function buildBack(ctx, pk, kind, t) {
+    const { cW, cH, bev } = t;
+    const flameAnim = (names) => ctx.anims.push((st, n) => {
+      for (const nm of names) { const f = n[nm]; if (!f) continue; f.hidden = !(st.move > 0.2 || st.fire > 0.3); f.pos[1] += Math.sin(st.t * 41 + nm.length) * 0.4 * ctx.k; }
+    });
+    switch (kind) {
+      case 'binders': { // Freedom-like wing binders rising over the shoulders
+        pk.box(cW * 0.6, 9, 4, { at: [0, 0, -1], mat: 'primary', bevel: 1, detail: { type: 'vent', face: '-z', pitch: 1.5, inset: 1.5 } });
+        for (const s of [-1, 1]) {
+          const w = pk.child('wing' + s, [s * cW * 0.22, 2, -2.5], [0.3, 0, -s * 0.48]);
+          w.box(2.4, 27, 9, { at: [0, 11.5, 0], mat: 'secondary', bevel: 0.6, cuts: [[0, 1, -1, 5], [0, -1, 1, 3]], detail: { type: 'band', face: 'side', dir: 'h', at: 6, size: 1, mat2: 'accent' } });
+          w.box(3, 5, 5, { at: [0, 0, 0], mat: 'metal', bevel: 0.6 });
+          w.box(2.8, 5, 3, { at: [0, 23, 3.2], mat: 'tertiary', cuts: [[0, 1, 1, 1.6]] });
+        }
+        ctx.anims.push((st, n) => { const f = Math.sin(st.t * 1.4) * 0.04 + st.move * 0.18; n['wing-1'].rot[2] -= f; n.wing1.rot[2] += f; });
+        break;
+      }
+      case 'feathers': { // ace: a big fan of feather plates spread wide on each side
+        pk.box(cW * 0.55, 9, 4.5, { at: [0, 0, -1], mat: 'primary', bevel: 1, detail: { type: 'vent', face: '-z', pitch: 1.5, inset: 1.2 } });
+        for (const s of [-1, 1]) {
+          const w = pk.child('wing' + s, [s * cW * 0.18, 4, -3.5], [0.3, 0, 0]);
+          w.box(4, 5, 4, { mat: 'metal', bevel: 0.8 });
+          for (let i = 0; i < 5; i++) {
+            const phi = 0.42 + i * 0.36, len = 23 - i * 1.8, off = 2 + i * 0.3;
+            const d = off + len / 2;
+            w.box(i === 0 ? 3 : 1.6, len, i === 0 ? 4.5 : 4, { at: [s * Math.sin(phi) * d, Math.cos(phi) * d, -1 - i * 0.55], rot: [0, 0, -s * phi], mat: i === 0 ? 'secondary' : i % 2 ? 'primary' : 'primary', bevel: 0.3, cuts: [[0, 1, 1, 1.4], [0, 1, -1, 1.4]], detail: i === 0 ? { type: 'band', face: 'side', dir: 'h', at: len * 0.3, size: 0.8, mat2: 'tertiary' } : { type: 'panel', face: 'side', at: len * 0.2, dir: 'h' } });
+          }
+          const tipD = 2 + 23;
+          w.box(1.4, 4, 1.4, { ...GLOW, at: [s * Math.sin(0.42) * tipD, Math.cos(0.42) * tipD + 1, 1.2], rot: [0, 0, -s * 0.42] });
+        }
+        ctx.anims.push((st, n) => { const f = Math.sin(st.t * 1.6) * 0.05 - st.move * 0.12 + (st.fire || 0) * 0.12; n['wing-1'].rot[2] -= f; n.wing1.rot[2] += f; n['wing-1'].rot[0] += st.move * 0.2; n.wing1.rot[0] += st.move * 0.2; });
+        break;
+      }
+      case 'funnels': { // Nu-style fin funnels stacked on one side: asymmetric silhouette
+        pk.box(cW * 0.62, 10, 4.5, { at: [0, 0, -1], mat: 'primary', bevel: 1, detail: { type: 'vent', face: '-z', pitch: 1.5, inset: 1.5 } });
+        const f = pk.child('funnels', [cW * 0.25, 1, -3.5], [0.15, 0, -0.18]);
+        for (let i = 0; i < 6; i++) {
+          f.box(1.3, 18 + (i % 2) * 2, 3.4, { at: [i * 1.7, 7 + (i % 2), -i * 0.5], mat: i % 2 ? 'secondary' : 'primary', cuts: [[0, 1, 1, 1.5]] });
+        }
+        f.box(11, 1.4, 1.2, { ...GLOW, at: [4.2, 16.5, 1.2] });
+        pk.cone('y', 2.4, 1.5, 3, { at: [-cW * 0.18, -5.5, -1.2], mat: 'metal', sides: 8 });
+        ctx.anims.push((st, n) => { n.funnels.pos[1] += Math.sin(st.t * 2.4) * 0.5 * ctx.k; n.funnels.rot[2] += Math.sin(st.t * 1.2) * 0.03; });
+        break;
+      }
+      case 'thrusters': { // RX-style pack: big nozzles and two beam-saber hilts over the shoulders
+        pk.box(cW * 0.72, 11, 5, { at: [0, 0, -1.5], mat: 'primary', bevel: bev, detail: { type: 'vent', face: '-z', pitch: 1.5, inset: 1.6 } });
+        for (const s of [-1, 1]) {
+          pk.cone('y', 2, 3, 5, { at: [s * cW * 0.18, -7, -2.6], rot: [0.3, 0, 0], mat: 'metal', sides: 8, twist: PI / 8 });
+          const fl = pk.child('flame' + s, [s * cW * 0.18, -10, -3.6]);
+          fl.cone('y', 0.5, 2.4, 4, { ...GLOW, rot: [0.3, 0, 0], sides: 6 });
+          pk.cyl('y', 1.1, 6, { at: [s * cW * 0.26, 7.5, -1.5], rot: [0, 0, -s * 0.28], mat: 'metal', sides: 6 });
+          pk.box(1.6, 1.6, 1.6, { at: [s * (cW * 0.26 + 1), 10.8, -1.5], rot: [0, 0, -s * 0.28], mat: 'tertiary' });
+        }
+        flameAnim(['flame-1', 'flame1']);
+        break;
+      }
+      case 'cape': { // knight: two-piece cape that flows back when walking
+        const cp = pk.child('cape', [0, t.topY - t.chestY - 1.5, -0.5], [0.12, 0, 0]);
+        cp.box(cW * 0.95, 2.5, 3, { at: [0, 0, 0.5], mat: 'tertiary', bevel: 0.8 });
+        cp.box(cW * 0.95, 14, 1.4, { at: [0, -7.5, 0], mat: 'tertiary', bevel: 0.4, detail: { type: 'panel', face: '-z', at: 0, dir: 'v' } });
+        const c2 = cp.child('cape2', [0, -14, 0], [0.06, 0, 0]);
+        c2.box(cW * 1.1, 13, 1.4, { at: [0, -6.5, 0], mat: 'tertiary', bevel: 0.4, cuts: [[1, -1, 0, 3], [-1, -1, 0, 3]], detail: { type: 'panel', face: '-z', at: 0, dir: 'v' } });
+        for (const s of [-1, 1]) cp.box(2.4, 2.4, 1.6, { mat: 'accent', at: [s * cW * 0.36, 0, 2.3] });
+        ctx.anims.push((st, n) => {
+          const m = st.move || 0, t2 = st.t || 0;
+          n.cape.rot[0] += 0.35 * m + Math.sin(t2 * 2.3) * 0.03 + Math.sin(st.phase * 2) * 0.04 * m + (st.fire || 0) * 0.2;
+          n.cape2.rot[0] += 0.25 * m + Math.sin(t2 * 2.3 + 0.9) * 0.05 + Math.sin(st.phase * 2 + 1) * 0.08 * m;
+        });
+        break;
+      }
+      case 'cloak': { // sniper: camo mantle over the shoulders and a ragged drape
+        const cl = pk.child('cloak', [0, t.topY - t.chestY - 0.5, 1]);
+        const camo = { type: 'stripe', width: 2.5, mat2: 'metal' };
+        cl.box(cW + 7, 5, t.cD + 3, { at: [0, 1, 2.5], mat: 'secondary', bevel: 2, bevelSet: 'round', detail: camo });
+        cl.box(cW + 3, 15, 1.8, { at: [0, -7, -1.4], rot: [0.14, 0, 0], mat: 'secondary', bevel: 0.4, detail: camo });
+        const c2 = cl.child('cloak2', [0, -14, -3], [0.06, 0, 0]);
+        c2.box(cW + 5, 13, 1.6, { at: [0, -6, 0], mat: 'secondary', bevel: 0.4, cuts: [[1, -1, 0, 2.5], [-1, -1, 0, 2.5], [0.35, -1, 0, 1.6], [-0.35, -1, 0, 1.6]], detail: camo });
+        ctx.anims.push((st, n) => {
+          const m = st.move || 0;
+          n.cloak2.rot[0] += 0.3 * m + Math.sin((st.t || 0) * 2 + 0.5) * 0.04 + Math.sin(st.phase * 2) * 0.06 * m;
+        });
+        break;
+      }
+      default: // slim pack
+        pk.box(cW * 0.55, 8, 3.5, { at: [0, 0, -1], mat: 'primary', bevel: 1, detail: { type: 'vent', face: '-z', pitch: 1.5, inset: 1.2 } });
+        for (const s of [-1, 1]) pk.cone('y', 1.6, 2.2, 3, { at: [s * cW * 0.14, -5.5, -1.2], mat: 'metal', sides: 8 });
+    }
+  }
+
+  // ------------------------------------------------------------------ register
+  const opt = (key, label, labels) => ({ key, label, options: Object.keys(labels), labels });
+  G.registerLine('sd', {
+    label: 'Heroic frame (SD)', group: 'Mechs', weight: 4,
+    slots: [
+      opt('sdType', 'Archetype', TYPES),
+      opt('sdHead', 'Head', HEADS),
+      { key: 'sdWeaponR', label: 'Right hand', options: HAND_W, labels: labelsOf(HAND_W) },
+      { key: 'sdWeaponL', label: 'Left hand', options: HAND_W, labels: labelsOf(HAND_W) },
+      opt('sdBack', 'Backpack', BACKS),
+      { key: 'sdBackR', label: 'Right shoulder', options: MOUNT_W, labels: Object.assign(labelsOf(MOUNT_W), { none: 'None' }) },
+      { key: 'sdBackL', label: 'Left shoulder', options: MOUNT_W, labels: Object.assign(labelsOf(MOUNT_W), { none: 'None' }) },
+    ],
+    random: randomSD,
+    build: buildSD,
+    palettes: SD_PALETTES,
+    sizeRange: [0.95, 1.2],
+    name(r, bp) {
+      const t = NAME_WORDS[bp.sdType] ? bp.sdType : 'hero';
+      return `${NAME_PREFIX[t]}-${bp.number} ${r.pick(NAME_WORDS[t])}`;
+    },
+  });
+
+  G.sdWeapons = WEAPONS;
+  G.sdArmMotion = armMotion;
+  G.sdPoses = POSES;
+})();
+</script>
+<script>
+// Mecha Factory — human units line: heroic super-deformed infantry (~3 heads tall).
+// Roles pick the body (proportions, torso, default gear); weapons are self-contained builders held
+// in a per-hand "grip" node. Arms are driven by 2-bone IK toward hand targets that each weapon
+// poses in chest space, so one- and two-handed weapons, swings and recoil all share one rig.
+(function () {
+  const MF = window.MF;
+  const PI = Math.PI;
+  const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const ease = (t) => t * t * (3 - 2 * t);
+  const seg = (p, a, b) => clamp((p - a) / (b - a), 0, 1);
+  const mix3 = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+  const norm = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+
+  // ------------------------------------------------------------- extra human palettes
+  Object.assign(MF.PALETTES, {
+    'Iron Warden': { human: true, primary: '#3f5f8f', secondary: '#d9b45a', metal: '#8c93a0', accent: '#8fe3ff', glass: '#bff2ff', skin: '#d8a27c', hair: '#5a3b26', leather: '#6b4a30', tertiary: '#e8e0cc', outline: '#10131c', bg: '#6f7480', floor: '#626772' },
+    'Ash Legion': { human: true, primary: '#8a8f96', secondary: '#b53a2a', metal: '#3e3f47', accent: '#ff5a2a', glass: '#ffb08a', skin: '#b98262', hair: '#1e1b1c', leather: '#4a3a30', tertiary: '#d9c89c', outline: '#121216', bg: '#55555c', floor: '#4a4a51' },
+  });
+  const HUMAN_PALS = Object.keys(MF.PALETTES).filter((k) => MF.PALETTES[k].human);
+
+  // ------------------------------------------------------------- small rotation kit (3x3 in the first 9 slots)
+  const eulerM = (r) => MF.matFromEuler(new Float64Array(12), 0, 0, 0, r[0], r[1], r[2]);
+  const apply = (m, v) => [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[3] * v[0] + m[4] * v[1] + m[5] * v[2], m[6] * v[0] + m[7] * v[1] + m[8] * v[2]];
+  function mulT(a, b) { // a^T * b
+    const o = new Float64Array(9);
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) o[i * 3 + j] = a[i] * b[j] + a[3 + i] * b[3 + j] + a[6 + i] * b[6 + j];
+    return o;
+  }
+  function mul(a, b) {
+    const o = new Float64Array(9);
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) o[i * 3 + j] = a[i * 3] * b[j] + a[i * 3 + 1] * b[3 + j] + a[i * 3 + 2] * b[6 + j];
+    return o;
+  }
+  // R = Ry * Rx * Rz  ->  [rx, ry, rz]
+  const toEuler = (m) => [Math.asin(clamp(-m[5], -1, 1)), Math.atan2(m[2], m[8]), Math.atan2(m[3], m[4])];
+  // Euler that turns local +z toward direction d, then rolls about it
+  function aim(d, roll = 0) {
+    const n = norm(d);
+    return [-Math.asin(clamp(n[1], -1, 1)), Math.atan2(n[0], n[2]), roll];
+  }
+
+  // Two-bone arm IK in the shoulder's parent frame. S shoulder, T target (effector = fist centre),
+  // U upper arm, F forearm (+fist offset), pole: where the elbow should point.
+  // Returns shoulder Euler, elbow bend (applied as rx = -b) and the hand's orientation matrix.
+  function solveArm(S, U, F, T, pole) {
+    let d = [T[0] - S[0], T[1] - S[1], T[2] - S[2]];
+    let D = Math.hypot(d[0], d[1], d[2]);
+    if (D < 1e-5) { d = [0, -1, 0]; D = 1e-5; }
+    const hw = [d[0] / D, d[1] / D, d[2] / D];
+    const Dc = clamp(D, Math.abs(U - F) + 0.08 * (U + F), (U + F) * 0.999);
+    const b = PI - Math.acos(clamp((U * U + F * F - Dc * Dc) / (2 * U * F), -1, 1));
+    // local frame: hand direction h, elbow-side direction e (both in the y-z plane), hinge x
+    const hy = -U - F * Math.cos(b), hz = F * Math.sin(b), hl = Math.hypot(hy, hz);
+    const h = [0, hy / hl, hz / hl], e = [0, -h[2], h[1]];
+    let pd = pole[0] * hw[0] + pole[1] * hw[1] + pole[2] * hw[2];
+    let ew = [pole[0] - pd * hw[0], pole[1] - pd * hw[1], pole[2] - pd * hw[2]];
+    let el = Math.hypot(ew[0], ew[1], ew[2]);
+    if (el < 1e-3) {
+      const alt = Math.abs(hw[2]) < 0.9 ? [0, 0, -1] : [0, 1, 0];
+      pd = alt[0] * hw[0] + alt[1] * hw[1] + alt[2] * hw[2];
+      ew = [alt[0] - pd * hw[0], alt[1] - pd * hw[1], alt[2] - pd * hw[2]];
+      el = Math.hypot(ew[0], ew[1], ew[2]);
+    }
+    ew = [ew[0] / el, ew[1] / el, ew[2] / el];
+    const xw = [hw[1] * ew[2] - hw[2] * ew[1], hw[2] * ew[0] - hw[0] * ew[2], hw[0] * ew[1] - hw[1] * ew[0]];
+    const R = new Float64Array(9);
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) R[i * 3 + j] = hw[i] * h[j] + ew[i] * e[j] + xw[i] * (j === 0 ? 1 : 0);
+    const cb = Math.cos(-b), sb = Math.sin(-b);
+    const Rx = new Float64Array([1, 0, 0, 0, cb, -sb, 0, sb, cb]);
+    return { rot: toEuler(R), bend: b, hand: mul(R, Rx) };
+  }
+
+  // ------------------------------------------------------------- roles (body proportions, design px at size 1)
+  // aY ankle height, crouch [hip, knee] rest angles, chest [W,H,D], U/F upper/fore arm, fist size.
+  const ROLES = {
+    rogue: {
+      label: 'Rogue', body: 'lean', aY: 3, thigh: 7.2, shin: 7.4, legW: 3.4, hipX: 2.7, crouch: [-0.5, 0.95], boot: [4.4, 4.2, 7.5],
+      chest: [10.5, 9.5, 7], lean: 0.45, walkLean: 0.12, head: 11.5, headZ: 1.8, headDrop: 1.2, U: 5.2, F: 5.4, aw: 2.8, fist: 3.8,
+      shX: 6.4, shDrop: 2.6, swing: 0.62, lift: 1.25, sway: 0.03, walkCrouch: 0.12, shRoll: 0.05, armSwing: 2.5, ws: 1,
+      padScale: 0.75,
+    },
+    soldier: {
+      label: 'Soldier', body: 'armored', aY: 3.5, thigh: 5.5, shin: 5.2, legW: 5, hipX: 3.8, crouch: [-0.2, 0.4], boot: [6.6, 5.5, 9.5],
+      chest: [15, 12, 10], lean: 0.1, walkLean: 0.08, head: 13.5, headZ: 0.6, headDrop: 1.2, U: 5.5, F: 6, aw: 4, fist: 4.6,
+      shX: 9, shDrop: 3.2, swing: 0.5, lift: 1.0, sway: 0.03, walkCrouch: 0.05, shRoll: 0.04, armSwing: 3, ws: 1.22,
+      padScale: 1.15,
+    },
+    berserker: {
+      label: 'Berserker', body: 'brute', aY: 4, thigh: 9.2, shin: 8.8, legW: 6.6, hipX: 5, crouch: [-0.34, 0.62], boot: [8.4, 6, 11],
+      chest: [20, 18.5, 13], lean: 0.34, walkLean: 0.1, head: 13, headZ: 3.2, headDrop: 1.2, U: 8, F: 8.5, aw: 6, fist: 6.4,
+      shX: 12.2, shDrop: 3.6, swing: 0.44, lift: 1.1, sway: 0.07, walkCrouch: 0.08, shRoll: 0.09, armSwing: 3.5, ws: 1.25,
+      padScale: 1.25,
+    },
+    sniper: {
+      label: 'Sniper', body: 'lean', aY: 3, thigh: 7.2, shin: 7.4, legW: 3.8, hipX: 3, crouch: [-0.36, 0.72], boot: [5, 4.6, 8],
+      chest: [11.5, 10.5, 7.5], lean: 0.24, walkLean: 0.1, head: 12, headZ: 1.2, headDrop: 1.2, U: 5.6, F: 5.8, aw: 3.1, fist: 3.9,
+      shX: 6.8, shDrop: 2.8, swing: 0.56, lift: 1.15, sway: 0.03, walkCrouch: 0.1, shRoll: 0.04, armSwing: 2.5, ws: 1.05,
+      padScale: 0.8,
+    },
+    knight: {
+      label: 'Knight', body: 'armored', aY: 3.5, thigh: 5.8, shin: 5.4, legW: 5, hipX: 3.8, crouch: [-0.15, 0.3], boot: [6.4, 5.2, 9.5],
+      chest: [14.5, 12.5, 10], lean: 0.06, walkLean: 0.06, head: 13, headZ: 0.6, headDrop: 1.2, U: 5.6, F: 6, aw: 4, fist: 4.6,
+      shX: 8.8, shDrop: 3.2, swing: 0.48, lift: 1.0, sway: 0.03, walkCrouch: 0.05, shRoll: 0.04, armSwing: 3, ws: 1.15,
+      padScale: 1.05,
+    },
+    heavy: {
+      label: 'Heavy flamer', body: 'armored', aY: 4, thigh: 6.8, shin: 6.6, legW: 6.2, hipX: 4.6, crouch: [-0.2, 0.4], boot: [7.8, 6, 10.5],
+      chest: [18, 15, 12], lean: 0.12, walkLean: 0.06, head: 14, headZ: 1, headDrop: 2, U: 6, F: 6.6, aw: 5, fist: 5.4,
+      shX: 11, shDrop: 3.4, swing: 0.42, lift: 0.9, sway: 0.05, walkCrouch: 0.05, shRoll: 0.06, armSwing: 3, ws: 1.3,
+      padScale: 1.3,
+    },
+  };
+
+  // ------------------------------------------------------------- slots
+  const OPT = {
+    role: ['rogue', 'soldier', 'berserker', 'sniper', 'knight', 'heavy'],
+    era: ['fantasy', 'scifi'],
+    head: ['hood', 'helm', 'horned', 'visor', 'bare'],
+    shoulders: ['pauldrons', 'fur', 'spiked', 'light', 'none'],
+    extra: ['scarf', 'cape', 'backpack', 'tanks', 'banner', 'none'],
+  };
+  const LBL = {
+    role: { rogue: 'Rogue', soldier: 'Soldier', berserker: 'Berserker', sniper: 'Sniper', knight: 'Knight', heavy: 'Heavy flamer' },
+    era: { fantasy: 'High fantasy', scifi: 'Grimdark sci-fi' },
+    head: { hood: 'Hood', helm: 'Helmet', horned: 'Horned helm', visor: 'Visored helm', bare: 'Bare head' },
+    shoulders: { pauldrons: 'Big pauldrons', fur: 'Fur mantle', spiked: 'Spiked plates', light: 'Leather caps', none: 'None' },
+    extra: { scarf: 'Scarf', cape: 'Cape', backpack: 'Backpack', tanks: 'Fuel tanks', banner: 'Back banner', none: 'None' },
+  };
+
+  // ------------------------------------------------------------- materials per role / era
+  function matsFor(role, era) {
+    const sci = era === 'scifi';
+    if (role === 'rogue') return {
+      thigh: 'primary', shin: 'primary', boot: 'leather', knee: null, wrap: 'leather', upper: 'secondary', fore: 'leather', fist: 'leather',
+      cuff: sci ? 'metal' : 'leather', joint: 'secondary',
+    };
+    if (role === 'sniper') return {
+      thigh: 'primary', shin: 'primary', boot: 'leather', knee: 'leather', wrap: 'leather', upper: 'primary', fore: 'leather', fist: 'leather',
+      cuff: sci ? 'metal' : 'leather', joint: 'primary',
+    };
+    if (role === 'knight' && !sci) return {
+      thigh: 'metal', shin: 'metal', boot: 'metal', knee: 'secondary', wrap: 'leather', upper: 'primary', fore: 'metal', fist: 'metal', cuff: 'secondary', joint: 'metal',
+    };
+    if (role === 'berserker') return {
+      thigh: sci ? 'metal' : 'primary', shin: sci ? 'primary' : 'leather', boot: sci ? 'primary' : 'leather', knee: sci ? 'secondary' : null, wrap: 'leather',
+      upper: 'skin', fore: 'skin', fist: sci ? 'metal' : 'skin', cuff: sci ? 'primary' : 'leather', joint: 'skin', cuffLen: 0.32,
+    };
+    return { // soldier
+      thigh: sci ? 'primary' : 'primary', shin: sci ? 'primary' : 'leather', boot: sci ? 'primary' : 'leather', knee: sci ? 'secondary' : 'metal', wrap: 'leather',
+      upper: sci ? 'metal' : 'primary', fore: sci ? 'primary' : 'metal', fist: sci ? 'primary' : 'leather', cuff: sci ? 'secondary' : 'leather', joint: 'metal',
+    };
+  }
+
+  // ------------------------------------------------------------- legs
+  function buildLegs(ctx, H) {
+    const { P, M, role, sci } = H;
+    const [a1, a2] = P.crouch;
+    const hipY = P.aY + P.thigh * Math.cos(a1) + P.shin * Math.cos(a1 + a2);
+    const pelvis = ctx.root.child('pelvis', [0, hipY, 0]);
+    const lw = P.legW;
+    const [bw, bh, bl] = P.boot;
+    for (const s of [-1, 1]) {
+      const hip = pelvis.child('hip' + s, [s * P.hipX, 0, 0], [a1, 0, 0]);
+      hip.box(lw + 0.4, P.thigh + 2, lw + 0.8, { at: [0, -P.thigh / 2 + 0.4, 0], mat: M.thigh, bevel: lw * 0.28, bevelSet: 'round' });
+      const knee = hip.child('knee' + s, [0, -P.thigh, 0], [a2, 0, 0]);
+      knee.box(lw - 0.2, P.shin + 1, lw + 0.2, { at: [0, -P.shin / 2, 0], mat: M.shin, bevel: 0.8 });
+      if (M.knee) knee.box(lw + 1, 3.6, 2.6, { at: [0, 0.2, lw / 2 + 0.5], mat: M.knee, bevel: 0.9, bevelSet: 'round' });
+      const ankle = knee.child('ankle' + s, [0, -P.shin, 0], [-(a1 + a2), 0, 0]);
+      // boot: sole sits exactly on y = 0 at rest
+      const bz = bl * 0.17;
+      if (H.body === 'lean') {
+        ankle.box(bw, bh, bl, { at: [0, -P.aY + bh / 2, bz], mat: M.boot, bevel: 1, bevelSet: 'top', cuts: [[0, 1, 1, 2.2]] });
+        ankle.box(bw + 0.8, 2.6, bw + 0.6, { at: [0, -P.aY + bh + 0.6, -0.2], mat: M.wrap, bevel: 0.6, rot: [0.15, 0, 0] });
+        knee.box(lw + 0.3, 1.4, lw + 0.6, { at: [0, -P.shin * 0.45, 0], mat: M.wrap });
+      } else if (H.body === 'brute') {
+        ankle.box(bw, bh, bl, { at: [0, -P.aY + bh / 2, bz], mat: M.boot, bevel: 1.8, bevelSet: sci ? 'top' : 'round', cuts: sci ? [[0, 1, 1, 2]] : null });
+        if (!sci) ankle.box(bw + 1.2, 3, bw + 1.2, { at: [0, -P.aY + bh + 0.8, 0], mat: 'hair', bevel: 1.2, bevelSet: 'round' });
+        else ankle.box(bw - 1, 1.5, 2, { at: [0, -P.aY + 1.5, bz + bl / 2], mat: 'metal' });
+        knee.box(lw + 0.6, 1.5, lw + 0.8, { at: [0, -P.shin * 0.35, 0], mat: sci ? 'metal' : M.wrap });
+      } else {
+        ankle.box(bw, bh, bl, { at: [0, -P.aY + bh / 2, bz], mat: M.boot, bevel: 1.2, bevelSet: 'top', cuts: [[0, 1, 1, 2.4]] });
+        ankle.box(bw + 0.4, 1.4, bl + 0.4, { at: [0, -P.aY + 0.7, bz], mat: sci ? 'metal' : 'leather' });
+        if (sci) ankle.box(bw + 0.6, 2.2, bw + 0.8, { at: [0, -P.aY + bh + 0.4, -0.3], mat: 'secondary', bevel: 0.6 });
+      }
+    }
+    // stride: ankle travel during stance (half cycle) x 2
+    const zA = (h) => -(P.thigh * Math.sin(h) + P.shin * Math.sin(h + a2));
+    ctx.stride = 2 * (zA(a1 - P.swing) - zA(a1 + P.swing));
+    return pelvis;
+  }
+
+  // ------------------------------------------------------------- torsos (chest node origin = waist)
+  function buildTorso(ctx, H, pelvis) {
+    const { P, role, sci } = H;
+    const [W, Ht, D] = P.chest;
+    const chest = pelvis.child('chest', [0, 1.5, 0], [P.lean, 0, 0]);
+    const hw = P.hipX * 2 + P.legW;
+    if (H.body === 'lean') {
+      const tunic = role === 'rogue' ? 'secondary' : 'primary';
+      pelvis.box(hw + 1, 3, P.legW + 3, { at: [0, 0.5, 0], mat: 'leather', bevel: 0.6 });
+      pelvis.box(2.2, 2, 1, { at: [0, 0.6, P.legW / 2 + 1.9], mat: 'metal' });
+      pelvis.box(3, 3.2, 2.4, { at: [P.hipX + 1.6, -0.2, 1], mat: 'leather', bevel: 0.6 });
+      // sash tail
+      pelvis.box(3, 7, 1, { at: [-P.hipX - 0.5, -3, 2], rot: [0.1, 0, 0.2], mat: 'tertiary', cuts: [[0, -1, 1, 1], [1, -1, 0, 1.2]] });
+      chest.box(W * 0.72, 4.5, D * 0.8, { at: [0, 1.8, 0], mat: tunic, bevel: 0.8 });
+      chest.box(W, Ht * 0.68, D, { at: [0, Ht * 0.6, 0], mat: tunic, bevel: 1.4, cuts: [[1, -1, 0, 2.2], [-1, -1, 0, 2.2]] });
+      chest.box(1.4, Ht * 1.05, 1, { at: [0.5, Ht * 0.5, D / 2 + 0.2], rot: [0, 0, 0.62], mat: 'leather' }); // bandolier
+      if (role === 'rogue') {
+        chest.box(W + 2.5, 4, D + 1.5, { at: [0, Ht - 1, -0.6], mat: 'primary', bevel: 1.4, bevelSet: 'round' }); // capelet
+        chest.box(W + 1.5, 5, 2, { at: [0, Ht - 4, -D / 2 - 0.4], mat: 'primary', cuts: [[1, -1, 0, 1.5], [-1, -1, 0, 1.5]] });
+      } else { // sniper: ammo pouches on the chest, padded collar
+        for (const x of [-2.6, 0, 2.6]) chest.box(2.2, 2.8, 1.6, { at: [x, Ht * 0.42, D / 2 + 0.5], mat: 'leather', bevel: 0.4 });
+        chest.box(W * 0.8, 2.6, D * 0.85, { at: [0, Ht - 0.2, -0.3], mat: 'secondary', bevel: 1, bevelSet: 'round' });
+      }
+      chest.box(2, 1.8, 1.2, { at: [-1.3, Ht * 0.64, D / 2 + 0.6], rot: [0, 0, 0.62], mat: 'metal' });
+      if (sci) chest.box(W * 0.5, 3, 2, { at: [0, Ht * 0.45, -D / 2 - 0.4], mat: 'metal', bevel: 0.5, detail: { type: 'light', face: '-z', pts: [[-1.5, 0], [1.5, 0]], size: 0.5 } });
+    } else if (H.body === 'brute') {
+      // belt, big buckle, loincloth flaps
+      pelvis.box(hw + 3, 4.5, P.legW + 6, { at: [0, 0.6, 0.3], mat: 'leather', bevel: 1 });
+      pelvis.box(5, 4.2, 1.6, { at: [0, 0.8, P.legW / 2 + 3.4], mat: sci ? 'secondary' : 'metal', bevel: 0.8, bevelSet: 'round', detail: { type: 'face', face: '+z', pts: [[-1, 0.3], [1, 0.3]], size: 0.55, dark: 0 } });
+      pelvis.box(6, 9, 1.4, { at: [0, -4.2, P.legW / 2 + 2.6], rot: [-0.08, 0, 0], mat: sci ? 'metal' : 'primary', cuts: [[1, -1, 0, 1.8], [-1, -1, 0, 1.8]], detail: sci ? { type: 'vent', face: '+z', pitch: 2, inset: 1 } : { type: 'band', at: -2.5, size: 0.7, mat2: 'tertiary' } });
+      pelvis.box(8, 8, 1.4, { at: [0, -3.4, -P.legW / 2 - 2.8], rot: [0.12, 0, 0], mat: 'primary', cuts: [[1, -1, 0, 2], [-1, -1, 0, 2]] });
+      if (sci) {
+        chest.box(W * 0.7, 6, D * 0.75, { at: [0, 2.5, 0], mat: 'metal', bevel: 1, detail: { type: 'vent', face: '+z', pitch: 2, inset: 1.5 } });
+        chest.box(W, Ht * 0.7, D, { at: [0, Ht * 0.62, 0], mat: 'primary', bevel: 2.2, cuts: [[1, -1, 0, 3.5], [-1, -1, 0, 3.5], [0, -1, 1, 3]], detail: [{ type: 'band', face: '+z', at: -Ht * 0.12, size: 0.8, mat2: 'secondary' }, { type: 'bolts', face: 'side', inset: 1.6 }] });
+        chest.box(W * 0.45, 4, 2, { at: [0, Ht * 0.7, D / 2 + 0.2], mat: 'secondary', bevel: 1, bevelSet: 'round', detail: { type: 'face', face: '+z', pts: [[-1.2, 0.5], [1.2, 0.5]], size: 0.6, h: 0.7, glow: true } });
+        chest.box(W * 0.6, 3, D * 0.7, { at: [0, Ht + 0.2, -1], mat: 'metal', bevel: 0.8 });
+      } else {
+        chest.box(W * 0.74, 7.5, D * 0.86, { at: [0, 3, 0.8], mat: 'skin', bevel: 2.4, bevelSet: 'round' }); // gut
+        chest.box(W, Ht * 0.66, D * 0.92, { at: [0, Ht * 0.62, 0], mat: 'skin', bevel: 2.6, bevelSet: 'round' });
+        for (const s of [-1, 1]) chest.box(W * 0.4, Ht * 0.3, 2.4, { at: [s * W * 0.22, Ht * 0.66, D * 0.44], mat: 'skin', bevel: 1, bevelSet: 'round', rot: [0, 0, s * 0.08] });
+        chest.box(2.2, Ht * 1.15, 1.2, { at: [0, Ht * 0.55, D * 0.5 + 0.8], rot: [0, 0, -0.7], mat: 'leather' }); // harness
+        chest.box(W * 0.9, 2.2, D * 0.95, { at: [0, 4.6, 0.5], mat: 'tertiary', bevel: 0.8 }); // sash
+        chest.box(W * 0.6, 3, D * 0.8, { at: [0, Ht * 0.6, -D / 2 + 0.5], mat: 'skin', bevel: 1.5, bevelSet: 'round' }); // back hump
+      }
+    } else {
+      // soldier
+      pelvis.box(hw + 1.5, 3.4, P.legW + 4.5, { at: [0, 0.6, 0], mat: 'leather', bevel: 0.7 });
+      pelvis.box(3, 2.4, 1.2, { at: [0, 0.7, P.legW / 2 + 2.6], mat: sci ? 'secondary' : 'metal', bevel: 0.4 });
+      for (const s of [-1, 1]) pelvis.box(2.6, 3, 2.4, { at: [s * (hw / 2 + 0.2), 0.4, 1.6], mat: 'leather', bevel: 0.6 });
+      if (sci) {
+        pelvis.box(5, 4.5, 3, { at: [0, -1.4, P.legW / 2 + 1.2], mat: 'primary', bevel: 0.8, cuts: [[0, -1, 1, 1.6]] });
+        chest.box(W * 0.62, 5, D * 0.72, { at: [0, 2, 0], mat: 'metal', bevel: 0.8, detail: { type: 'vent', face: '+z', pitch: 1.6, inset: 1 } });
+        chest.box(W, Ht * 0.72, D, { at: [0, Ht * 0.6, 0], mat: 'primary', bevel: 1.6, cuts: [[1, -1, 0, 3], [-1, -1, 0, 3], [0, -1, 1, 2.2]], detail: { type: 'bolts', face: 'side', inset: 1.4 } });
+        // winged emblem
+        chest.box(W * 0.74, 2, 1.2, { at: [0, Ht * 0.74, D / 2 + 0.3], mat: 'secondary', cuts: [[1, -1, 0, 1.1], [-1, -1, 0, 1.1]] });
+        chest.box(2.4, 3.2, 1.6, { at: [0, Ht * 0.68, D / 2 + 0.6], mat: 'secondary', bevel: 0.5 });
+        chest.box(W * 0.55, 2.6, D * 0.72, { at: [0, Ht + 0.3, -0.4], mat: 'metal', bevel: 0.8 });
+      } else {
+        pelvis.box(W * 0.42, 8, 1.2, { at: [0, -3.2, P.legW / 2 + 2.4], mat: 'primary', cuts: [[1, -1, 0, 1], [-1, -1, 0, 1]], detail: { type: 'band', face: '+z', dir: 'v', at: 0, size: 0.8, mat2: 'tertiary' } });
+        chest.box(W * 0.8, 5, D * 0.8, { at: [0, 2, 0], mat: 'primary', bevel: 1 });
+        chest.box(W * 0.94, Ht * 0.7, D, { at: [0, Ht * 0.6, 0], mat: 'metal', bevel: 2, cuts: [[1, -1, 0, 3], [-1, -1, 0, 3]], detail: { type: 'panel', face: '+z', at: 0, dir: 'v' } });
+        chest.box(W * 0.4, Ht * 0.52, 1.2, { at: [0, Ht * 0.52, D / 2 + 0.3], mat: 'primary', cuts: [[1, -1, 0, 1.5], [-1, -1, 0, 1.5]], detail: { type: 'band', face: '+z', dir: 'v', at: 0, size: 0.8, mat2: 'tertiary' } });
+        chest.box(W * 0.55, 2.6, D * 0.72, { at: [0, Ht + 0.2, -0.4], mat: 'leather', bevel: 0.8 });
+      }
+    }
+    return chest;
+  }
+
+  // ------------------------------------------------------------- heads (node origin = neck, facing +z)
+  function faceDetail(H, opt = {}) {
+    const hs = P0(H).head;
+    const sep = opt.sep || hs * 0.17;
+    return {
+      type: 'face', face: '+z', pts: [[-sep, opt.eyeY || 0.4], [sep, opt.eyeY || 0.4]], size: opt.size || 0.62, h: opt.h || 0.75,
+      glow: !!opt.glow, brow: opt.brow !== false, angry: opt.angry !== false, mat2: 'hair', v: opt.mouth, mw: opt.mw || 1.3, band: opt.beard,
+    };
+  }
+  const P0 = (H) => H.P;
+
+  function buildHead(ctx, H, chest) {
+    const { P, bp, sci, role } = H;
+    const [W, Ht, D] = P.chest;
+    const hs = P.head;
+    const head = chest.child('head', [0, Ht - P.headDrop, P.headZ], [-P.lean * 0.9, 0, 0]);
+    const type = bp.head;
+    const skull = (w, h, d, y, z, det) => head.box(w, h, d, { at: [0, y, z], mat: 'skin', bevel: Math.min(w, h) * 0.2, bevelSet: 'round', detail: det });
+    const big = H.body === 'brute';
+    switch (type) {
+      case 'hood': {
+        const fw = hs * 0.64, fh = hs * 0.6;
+        skull(fw, fh, hs * 0.7, hs * 0.42, 1.6, sci ? null : faceDetail(H, { eyeY: hs * 0.06, sep: hs * 0.15, size: 0.7, h: 0.8 }));
+        // mask / respirator over the lower face
+        head.box(fw + 0.6, fh * 0.36, hs * 0.66, { at: [0, hs * 0.22, 2], mat: sci ? 'metal' : 'tertiary', bevel: 0.8, detail: sci ? { type: 'vent', face: '+z', pitch: 1.2, inset: 0.8 } : null });
+        if (sci) { // goggles
+          for (const s of [-1, 1]) head.cyl('z', 1.35, 1.4, { at: [s * hs * 0.15, hs * 0.5, hs * 0.35 + 1.4], mat: 'accent', sides: 8, shadow: false });
+          head.box(fw + 1, 1.1, hs * 0.62, { at: [0, hs * 0.5, 0.9], mat: 'metal' });
+        }
+        // hood shell: big rounded cowl set back so the face peeks out, brim, and a pointed tip
+        head.box(hs * 0.98, hs * 0.92, hs * 0.92, { at: [0, hs * 0.5, -0.9], mat: 'primary', bevel: hs * 0.2, bevelSet: 'round' });
+        head.box(hs * 0.84, 2.2, 3, { at: [0, hs * 0.86, hs * 0.34], mat: 'primary', bevel: 0.8, rot: [0.2, 0, 0] });
+        const tip = head.child('hoodTip', [0, hs * 0.8, -hs * 0.35], [-1.95, 0, 0]);
+        tip.box(hs * 0.5, hs * 0.6, 3, { at: [0, hs * 0.22, 0], mat: 'primary', cuts: [[1, 1, 0, 2], [-1, 1, 0, 2]] });
+        break;
+      }
+      case 'helm': {
+        if (sci) {
+          head.box(hs * 0.96, hs * 0.9, hs * 0.94, { at: [0, hs * 0.47, 0], mat: 'primary', bevel: hs * 0.2, bevelSet: 'round' });
+          head.box(1.6, 1.4, hs * 0.9, { at: [0, hs * 0.92, -0.2], mat: 'secondary', bevel: 0.4 });
+          head.box(hs * 0.7, hs * 0.38, 2.2, { at: [0, hs * 0.44, hs * 0.44], mat: 'primary', bevel: 0.8, detail: { type: 'light', face: '+z', pts: [[-hs * 0.17, hs * 0.05], [hs * 0.17, hs * 0.05]], size: 0.95 } });
+          head.box(hs * 0.3, hs * 0.26, 2.8, { at: [0, hs * 0.18, hs * 0.5], mat: 'metal', bevel: 0.6, cuts: [[0, -1, 1, 1.2]], detail: { type: 'vent', face: '+z', pitch: 1.3, inset: 0.5 } });
+          for (const s of [-1, 1]) head.cyl('x', hs * 0.18, 1.6, { at: [s * hs * 0.49, hs * 0.38, 0], mat: 'secondary', sides: 8 });
+        } else {
+          skull(hs * 0.72, hs * 0.66, hs * 0.72, hs * 0.36, 1.4, faceDetail(H, { eyeY: hs * 0.04, sep: hs * 0.15, mouth: big ? null : -hs * 0.2, beard: big ? -hs * 0.08 : null }));
+          head.cyl('y', hs * 0.44, hs * 0.34, { at: [0, hs * 0.8, -0.4], mat: 'metal', sides: 8, twist: PI / 8, detail: { type: 'band', at: -hs * 0.12, size: 0.6, mat2: 'secondary' } });
+          head.cone('y', hs * 0.66, hs * 0.54, 1.6, { at: [0, hs * 0.64, -0.4], mat: 'metal', sides: 8, twist: PI / 8 });
+          head.box(2, 1.8, 2, { at: [0, hs * 1.0, -0.4], mat: 'secondary', bevel: 0.5 });
+          for (const s of [-1, 1]) head.box(0.9, hs * 0.4, 1, { at: [s * hs * 0.37, hs * 0.26, 0.6], mat: 'leather' });
+        }
+        break;
+      }
+      case 'horned': {
+        if (sci) {
+          head.box(hs * 0.9, hs * 0.86, hs * 0.9, { at: [0, hs * 0.45, 0], mat: 'metal', bevel: hs * 0.2, bevelSet: 'round', detail: faceDetail(H, { eyeY: hs * 0.06, sep: hs * 0.17, glow: true, size: 0.9, h: 0.8 }) });
+          head.box(hs * 0.42, hs * 0.3, 2.4, { at: [0, hs * 0.16, hs * 0.44], mat: 'metal', bevel: 0.5, detail: { type: 'vent', face: '+z', pitch: 1.2, inset: 0.4 } });
+          head.box(hs * 0.96, hs * 0.44, hs * 0.94, { at: [0, hs * 0.76, -0.4], mat: 'primary', bevel: hs * 0.16, bevelSet: 'round' });
+        } else {
+          skull(hs * 0.74, hs * 0.68, hs * 0.74, hs * 0.38, 0.5, faceDetail(H, { eyeY: hs * 0.04, sep: hs * 0.16, beard: -hs * 0.06 }));
+          // big braided beard
+          head.box(hs * 0.62, hs * 0.42, 3, { at: [0, hs * 0.05, hs * 0.3], mat: 'hair', bevel: 0.8, cuts: [[1, -1, 0, 2], [-1, -1, 0, 2]] });
+          head.box(hs * 0.94, hs * 0.44, hs * 0.94, { at: [0, hs * 0.76, -0.2], mat: 'metal', bevel: hs * 0.18, bevelSet: 'round', detail: { type: 'band', face: 'notTop', at: -hs * 0.12, size: 0.8, mat2: 'secondary' } });
+          head.box(1.4, hs * 0.34, 1.2, { at: [0, hs * 0.52, hs * 0.44], mat: 'metal' });
+        }
+        for (const s of [-1, 1]) { // horns: out, then sweeping up
+          const h1 = head.child('horn' + s, [s * hs * 0.42, hs * 0.78, -0.4], [0, 0, -s * 1.15]);
+          h1.cone('y', hs * 0.17, hs * 0.12, hs * 0.42, { at: [0, hs * 0.2, 0], mat: 'secondary', sides: 6 });
+          const h2 = h1.child('hornTip' + s, [0, hs * 0.4, 0], [0, 0, s * 0.95]);
+          h2.cone('y', hs * 0.12, 0.3, hs * 0.5, { at: [0, hs * 0.24, 0], mat: 'secondary', sides: 6 });
+        }
+        break;
+      }
+      case 'visor': {
+        if (sci) {
+          head.box(hs * 0.94, hs * 0.92, hs * 0.94, { at: [0, hs * 0.47, 0], mat: 'primary', bevel: hs * 0.22, bevelSet: 'round' });
+          head.box(hs * 0.8, hs * 0.26, 2, { at: [0, hs * 0.5, hs * 0.44], mat: 'metal', bevel: 0.5, detail: { type: 'eye', face: '+z', at: 0, h: 0.8, w: hs * 0.34 } });
+          head.box(hs * 0.26, hs * 0.3, 2, { at: [0, hs * 0.22, hs * 0.46], mat: 'metal', detail: { type: 'vent', face: '+z', pitch: 1.2, inset: 0.3 } });
+          head.box(1.4, hs * 0.5, hs * 0.7, { at: [0, hs * 0.96, -0.4], mat: 'secondary', cuts: [[0, 1, 1, 2]] });
+        } else { // great helm with dark slit and a plume
+          head.cyl('y', hs * 0.48, hs * 0.86, { at: [0, hs * 0.44, 0], mat: 'metal', sides: 8, twist: PI / 8, detail: [{ type: 'face', face: '+z', pts: [[-hs * 0.14, hs * 0.1], [hs * 0.14, hs * 0.1]], size: 1.3, h: 0.5, brow: false, dark: 0 }, { type: 'band', at: -hs * 0.05, size: 0.5, mat2: 'secondary' }] });
+          head.cone('y', hs * 0.48, hs * 0.3, 2.2, { at: [0, hs * 0.97, 0], mat: 'metal', sides: 8, twist: PI / 8 });
+          head.box(1.2, hs * 0.5, 1, { at: [0, hs * 0.44, hs * 0.5], mat: 'secondary' });
+          const pl = head.child('plume', [0, hs * 1.05, -0.5], [-0.5, 0, 0]);
+          pl.box(2, hs * 0.55, hs * 0.5, { at: [0, hs * 0.2, -hs * 0.2], mat: 'tertiary', bevel: 0.8, cuts: [[0, 1, 1, 2.5]] });
+        }
+        break;
+      }
+      default: { // bare head with wild hair
+        skull(hs * 0.8, hs * 0.76, hs * 0.8, hs * 0.42, 0.4, faceDetail(H, { eyeY: hs * 0.06, sep: hs * 0.16, mouth: big ? null : -hs * 0.18, beard: big ? -hs * 0.04 : null, glow: false }));
+        if (sci) head.box(2, 1.6, 1, { at: [hs * 0.16, hs * 0.48, hs * 0.44], mat: 'accent', shadow: false });
+        head.box(hs * 0.86, hs * 0.3, hs * 0.86, { at: [0, hs * 0.8, -0.3], mat: 'hair', bevel: 1.2, bevelSet: 'round' });
+        head.box(hs * 0.84, hs * 0.5, 2.5, { at: [0, hs * 0.55, -hs * 0.36], mat: 'hair', bevel: 1 });
+        for (const [x, z, rz, rx] of [[-0.25, 0.1, 0.5, 0], [0, 0.1, 0, -0.2], [0.25, 0.1, -0.5, 0], [0, -0.25, 0, 0.6], [-0.32, -0.2, 0.9, 0.3], [0.32, -0.2, -0.9, 0.3]]) {
+          head.cone('y', 1.6, 0.2, hs * 0.38, { at: [x * hs, hs * 0.96, z * hs], rot: [rx, 0, rz], mat: 'hair', sides: 5 });
+        }
+        if (big) head.box(hs * 0.62, hs * 0.4, 3, { at: [0, hs * 0.1, hs * 0.3], mat: 'hair', bevel: 0.8, cuts: [[1, -1, 0, 2], [-1, -1, 0, 2]] });
+      }
+    }
+    return head;
+  }
+
+  // ------------------------------------------------------------- arms (IK chain: shoulder -> elbow -> hand -> grip)
+  function buildArm(ctx, H, chest, s) {
+    const { P, M } = H;
+    const S = H.sh[s];
+    const aw = P.aw, fs = P.fist, fo = fs * 0.42;
+    const sh = chest.child('sh' + s, S);
+    sh.box(aw + 1, aw + 1, aw + 1, { mat: M.joint, bevel: aw * 0.3, bevelSet: 'round' });
+    sh.box(aw, P.U + 1, aw, { at: [0, -P.U / 2, 0], mat: M.upper, bevel: aw * 0.3, bevelSet: H.body === 'brute' ? 'round' : 'all' });
+    const el = sh.child('el' + s, [0, -P.U, 0]);
+    el.box(aw + 0.8, P.F + 0.6, aw + 0.8, { at: [0, -P.F / 2 + 0.2, 0], mat: M.fore, bevel: aw * 0.25, bevelSet: H.body === 'brute' ? 'round' : 'all' });
+    const cl = M.cuffLen || 0.5;
+    el.cone('y', (aw + 2.2) / 2, (aw + 0.8) / 2, P.F * cl, { at: [0, -P.F * (1 - cl * 0.6), 0], mat: M.cuff, sides: 8, twist: PI / 8 });
+    const hand = el.child('hand' + s, [0, -P.F, 0]);
+    hand.box(fs, fs, fs, { at: [0, -fo, 0], mat: M.fist, bevel: fs * 0.26, bevelSet: 'round' });
+    const grip = hand.child('grip' + s, [0, -fo, 0]);
+    return { sh, el, hand, grip, Feff: P.F + fo };
+  }
+
+  // ------------------------------------------------------------- shoulders (pads follow the upper arm a little)
+  function buildShoulders(ctx, H, chest) {
+    const { P, bp, sci } = H;
+    const type = bp.shoulders;
+    const [W, Ht, D] = P.chest;
+    const q = P.padScale;
+    if (type === 'fur') { // one heavy mantle across the shoulders and back
+      chest.box(W * 0.86, 4.5 * q, D * 0.62, { at: [0, Ht - 0.6, -D * 0.3], mat: 'leather', bevel: 1.8, bevelSet: 'round' });
+      chest.box(W * 0.7, 6 * q, 3.5, { at: [0, Ht - 3.5, -D / 2 - 0.4], mat: 'leather', bevel: 1.4, bevelSet: 'round' });
+    }
+    if (type === 'none') return;
+    for (const s of [-1, 1]) {
+      const S = H.sh[s];
+      const pad = chest.child('pad' + s, [S[0], S[1], S[2]]);
+      switch (type) {
+        case 'pauldrons':
+          if (sci) { // 40k bowl: rounded dome over a contrasting rim
+            pad.box(10 * q, 8.5 * q, 11.5 * q, { at: [s * 2.2 * q, 2.2 * q, 0], mat: 'primary', bevel: 3 * q, bevelSet: 'round' });
+            pad.box(11 * q, 2 * q, 12.5 * q, { at: [s * 2.6 * q, -1.8 * q, 0], mat: 'secondary', bevel: 0.9, rot: [0, 0, -s * 0.15] });
+            pad.box(2 * q, 3 * q, 5 * q, { at: [s * 7.3 * q, 2.2 * q, 0], mat: 'secondary', bevel: 0.6 });
+          } else {
+            pad.box(8.5 * q, 3.4 * q, 11 * q, { at: [s * 1.8 * q, 3.4 * q, 0], mat: 'primary', bevel: 1.2, rot: [0, 0, -s * 0.28], detail: { type: 'band', face: '+y', dir: 'v', at: s * 3.2 * q, size: 0.8, mat2: 'secondary' } });
+            pad.box(8.4 * q, 3 * q, 10 * q, { at: [s * 3 * q, 0.6 * q, 0], mat: 'metal', bevel: 1.1, rot: [0, 0, -s * 0.55] });
+            pad.box(7.6 * q, 3 * q, 9 * q, { at: [s * 4.2 * q, -1.8 * q, 0], mat: 'secondary', bevel: 1, rot: [0, 0, -s * 0.8] });
+          }
+          break;
+        case 'spiked':
+          pad.box(8 * q, 6.5 * q, 10 * q, { at: [s * 1.6 * q, 1.4 * q, 0], mat: sci ? 'primary' : 'metal', bevel: 1.6 * q, detail: { type: 'bolts', face: 'side', inset: 1.4 } });
+          for (const z of [-2.8, 0.2, 3.2]) pad.cone('y', 1.3 * q, 0.2, 5 * q, { at: [s * 2.4 * q, 6.4 * q, z * q], rot: [0, 0, -s * 0.35], mat: sci ? 'secondary' : 'metal', sides: 5 });
+          break;
+        case 'fur':
+          pad.box(8.5 * q, 6.5 * q, 10 * q, { at: [s * 2 * q, 1.4 * q, -0.6], mat: 'leather', bevel: 2.4 * q, bevelSet: 'round' });
+          pad.box(5 * q, 4 * q, 7 * q, { at: [s * 4.2 * q, -1.4 * q, 0.2], mat: 'leather', bevel: 1.4 * q, bevelSet: 'round', rot: [0, 0, -s * 0.5] });
+          for (const z of [-2.5, 1.5]) pad.cone('y', 1.4 * q, 0.2, 3 * q, { at: [s * 3 * q, 4.6 * q, z * q], rot: [0, 0, -s * 0.5], mat: 'leather', sides: 5 });
+          if (s < 0) pad.box(4.2 * q, 4 * q, 4 * q, { at: [s * 2.5 * q, 4.8 * q, 1.5 * q], mat: 'tertiary', bevel: 1.2, bevelSet: 'round', detail: { type: 'face', face: '+z', pts: [[-0.9, 0.3], [0.9, 0.3]], size: 0.55, h: 0.6, brow: false, dark: 0 } }); // skull trophy
+          break;
+        default: // light leather caps
+          pad.box(5 * q, 3.4 * q, 6.5 * q, { at: [s * 1.2 * q, 1.2 * q, 0], mat: 'leather', bevel: 1, rot: [0, 0, -s * 0.35] });
+      }
+    }
+  }
+
+  // ------------------------------------------------------------- extras (cape, scarf, pack, banner)
+  function buildExtra(ctx, H, chest, head) {
+    const { P, bp, sci } = H;
+    const [W, Ht, D] = P.chest;
+    const type = bp.extra;
+    if (type === 'scarf' || type === 'cape') {
+      // neck wrap
+      chest.box(W * 0.62, 3, D * 0.8, { at: [0, Ht - 0.2, 0.4], mat: 'tertiary', bevel: 1, bevelSet: 'round' });
+    }
+    if (type === 'scarf') {
+      const t1 = chest.child('scarf1', [W * 0.2, Ht - 0.5, -D / 2 - 0.5], [-1.05, 0.25, 0]);
+      t1.box(4, 1, 8, { at: [0, 0, -3.6], mat: 'tertiary', bevel: 0.3 });
+      const t2 = t1.child('scarf2', [0, 0, -7.4], [-0.35, 0, 0]);
+      t2.box(3.2, 1.2, 7, { at: [0, 0, -3.2], mat: 'tertiary', cuts: [[1, 0, -1, 1.2], [-1, 0, -1, 1.2]] });
+      H.flow.push({ n: 'scarf1', base: -1.05, amp: 0.08, walk: 0.55, ph: 0, lean: true }, { n: 'scarf2', base: -0.3, amp: 0.2, walk: 0.1, ph: 0.8 });
+    } else if (type === 'cape') {
+      const len = P.aY + P.thigh + P.shin * 0.5 + Ht * 0.7;
+      const c1 = chest.child('cape1', [0, Ht - 1, -D / 2 - 0.6], [0.1, 0, 0]);
+      c1.box(W * 0.95, len * 0.55, 1.2, { at: [0, -len * 0.27, 0], mat: 'secondary', cuts: [[1, 1, 0, 1.5], [-1, 1, 0, 1.5]] });
+      const c2 = c1.child('cape2', [0, -len * 0.54, 0], [0.05, 0, 0]);
+      c2.box(W * 1.05, len * 0.5, 1.2, { at: [0, -len * 0.24, 0], mat: 'secondary', cuts: [[1, -1, 0, 1], [-1, -1, 0, 1]], detail: { type: 'band', face: '-z', at: -len * 0.2, size: 0.8, mat2: 'tertiary' } });
+      H.flow.push({ n: 'cape1', base: 0.1, amp: 0.04, walk: 0.35, ph: 0, lean: true }, { n: 'cape2', base: 0.05, amp: 0.06, walk: 0.25, ph: 0.9 });
+    } else if (type === 'backpack') {
+      const bk = chest.child('pack', [0, Ht * 0.55, -D / 2]);
+      if (sci) {
+        bk.box(W * 0.78, Ht * 0.85, 5, { at: [0, 0, -2.4], mat: 'primary', bevel: 1.2, detail: [{ type: 'vent', face: '-z', pitch: 2, inset: 2 }, { type: 'bolts', face: '-z', inset: 1.2 }] });
+        for (const s of [-1, 1]) {
+          bk.cyl('y', 1.9, 7, { at: [s * W * 0.26, Ht * 0.5, -3.2], mat: 'metal', sides: 8 });
+          bk.cyl('y', 1.2, 0.8, { at: [s * W * 0.26, Ht * 0.5 + 3.8, -3.2], mat: 'accent', sides: 8, shadow: false });
+        }
+      } else {
+        bk.box(W * 0.7, Ht * 0.75, 4.5, { at: [0, -0.5, -2.2], mat: 'leather', bevel: 1.2, detail: { type: 'band', face: '-z', dir: 'v', at: 0, size: 0.7, mat2: 'metal' } });
+        bk.cyl('x', 2.4, W * 0.9, { at: [0, Ht * 0.45, -2.4], mat: 'tertiary', sides: 8, detail: { type: 'band', dir: 'v', at: W * 0.25, size: 0.5, mat2: 'leather' } });
+        bk.cyl('y', 1.8, 2.6, { at: [W * 0.3, -Ht * 0.3, -4.6], mat: 'metal', sides: 8 });
+      }
+    } else if (type === 'tanks') {
+      const tk = chest.child('tanks', [0, Ht * 0.45, -D / 2]);
+      tk.box(W * 0.7, 3, 3, { at: [0, -Ht * 0.25, -1.2], mat: 'metal', bevel: 0.6 });
+      for (const s of [-1, 1]) {
+        if (sci) {
+          tk.cyl('y', 3, Ht * 0.95, { at: [s * W * 0.2, 1, -3.4], mat: 'secondary', sides: 8, twist: PI / 8, detail: [{ type: 'band', at: Ht * 0.2, size: 0.8, mat2: 'tertiary' }, { type: 'band', at: -Ht * 0.2, size: 0.8, mat2: 'tertiary' }] });
+          tk.cone('y', 3, 1.4, 2, { at: [s * W * 0.2, Ht * 0.5 + 2, -3.4], mat: 'metal', sides: 8, twist: PI / 8 });
+        } else {
+          tk.cyl('y', 3.4, Ht * 0.8, { at: [s * W * 0.2, 0, -3.6], mat: 'leather', sides: 8, twist: PI / 8, detail: [{ type: 'band', at: Ht * 0.25, size: 0.7, mat2: 'secondary' }, { type: 'band', at: -Ht * 0.25, size: 0.7, mat2: 'secondary' }] });
+        }
+      }
+      tk.box(1.6, 1.6, 1.6, { at: [W * 0.2, Ht * 0.5 + 3.4, -3.4], mat: 'accent', shadow: false });
+      tk.cyl('x', 1, W * 0.5, { at: [0, -Ht * 0.3, -3.8], mat: 'metal', sides: 6 });
+    } else if (type === 'banner') {
+      const bn = chest.child('banner', [W * 0.2, Ht * 0.4, -D / 2 - 1.2]);
+      const hgt = Ht + P.head + 10;
+      bn.cyl('y', 0.6, hgt, { at: [0, hgt / 2 - 2, 0], mat: sci ? 'metal' : 'leather', sides: 6 });
+      bn.box(W * 0.7, 1, 1, { at: [-W * 0.3, hgt - 2.5, 0], mat: sci ? 'metal' : 'leather' });
+      const fl = bn.child('flag', [-W * 0.3, hgt - 3, 0]);
+      fl.box(W * 0.6, 12, 0.8, { at: [0, -6, 0], mat: 'tertiary', cuts: [[0, -1, 0, 0]], detail: [{ type: 'band', face: '-z', at: 3, size: 1.2, mat2: 'secondary' }, { type: 'band', face: '+z', at: 3, size: 1.2, mat2: 'secondary' }] });
+      fl.box(W * 0.3, 3, 0.8, { at: [-W * 0.15, -13.2, 0], mat: 'tertiary', cuts: [[1, -1, 0, 1.5]] });
+      fl.box(W * 0.3, 3, 0.8, { at: [W * 0.15, -13.2, 0], mat: 'tertiary', cuts: [[-1, -1, 0, 1.5]] });
+      if (sci) bn.box(2, 2, 2, { at: [0, hgt - 1.2, 0], mat: 'accent', shadow: false });
+      else bn.cone('y', 1, 0.2, 2.5, { at: [0, hgt - 0.3, 0], mat: 'metal', sides: 4 });
+      H.flow.push({ n: 'flag', base: 0, amp: 0.05, walk: 0.3, ph: 0.3 });
+    }
+  }
+
+  // ------------------------------------------------------------- weapons
+  // Each weapon: { label, hands, attack, decay, build(ctx, grip, side, type, H) -> { pose(st, n, H, s, f) } }
+  // Weapon-local frame at the fist centre: +z points to the business end, +y is the "top".
+  // pose() writes hand targets into H.tgt[side] = { p: [x,y,z] chest-space design px, rot: chest-space Euler } and
+  // body offsets into H.fx; f is the attack progress (1 on trigger decaying to 0; 0 when this hand is not attacking).
+  function muzzle(grip, s, at, kind) {
+    const mz = grip.child('mz' + s, at, [-PI / 2, 0, 0]);
+    mz.startHidden = true;
+    MF.Gen.parts.muzzleFlash(mz, kind);
+    return 'mz' + s;
+  }
+  const flick = (st) => ((Math.floor((st.t || 0) * 24) & 1) === 0);
+
+  // generic rest & guard spots in chest space
+  const hipSpot = (H, s, dz = 0) => [H.sh[s][0] * 0.78, -H.P.chest[1] * 0.12, H.P.chest[2] * 0.5 + 2 + dz];
+  const levelRx = (H) => -(H.P.lean);
+
+  const HUMAN_WEAPONS = {
+    dagger: {
+      label: 'Dagger / energy knife', hands: 1, attack: true, decay: 2.6,
+      build(ctx, grip, s, type, H) {
+        const sci = H.sci, L = 10;
+        grip.box(1.3, 1.3, 5, { at: [0, 0, -0.3], mat: sci ? 'metal' : 'leather' });
+        grip.box(1.8, 1.8, 1.4, { at: [0, 0, -2.9], mat: 'metal', bevel: 0.4 });
+        if (sci) {
+          grip.box(1.8, 3, 1.4, { at: [0, 0.2, 2.6], mat: 'metal', bevel: 0.4 });
+          grip.box(0.8, 2.2, L + 2, { at: [0, 0.3, 3.2 + (L + 2) / 2], mat: 'accent', shadow: false, cuts: [[0, 1, 1, 2], [0, -1, 1, 0.8]] });
+        } else {
+          grip.box(1, 3.8, 1, { at: [0, 0, 2.4], mat: 'metal' });
+          grip.box(1, 2.4, L, { at: [0, 0.2, 2.8 + L / 2], mat: 'metal', cuts: [[0, 1, 1, 2], [0, -1, 1, 0.6]], detail: { type: 'panel', face: 'side', at: 0.2, dir: 'h' } });
+        }
+        return {
+          pose(st, n, H, s, f) {
+            const P = H.P, m = Math.min(1, st.move);
+            const bob = Math.sin(st.phase * 2 + (s > 0 ? 1 : 0)) * 0.6 * m;
+            const rest = [H.sh[s][0] * 1.05, -1 + bob, P.chest[2] * 0.5 + 2];
+            const restD = [s * 0.55, -0.65, -0.5];
+            let p = rest, d = restD;
+            if (f > 0) { // wind the knife up behind the shoulder, then rip it down across the body
+              const u = 1 - f;
+              const k1 = ease(seg(u, 0, 0.2)), k2 = ease(seg(u, 0.2, 0.4)), k3 = ease(seg(u, 0.7, 1));
+              const wind = [H.sh[s][0] * 1.35, H.sh[s][1] + P.U * 0.9, -2], windD = [s * 0.4, 0.8, -0.5];
+              const hit = [-s * P.chest[0] * 0.35, -1, P.chest[2] * 0.5 + P.F + 3], hitD = [-s * 0.8, -0.55, 0.3];
+              p = mix3(mix3(mix3(rest, wind, k1), hit, k2), rest, k3);
+              d = mix3(mix3(mix3(restD, windD, k1), hitD, k2), restD, k3);
+              const a = k1 * (1 - k2) - k2 * (1 - k3);
+              H.fx.twist += s * 0.45 * a;
+              H.fx.lean += 0.3 * k2 * (1 - k3) - 0.1 * k1 * (1 - k2);
+              H.fx.crouch += 0.2 * k2 * (1 - k3);
+            } else if (st.fire > 0) { // off hand tucks into a guard while the other knife strikes
+              const g = Math.sin(clamp(1 - st.fire, 0, 1) * PI);
+              p = mix3(rest, [H.sh[s][0] * 0.55, H.sh[s][1] - P.U * 0.6, P.chest[2] * 0.5 + 4], g);
+              d = mix3(restD, [s * 0.2, 0.2, 1], g);
+            }
+            H.tgt[s] = { p, rot: aim(d, s * 0.6) };
+          },
+        };
+      },
+    },
+
+    sword: {
+      label: 'Sword / power sword', hands: 1, attack: true, decay: 2.4,
+      build(ctx, grip, s, type, H) {
+        const sci = H.sci, L = 15;
+        grip.box(1.4, 1.4, 5, { at: [0, 0, -0.5], mat: 'leather' });
+        grip.box(2, 2, 1.6, { at: [0, 0, -3.4], mat: 'secondary', bevel: 0.5 });
+        grip.box(1.4, 6, 1.4, { at: [0, 0, 2.6], mat: 'secondary', bevel: 0.3 });
+        grip.box(1, 2.6, L, { at: [0, 0, 3.2 + L / 2], mat: 'metal', cuts: [[0, 1, 1, 1.4], [0, -1, 1, 1.4]], detail: { type: 'panel', face: 'side', at: 0, dir: 'h' } });
+        if (sci) grip.box(1.2, 0.8, L - 1, { at: [0, -1.1, 3.2 + L / 2], mat: 'accent', shadow: false, cuts: [[0, 0, 1, 0.8]] });
+        return {
+          pose(st, n, H, s, f) {
+            const P = H.P;
+            const rest = [H.sh[s][0] * 0.9, -0.5, P.chest[2] * 0.5 + 3];
+            const restD = [s * 0.25, 0.55, 0.8];
+            let p = rest, d = restD;
+            if (f > 0) {
+              const u = 1 - f;
+              const k1 = ease(seg(u, 0, 0.2)), k2 = ease(seg(u, 0.2, 0.42)), k3 = ease(seg(u, 0.72, 1));
+              const wind = [H.sh[s][0] * 0.8, H.sh[s][1] + 5, 0], windD = [s * 0.3, 0.4, -1];
+              const hit = [-s * 1, 0, P.chest[2] * 0.5 + 7], hitD = [-s * 0.3, -0.6, 0.75];
+              p = mix3(mix3(mix3(rest, wind, k1), hit, k2), rest, k3);
+              d = mix3(mix3(mix3(restD, windD, k1), hitD, k2), restD, k3);
+              H.fx.twist += s * 0.3 * (k1 * (1 - k2) - k2 * (1 - k3));
+              H.fx.lean += 0.2 * k2 * (1 - k3) - 0.1 * k1 * (1 - k2);
+            }
+            H.tgt[s] = { p, rot: aim(d, -s * 0.3) };
+          },
+        };
+      },
+    },
+
+    pistol: {
+      label: 'Pistol / flintlock', hands: 1, attack: true, decay: 4,
+      build(ctx, grip, s, type, H) {
+        const sci = H.sci;
+        grip.box(1.6, 4, 2, { at: [0, -0.6, -0.4], rot: [0.25, 0, 0], mat: sci ? 'metal' : 'leather' });
+        if (sci) {
+          grip.box(2.6, 3.2, 8, { at: [0, 2.4, 2.2], mat: 'primary', bevel: 0.6, detail: { type: 'panel', face: 'side', at: 0, dir: 'v' } });
+          grip.box(1.8, 1.8, 3, { at: [0, 2.6, 7.2], mat: 'metal' });
+        } else {
+          grip.box(2, 2.4, 5, { at: [0, 1.8, 1.2], mat: 'metal' });
+          grip.cyl('z', 0.9, 7, { at: [0, 2.4, 6], mat: 'metal', sides: 6 });
+          grip.cone('z', 0.9, 1.4, 1.4, { at: [0, 2.4, 9.8], mat: 'metal', sides: 6 });
+        }
+        const mzn = muzzle(grip, s, [0, 2.5, sci ? 8.8 : 10.6], 'flash');
+        return {
+          pose(st, n, H, s, f) {
+            const P = H.P;
+            const rest = [H.sh[s][0] * 1.05, -0.5, P.chest[2] * 0.5 + 1];
+            let p = rest, d = [s * 0.1, -0.8, 0.6];
+            if (f > 0) {
+              const u = 1 - f, up = ease(seg(u, 0, 0.12)) * (1 - ease(seg(u, 0.75, 1)));
+              const aimP = [H.sh[s][0] * 0.55, H.sh[s][1] - 1, P.U + P.F * 0.9];
+              const kick = Math.max(0, 1 - Math.abs(u - 0.2) * 6);
+              p = mix3(rest, aimP, up); p[1] += kick * 1.2; p[2] -= kick * 1.2;
+              d = mix3(d, [0, Math.sin(-levelRx(H)) + kick * 0.3, 1], up);
+              n[mzn].hidden = !(u > 0.12 && u < 0.3);
+              H.fx.twist += -s * 0.25 * up;
+            }
+            H.tgt[s] = { p, rot: aim(d, 0) };
+          },
+        };
+      },
+    },
+
+    shield: {
+      label: 'Shield', hands: 1, attack: false, decay: 3,
+      build(ctx, grip, s, type, H) {
+        const sci = H.sci;
+        const sw = 11, sh = 15;
+        grip.box(2, 2, 2, { at: [0, 0, 1], mat: 'metal' });
+        if (sci) {
+          grip.box(sw, sh, 1.8, { at: [0, -1, 2.4], mat: 'primary', bevel: 1, cuts: [[1, -1, 0, 3], [-1, -1, 0, 3]], detail: [{ type: 'band', face: '+z', at: sh * 0.25, size: 1, mat2: 'secondary' }, { type: 'bolts', face: '+z', inset: 1.6 }] });
+          grip.box(sw * 0.3, sh * 0.35, 1, { at: [0, 0, 3.6], mat: 'secondary', bevel: 0.5, detail: { type: 'light', face: '+z', pts: [[0, 0]], size: 0.8 } });
+        } else {
+          grip.box(sw, sh, 1.6, { at: [0, -1, 2.3], mat: 'primary', cuts: [[1, -1, 0, sw * 0.45], [-1, -1, 0, sw * 0.45], [1, 1, 0, 1], [-1, 1, 0, 1]], detail: [{ type: 'band', face: '+z', dir: 'v', at: 0, size: 1.2, mat2: 'tertiary' }, { type: 'band', face: '+z', at: sh * 0.12, size: 1.2, mat2: 'tertiary' }] });
+          grip.box(sw + 0.6, 1.2, 2, { at: [0, sh / 2 - 1.4, 2.2], mat: 'metal' });
+          grip.cyl('z', 1.6, 1.4, { at: [0, 0, 3.6], mat: 'metal', sides: 8 });
+        }
+        return {
+          pose(st, n, H, s, f) {
+            const P = H.P;
+            let p = [H.sh[s][0] * 0.75, P.chest[1] * 0.35, P.chest[2] * 0.5 + 4];
+            if (f > 0) { const u = 1 - f, b = ease(seg(u, 0, 0.25)) * (1 - ease(seg(u, 0.6, 1))); p = [p[0] * (1 - b * 0.5), p[1] + b, p[2] + b * 5]; H.fx.lean += 0.15 * b; }
+            H.tgt[s] = { p, rot: aim([s * 0.35, Math.sin(-levelRx(H)), 1], 0) };
+          },
+        };
+      },
+    },
+
+    mg: {
+      label: 'Machine gun / gatling blunderbuss', hands: 2, attack: true, decay: 4,
+      build(ctx, grip, s, type, H) {
+        const sci = H.sci;
+        let tip;
+        grip.box(1.8, 4.2, 2.2, { at: [0, -0.4, -0.3], rot: [0.3, 0, 0], mat: sci ? 'metal' : 'leather' });
+        if (sci) { // heavy bolter-ish: chunky receiver, drum, shroud
+          grip.box(4.2, 5.6, 12, { at: [0, 3.6, 1.8], mat: 'primary', bevel: 1, detail: [{ type: 'panel', face: 'side', at: 1, dir: 'v' }, { type: 'bolts', face: 'side', inset: 1.1 }] });
+          grip.box(3.4, 3.8, 5, { at: [0, 3.2, -6], mat: 'metal', bevel: 0.8, cuts: [[0, -1, -1, 2]] });
+          grip.box(3.6, 3.6, 7, { at: [0, 4, 11], mat: 'metal', bevel: 0.6, detail: { type: 'vent', face: 'side', pitch: 1.5, inset: 0.6 } });
+          grip.cyl('z', 1.2, 4, { at: [0, 4, 16], mat: 'metal', sides: 6 });
+          grip.box(3, 3, 2, { at: [0, 4, 18.6], mat: 'metal', bevel: 0.5 });
+          grip.cyl('x', 3.4, 3.2, { at: [0, 0.4, 5], mat: 'secondary', sides: 8, detail: { type: 'bolts', face: 'side', inset: 1.4 } });
+          grip.box(1, 1.8, 5, { at: [0, 7.2, 1.5], mat: 'metal' });
+          grip.box(1.8, 3, 2, { at: [0, 1, 10.5], mat: 'metal' });
+          tip = [0, 4, 19.8];
+        } else { // gatling blunderbuss: wooden stock, brass housing, spinning flared barrels, hopper
+          grip.box(2.8, 3.6, 8, { at: [0, 2, -5], mat: 'leather', bevel: 0.8, cuts: [[0, -1, -1, 2]] });
+          grip.cyl('z', 3.2, 6, { at: [0, 3.6, 2.8], mat: 'secondary', sides: 8, detail: { type: 'band', dir: 'h', at: 0, size: 0.5 } });
+          grip.box(3.2, 3.6, 3.6, { at: [0, 7.6, 1.8], mat: 'leather', bevel: 0.8 });
+          const spin = grip.child('spin' + s, [0, 3.6, 6]);
+          for (let i = 0; i < 6; i++) { const a = (i / 6) * PI * 2; spin.cyl('z', 0.8, 11, { at: [Math.cos(a) * 1.9, Math.sin(a) * 1.9, 5.5], mat: 'metal', sides: 6 }); }
+          spin.cyl('z', 2.9, 1.4, { at: [0, 0, 4], mat: 'secondary', sides: 8 });
+          spin.cone('z', 2.8, 3.8, 2.4, { at: [0, 0, 11.6], mat: 'metal', sides: 8 });
+          grip.box(1, 1, 3, { at: [2.2, 3.6, 0.6], mat: 'metal' });
+          grip.box(1.8, 3, 2, { at: [0, 1.2, 9], mat: 'leather' });
+          tip = [0, 3.6, 19.4];
+        }
+        const mzn = muzzle(grip, s, tip, sci ? 'flash' : 'puff');
+        const fore = (sci ? [0, 0.4, 10.5] : [0, 0.6, 9]).map((v) => v * H.P.ws);
+        return {
+          pose(st, n, H, s, f) {
+            const P = H.P, m = Math.min(1, st.move);
+            const bob = Math.sin(st.phase * 2) * 0.4 * m;
+            let p = [s * P.chest[0] * 0.3, -P.chest[1] * 0.08 + bob, P.chest[2] * 0.5 + 1.8];
+            let rx = levelRx(H) - P.walkLean * m + 0.04, ry = -s * 0.1;
+            if (f > 0) {
+              const on = f > 0.08;
+              const j = on && flick(st) ? 1 : 0.4;
+              p = [p[0], p[1] + 0.3 * j * f, p[2] - 1.6 * j * f];
+              rx -= 0.07 * j * f;
+              n[mzn].hidden = !(on && flick(st));
+              if (n['spin' + s]) n['spin' + s].rot[2] = (st.t || 0) * 30;
+              H.fx.lean -= 0.05 * f;
+            }
+            const rot = [rx, ry, 0];
+            const R = eulerM(rot);
+            const g2 = apply(R, fore);
+            H.tgt[s] = { p, rot };
+            H.tgt[-s] = { p: [p[0] + g2[0], p[1] + g2[1], p[2] + g2[2]] };
+          },
+        };
+      },
+    },
+
+    rifle: {
+      label: 'Long rifle / las-rifle', hands: 2, attack: true, decay: 2.6,
+      build(ctx, grip, s, type, H) {
+        const sci = H.sci;
+        grip.box(1.6, 3.6, 2, { at: [0, -0.6, -0.2], rot: [0.3, 0, 0], mat: 'leather' });
+        if (sci) { // las-rifle: armoured receiver, long barrel with glowing coils, big scope
+          grip.box(2.8, 4, 12, { at: [0, 2.6, 3], mat: 'primary', bevel: 0.7, detail: { type: 'panel', face: 'side', at: 0, dir: 'v' } });
+          grip.box(2.4, 3.6, 7, { at: [0, 2.2, -6.5], mat: 'metal', bevel: 0.6, cuts: [[0, -1, -1, 2.2]] });
+          grip.cyl('z', 0.8, 16, { at: [0, 3, 17], mat: 'metal', sides: 6 });
+          for (const z of [11, 14]) grip.cyl('z', 1.5, 1, { at: [0, 3, z], mat: 'accent', sides: 8, shadow: false });
+          grip.box(2, 2, 3, { at: [0, 3, 25], mat: 'metal', bevel: 0.4 });
+          grip.cyl('z', 1.2, 7, { at: [0, 5.8, 2], mat: 'metal', sides: 8 });
+          grip.cyl('z', 1.3, 0.6, { at: [0, 5.8, 5.6], mat: 'glass', sides: 8 });
+        } else { // long musket: wooden stock, iron barrel, brass bands
+          grip.box(2.4, 3.8, 11, { at: [0, 1.6, -6], mat: 'leather', bevel: 0.7, cuts: [[0, -1, -1, 2.6], [0, 1, -1, 0.8]] });
+          grip.box(2.2, 2.6, 16, { at: [0, 2.4, 7], mat: 'leather', bevel: 0.5 });
+          grip.cyl('z', 0.8, 22, { at: [0, 3.2, 12], mat: 'metal', sides: 6 });
+          for (const z of [4, 10, 14]) grip.box(2.6, 3, 0.8, { at: [0, 2.6, z], mat: 'secondary' });
+          grip.box(1.2, 2.2, 3, { at: [0, 3.8, 1], mat: 'metal' });
+        }
+        const mzn = muzzle(grip, s, [0, sci ? 3 : 3.2, sci ? 26.6 : 23.2], sci ? 'beam' : 'flash');
+        const ws = H.P.ws, fore = [0, 1.2 * ws, 10 * ws];
+        return {
+          pose(st, n, H, s, f) {
+            const P = H.P, m = Math.min(1, st.move);
+            let up = 0, kick = 0;
+            if (f > 0) {
+              const u = 1 - f;
+              up = ease(seg(u, 0, 0.16)) * (1 - ease(seg(u, 0.78, 1)));
+              kick = u > 0.2 ? Math.max(0, 1 - (u - 0.2) * 5) : 0;
+              n[mzn].hidden = !(u > 0.2 && u < 0.34);
+              H.fx.twist += s * 0.3 * up;
+            }
+            const pitch = P.lean + P.walkLean * m + H.fx.lean;
+            const low = [H.sh[s][0] * 0.35, P.chest[1] * 0.1 + Math.sin(st.phase * 2) * 0.4 * m, P.chest[2] * 0.5 + 1.5];
+            const aimP = [H.sh[s][0] * 0.4, H.sh[s][1] + 0.6, P.chest[2] * 0.5 - 0.5];
+            const p = mix3(low, aimP, up);
+            p[2] -= kick * 1.5; p[1] += kick * 0.4;
+            const th = lerp(-0.3, 0.02 + kick * 0.18, up) + pitch;
+            const rot = aim([lerp(-s * 0.35, -s * 0.05, up), Math.sin(th), Math.cos(th)], 0);
+            const g2 = apply(eulerM(rot), fore);
+            H.tgt[s] = { p, rot };
+            H.tgt[-s] = { p: [p[0] + g2[0], p[1] + g2[1], p[2] + g2[2]] };
+          },
+        };
+      },
+    },
+
+    flamer: {
+      label: 'Flamer / dragon-breath lance', hands: 2, attack: true, decay: 2,
+      build(ctx, grip, s, type, H) {
+        const sci = H.sci;
+        grip.box(1.8, 4, 2.2, { at: [0, -0.4, -0.3], rot: [0.3, 0, 0], mat: sci ? 'metal' : 'leather' });
+        if (sci) {
+          grip.box(3.6, 4.6, 9, { at: [0, 3, 1], mat: 'primary', bevel: 0.9, detail: { type: 'bolts', face: 'side', inset: 1 } });
+          grip.cyl('z', 2.6, 8, { at: [0, -0.2, 5], mat: 'secondary', sides: 8, detail: { type: 'band', dir: 'h', at: 0, size: 0.7 } });
+          grip.cyl('z', 1.3, 8, { at: [0, 3.4, 9], mat: 'metal', sides: 6 });
+          grip.cone('z', 1.6, 2.8, 3, { at: [0, 3.4, 14.4], mat: 'metal', sides: 8 });
+          grip.box(1.2, 1.2, 1.4, { at: [0, 1.4, 15], mat: 'accent', shadow: false });
+        } else { // brass fire-lance with a snarling drake-mouth nozzle and a bellows keg
+          grip.box(2.6, 3.4, 8, { at: [0, 2.2, -4], mat: 'leather', bevel: 0.7 });
+          grip.cyl('z', 2.8, 6, { at: [0, 0, 4], mat: 'leather', sides: 8, detail: { type: 'band', dir: 'h', at: 0, size: 0.6, mat2: 'secondary' } });
+          grip.cyl('z', 1.2, 10, { at: [0, 3.2, 8], mat: 'secondary', sides: 6 });
+          grip.box(3.4, 3.6, 4.4, { at: [0, 3.4, 14.4], mat: 'secondary', bevel: 0.8, cuts: [[0, 1, 1, 1.6]], detail: { type: 'light', face: 'side', pts: [[1, 0.8]], size: 0.5 } });
+          grip.box(1, 1, 1, { at: [0, 2, 16.8], mat: 'accent', shadow: false });
+        }
+        const mzn = muzzle(grip, s, [0, sci ? 3.4 : 3, sci ? 16.2 : 17], 'flame');
+        const fore = [0, 0.4 * H.P.ws, 7.5 * H.P.ws];
+        return {
+          pose(st, n, H, s, f) {
+            const P = H.P, m = Math.min(1, st.move);
+            let p = [s * P.chest[0] * 0.3, -P.chest[1] * 0.06 + Math.sin(st.phase * 2) * 0.4 * m, P.chest[2] * 0.5 + 2];
+            let rx = levelRx(H) - P.walkLean * m + 0.06, ry = -s * 0.1;
+            n[mzn].hidden = !(f > 0.12);
+            if (f > 0.12) {
+              const sweep = Math.sin((1 - f) * 7) * 0.18; // hose the area
+              ry += sweep; rx += 0.05; p = [p[0], p[1] + 0.5, p[2] - 0.6];
+              n[mzn].pos[1] += (flick(st) ? 0.6 : -0.4) * ctx.k;
+              H.fx.twist += sweep * 0.5;
+            }
+            const rot = [rx, ry, 0];
+            const g2 = apply(eulerM(rot), fore);
+            H.tgt[s] = { p, rot };
+            H.tgt[-s] = { p: [p[0] + g2[0], p[1] + g2[1], p[2] + g2[2]] };
+          },
+        };
+      },
+    },
+
+    greatsword: {
+      label: 'Greatsword / chainsword', hands: 2, attack: true, decay: 2.2,
+      build(ctx, grip, s, type, H) {
+        const sci = H.sci, ws = H.P.ws;
+        const fs = H.P.fist / ws;                    // fist size in weapon units
+        const g2 = -(fs + 0.6);                       // second hand along the grip
+        const L = 33;                                 // blade length (weapon units)
+        grip.box(1.8, 1.8, fs * 2 + 2.5, { at: [0, 0, g2 / 2], mat: 'leather' });
+        grip.box(2.8, 2.8, 2.4, { at: [0, 0, g2 - fs * 0.5 - 1.4], mat: sci ? 'metal' : 'secondary', bevel: 0.7 });
+        if (sci) { // chainsword: motor housing, toothed chain bar, glowing runes
+          grip.box(4.4, 7, 7, { at: [0, -0.8, fs * 0.5 + 3.4], mat: 'primary', bevel: 1, detail: [{ type: 'vent', face: 'side', pitch: 1.5, inset: 1 }] });
+          grip.box(2.4, 6.4, L, { at: [0, -0.4, fs * 0.5 + 6 + L / 2], mat: 'primary', bevel: 0.6, cuts: [[0, 1, 1, 3], [0, -1, 1, 2]], detail: [{ type: 'light', face: 'side', pts: [[-L * 0.3, 1], [-L * 0.1, 1], [L * 0.1, 1]], size: 0.6 }, { type: 'band', face: 'side', at: 1.8, size: 0.6, mat2: 'secondary' }] });
+          grip.box(1.6, 1.8, L + 1.5, { at: [0, -4.2, fs * 0.5 + 6 + L / 2], mat: 'metal', cuts: [[0, -1, 1, 1.2]], detail: { type: 'tread', face: 'side', axis: 'u' } });
+          grip.box(1.6, 1.8, L * 0.9, { at: [0, 3.1, fs * 0.5 + 6 + L * 0.47], mat: 'metal', detail: { type: 'tread', face: 'side', axis: 'u' } });
+          grip.cyl('y', 1, 4, { at: [0, 4.2, fs * 0.5 + 1.8], mat: 'metal', sides: 6 });
+        } else { // greatsword: crossguard, ricasso, long fullered blade
+          grip.box(1.8, 12, 1.8, { at: [0, 0, fs * 0.5 + 1.4], mat: 'secondary', bevel: 0.4, cuts: [[0, 1, 1, 0.8], [0, -1, 1, 0.8]] });
+          grip.box(1.2, 3.2, 3, { at: [0, 0, fs * 0.5 + 3.8], mat: 'metal' });
+          grip.box(1.2, 5, L, { at: [0, 0, fs * 0.5 + 5.2 + L / 2], mat: 'metal', cuts: [[0, 1, 1, 2.6], [0, -1, 1, 2.6]], detail: { type: 'panel', face: 'side', at: 0, dir: 'h' } });
+        }
+        return {
+          pose(st, n, H, s, f) {
+            const P = H.P, m = Math.min(1, st.move);
+            const shs = H.sh[s];
+            // rest: grip in front of the chest, blade over the shoulder (angle th: 0 = forward, PI/2 = up, PI = back)
+            // th is the blade's pitch in world terms (0 forward, PI/2 up, PI back); chest pitch is added below
+            const rest = { p: [shs[0] * 0.55, P.chest[1] * 0.45 + Math.sin(st.phase * 2) * 0.5 * m, P.chest[2] * 0.5 + 2.5], th: 2.42, lat: s * 0.3, roll: -s * 1.2 };
+            const wind = { p: [shs[0] * 0.15, shs[1] + P.U * 0.6, -1], th: 2.95, lat: s * 0.1, roll: -s * 1.4 };
+            const hit = { p: [-shs[0] * 0.05, -P.chest[1] * 0.1, P.chest[2] * 0.5 + P.F + 2], th: -0.3, lat: -s * 0.05, roll: -s * 1.5 };
+            let k = rest;
+            if (f > 0) {
+              const u = 1 - f;
+              const k1 = ease(seg(u, 0, 0.24)), k2 = seg(u, 0.24, 0.42), k3 = ease(seg(u, 0.74, 1));
+              const lerpK = (a, b, t) => ({ p: mix3(a.p, b.p, t), th: lerp(a.th, b.th, t), lat: lerp(a.lat, b.lat, t), roll: lerp(a.roll, b.roll, t) });
+              const k2e = k2 * k2 * (2 - k2);
+              k = lerpK(lerpK(lerpK(rest, wind, k1), hit, k2e), rest, k3);
+              H.fx.lean += -0.22 * k1 * (1 - k2) + 0.4 * k2e * (1 - k3);
+              H.fx.crouch += -0.05 * k1 * (1 - k2) + 0.28 * k2e * (1 - k3);
+              H.fx.twist += s * 0.25 * k1 * (1 - k2) - s * 0.15 * k2e * (1 - k3);
+              H.fx.headPitch += 0.2 * k2e * (1 - k3);
+            }
+            const th = k.th + P.lean + P.walkLean * m + H.fx.lean;
+            const d = [k.lat, Math.sin(th), Math.cos(th)];
+            const rot = aim(d, k.roll);
+            const R = eulerM(rot);
+            const o = apply(R, [0, 0, g2 * ws]);
+            H.tgt[s] = { p: k.p, rot };
+            H.tgt[-s] = { p: [k.p[0] + o[0], k.p[1] + o[1], k.p[2] + o[2]] };
+          },
+        };
+      },
+    },
+  };
+
+  // ------------------------------------------------------------- build
+  const W_OPTS_R = Object.keys(HUMAN_WEAPONS).concat(['none']).filter((k) => k !== 'shield');
+  const W_OPTS_L = Object.keys(HUMAN_WEAPONS).filter((k) => HUMAN_WEAPONS[k].hands === 1).concat(['none']);
+  const W_LBL = { none: 'None' };
+  for (const k in HUMAN_WEAPONS) W_LBL[k] = HUMAN_WEAPONS[k].label;
+
+  function buildHuman(ctx) {
+    const { bp } = ctx;
+    const role = ROLES[bp.role] ? bp.role : 'soldier';
+    const sci = bp.era === 'scifi';
+    const base = ROLES[role];
+    const bulk = clamp(bp.bulk || 1, 0.6, 1.6), tall = clamp(bp.tall || 1, 0.6, 1.6), legLen = clamp(bp.legLen || 1, 0.6, 1.6), armLen = clamp(bp.armLen || 1, 0.6, 1.6);
+    const bw = 1 + (bulk - 1) * 0.3, lw = 1 + (legLen - 1) * 0.3, tw = 1 + (tall - 1) * 0.25, aw = 1 + (armLen - 1) * 0.3;
+    const P = Object.assign({}, base, {
+      thigh: base.thigh * lw, shin: base.shin * lw, legW: base.legW * bw, hipX: base.hipX * bw,
+      chest: [base.chest[0] * bw, base.chest[1] * tw, base.chest[2] * bw], shX: base.shX * bw, U: base.U * aw, F: base.F * aw, aw: base.aw * bw,
+    });
+    const H = { P, M: matsFor(role, sci ? 'scifi' : 'fantasy'), role, body: base.body, sci, era: sci ? 'scifi' : 'fantasy', bp, sh: {}, tgt: {}, fx: {}, flow: [], weapons: [] };
+    const [W, Ht, D] = P.chest;
+    for (const s of [-1, 1]) H.sh[s] = [s * P.shX, Ht - P.shDrop, 0];
+    const pelvis = buildLegs(ctx, H);
+    const chest = buildTorso(ctx, H, pelvis);
+    const head = buildHead(ctx, H, chest);
+    const arms = { [-1]: buildArm(ctx, H, chest, -1), [1]: buildArm(ctx, H, chest, 1) };
+    buildShoulders(ctx, H, chest);
+    buildExtra(ctx, H, chest, head);
+    // weapons: right hand is side -1 (the unit faces +z, so its right is -x)
+    let wr = HUMAN_WEAPONS[bp.weaponR] ? bp.weaponR : 'none';
+    let wl = HUMAN_WEAPONS[bp.weaponL] ? bp.weaponL : 'none';
+    if (wr !== 'none' && HUMAN_WEAPONS[wr].hands === 2) wl = 'none';
+    if (wl !== 'none' && HUMAN_WEAPONS[wl].hands === 2) wl = 'none';
+    let decay = 5;
+    for (const [s, key] of [[-1, wr], [1, wl]]) {
+      if (key === 'none') continue;
+      const def = HUMAN_WEAPONS[key];
+      // weapons are modelled in their own units and built at the role's weapon scale
+      let ctl;
+      MF.setBuildScale(ctx.k * P.ws);
+      try { ctl = def.build(ctx, arms[s].grip, s, key, H); } finally { MF.setBuildScale(ctx.k); }
+      H.weapons.push({ s, key, def, ctl });
+      if (def.attack) decay = Math.min(decay, def.decay);
+    }
+    ctx.fireDecay = decay;
+    ctx.gait = 'biped';
+    ctx.anims.push(makeAnimator(ctx, H, arms));
+  }
+
+  // ------------------------------------------------------------- animation
+  function makeAnimator(ctx, H, arms) {
+    const P = H.P, k = ctx.k;
+    const [a1, a2] = P.crouch;
+    const attackers = H.weapons.filter((w) => w.def.attack);
+    const twoHanded = H.weapons.some((w) => w.def.hands === 2);
+    const pole = (s) => [s * 0.55, -0.15, -1];
+    return (st, n) => {
+      const m = clamp(st.move || 0, 0, 1.3), m1 = Math.min(1, m), ph = st.phase || 0, t = st.t || 0;
+      const fire = clamp(st.fire || 0, 0, 1);
+      const idle = 1 - m1;
+      const breath = Math.sin(t * 2.3);
+      const fx = H.fx; fx.twist = 0; fx.lean = 0; fx.crouch = 0; fx.headPitch = 0;
+      // which hand attacks: alternate between two attacking weapons
+      let active = null;
+      if (attackers.length === 1) active = attackers[0].s;
+      else if (attackers.length === 2) active = (st.fireN || 0) % 2 === 1 ? -1 : 1;
+      H.tgt[-1] = null; H.tgt[1] = null;
+      for (const w of H.weapons) w.ctl.pose(st, n, H, w.s, w.s === active ? fire : 0);
+      // empty hands: hang and counter-swing
+      for (const s of [-1, 1]) {
+        if (H.tgt[s]) continue;
+        const sw = Math.sin(s > 0 ? ph : ph + PI) * P.armSwing * m1;
+        const reach = (P.U + arms[s].Feff) * 0.86;
+        H.tgt[s] = { p: [H.sh[s][0] * 1.08, H.sh[s][1] - reach + Math.abs(sw) * 0.25 + breath * 0.2 * idle, 1.2 + sw + P.lean * 4], wrist: [0, 0, 0] };
+      }
+      // legs: swing / lift, crouch keeps feet planted; pelvis height from the stance leg
+      const c = fx.crouch + P.walkCrouch * m1 + breath * 0.018 * idle;
+      let V = 0;
+      for (const s of [-1, 1]) {
+        const p = s < 0 ? ph : ph + PI;
+        const dh = -P.swing * Math.sin(p) * m;
+        const dk = Math.max(0, Math.cos(p)) * P.lift * m;
+        const h = a1 + dh - c, kn = a2 + dk + 2 * c;
+        n['hip' + s].rot[0] = h;
+        n['knee' + s].rot[0] = kn;
+        n['ankle' + s].rot[0] = -(h + kn) + dk * 0.3;
+        V = Math.max(V, P.thigh * Math.cos(h) + P.shin * Math.cos(h + kn));
+      }
+      n.pelvis.pos[1] = (P.aY + V) * k;
+      n.pelvis.rot[1] = Math.sin(ph) * 0.1 * m1;
+      n.pelvis.rot[2] = Math.sin(ph) * P.sway * m1 + Math.sin(t * 0.9) * 0.025 * idle; // stride sway / idle weight shift
+      const ch = n.chest;
+      ch.rot[0] = P.lean + fx.lean + P.walkLean * m1 + breath * 0.02 * idle;
+      ch.rot[1] = -n.pelvis.rot[1] * (twoHanded ? 0.9 : 1.6) + fx.twist;
+      ch.rot[2] = -n.pelvis.rot[2] * 0.6 + Math.sin(ph) * P.shRoll * m1;
+      if (n.head) {
+        n.head.rot[0] = -(P.lean + fx.lean + P.walkLean * m1) * 0.85 + fx.headPitch + breath * 0.02 * idle;
+        n.head.rot[1] = -fx.twist * 0.5 - ch.rot[1] * 0.3;
+      }
+      // arms via IK
+      for (const s of [-1, 1]) {
+        const a = arms[s], T = H.tgt[s];
+        const sol = solveArm(H.sh[s], P.U, a.Feff, T.p, pole(s));
+        const r = n['sh' + s].rot;
+        r[0] = sol.rot[0]; r[1] = sol.rot[1]; r[2] = sol.rot[2];
+        n['el' + s].rot[0] = -sol.bend;
+        const g = n['grip' + s].rot;
+        if (T.rot) { const e = toEuler(mulT(sol.hand, eulerM(T.rot))); g[0] = e[0]; g[1] = e[1]; g[2] = e[2]; }
+        else if (T.wrist) { g[0] = T.wrist[0]; g[1] = T.wrist[1]; g[2] = T.wrist[2]; }
+        const pad = n['pad' + s];
+        if (pad) { pad.rot[0] = clamp(sol.rot[0], -1.6, 1.6) * 0.22; pad.rot[2] = clamp(sol.rot[2], -1.2, 1.2) * 0.3; }
+      }
+      // cloth
+      for (const fl of H.flow) {
+        const nd = n[fl.n];
+        if (!nd) continue;
+        nd.rot[0] = fl.base + Math.sin(t * 2.1 + fl.ph + ph) * fl.amp + fl.walk * m1 + Math.sin(ph * 2 + fl.ph) * 0.06 * m1 - (fl.lean ? fx.lean * 0.8 : 0);
+      }
+    };
+  }
+
+  // ------------------------------------------------------------- random + registration
+  const ERA_DEFAULT = { rogue: 'fantasy', soldier: 'scifi', berserker: null, sniper: 'scifi', knight: 'fantasy', heavy: 'scifi' };
+  function randomHuman(r, keep, bp) {
+    bp.role = keep('role', () => r.weighted({ rogue: 3, soldier: 3, berserker: 3, sniper: 2, knight: 2, heavy: 2 }));
+    const role = bp.role;
+    bp.era = keep('era', () => (ERA_DEFAULT[role] ? (r.chance(0.72) ? ERA_DEFAULT[role] : ERA_DEFAULT[role] === 'scifi' ? 'fantasy' : 'scifi') : r.pick(['fantasy', 'scifi'])));
+    const sci = bp.era === 'scifi';
+    bp.head = keep('head', () => ({
+      rogue: () => r.weighted({ hood: 8, bare: 1, visor: sci ? 1 : 0 }),
+      soldier: () => r.weighted({ helm: 6, visor: 3, bare: 1 }),
+      berserker: () => r.weighted({ horned: 6, bare: 3, helm: sci ? 1 : 0 }),
+      sniper: () => r.weighted({ hood: 5, visor: 3, bare: 1, helm: 1 }),
+      knight: () => r.weighted({ visor: 6, helm: 2, horned: 1 }),
+      heavy: () => r.weighted({ helm: 4, visor: 4, horned: 1 }),
+    })[role]());
+    bp.shoulders = keep('shoulders', () => ({
+      rogue: () => r.weighted({ none: 5, light: 2 }),
+      soldier: () => r.weighted({ pauldrons: 7, spiked: 1 }),
+      berserker: () => r.weighted({ fur: 7, spiked: 2 }),
+      sniper: () => r.weighted({ light: 4, none: 3 }),
+      knight: () => r.weighted({ pauldrons: 6, spiked: 1 }),
+      heavy: () => r.weighted({ pauldrons: 5, spiked: 3 }),
+    })[role]());
+    bp.weaponR = keep('weaponR', () => ({
+      rogue: () => r.weighted({ dagger: 8, sword: 1 }),
+      soldier: () => r.weighted({ mg: 8, pistol: 1 }),
+      berserker: () => r.weighted({ greatsword: 8, sword: 1 }),
+      sniper: () => 'rifle',
+      knight: () => r.weighted({ sword: 6, greatsword: 1 }),
+      heavy: () => r.weighted({ flamer: 7, mg: 3 }),
+    })[role]());
+    bp.weaponL = keep('weaponL', () => {
+      if (HUMAN_WEAPONS[bp.weaponR] && HUMAN_WEAPONS[bp.weaponR].hands === 2) return 'none';
+      if (role === 'rogue') return 'dagger';
+      if (role === 'soldier') return r.weighted({ shield: 1, pistol: 1, none: 1 });
+      if (role === 'knight') return r.weighted({ shield: 8, dagger: 1 });
+      if (role === 'sniper') return r.weighted({ pistol: 1, dagger: 1 });
+      return r.weighted({ dagger: 1, sword: 1, shield: 1 });
+    });
+    bp.extra = keep('extra', () => ({
+      rogue: () => r.weighted({ scarf: 6, cape: 3, none: 1 }),
+      soldier: () => r.weighted({ backpack: 7, banner: 1, cape: 1 }),
+      berserker: () => r.weighted({ none: 5, banner: 2, cape: 1 }),
+      sniper: () => r.weighted({ cape: 5, scarf: 2, backpack: 1 }),
+      knight: () => r.weighted({ cape: 6, banner: 2, none: 1 }),
+      heavy: () => r.weighted({ tanks: 8, backpack: 1 }),
+    })[role]());
+  }
+
+  const NAMES = {
+    rogue: [['Vex', 'Nyx', 'Sable', 'Quill', 'Wren', 'Shade', 'Kestrel', 'Mirra', 'Rook', 'Silk'], ['the Quiet', 'Nightstep', 'Twofang', 'Ashveil', 'the Unseen', 'Knifewhisper', 'Duskrunner']],
+    soldier: [['Sgt. Harlan', 'Cpl. Voss', 'Pvt. Brandt', 'Lt. Okoro', 'Sgt. Kade', 'Cpl. Reyes', 'Pvt. Muller', 'Sgt. Tamsin'], ['"Grit"', '"Hammer"', '"Dozer"', '"Lucky"', '"Rivets"', '"Chatter"', '"Bulldog"']],
+    sniper: [['Kell', 'Ysolde', 'Marek', 'Vasha', 'Dorn', 'Ilse', 'Corvin'], ['Longshot', 'One-Eye', 'the Patient', 'Farsight', '"Ghost"', '"Deadeye"']],
+    knight: [['Ser Aldric', 'Ser Maren', 'Dame Odile', 'Ser Gawen', 'Brother Tobias', 'Ser Hollis'], ['the Steadfast', 'of the Dawn', 'Ironwall', 'the Just', 'Lionheart', 'the Grey']],
+    heavy: [['Cpl. Kruger', 'Sgt. Bram', 'Pvt. Ozzo', 'Sgt. Hild', 'Cpl. Magnus'], ['"Torch"', '"Cinders"', '"Smokey"', '"Furnace"', '"Blaze"']],
+    berserker: [['Brakka', 'Ulfgar', 'Grom', 'Hrodgar', 'Skarn', 'Torvald', 'Vorga', 'Kaelos'], ['Skullsplitter', 'the Red', 'Oathbreaker', 'Bonegrinder', 'Ironhide', 'the Unchained', 'Wolfsblood']],
+  };
+
+  const slot = (key, label, options, labels) => ({ key, label, options, labels });
+  MF.Gen.registerLine('human', {
+    label: 'Human', group: 'Humans', weight: 3,
+    slots: [
+      slot('role', 'Role', OPT.role, LBL.role),
+      slot('era', 'Era', OPT.era, LBL.era),
+      slot('head', 'Head', OPT.head, LBL.head),
+      slot('shoulders', 'Shoulders', OPT.shoulders, LBL.shoulders),
+      slot('weaponR', 'Right hand', W_OPTS_R, W_LBL),
+      slot('weaponL', 'Left hand', W_OPTS_L, W_LBL),
+      slot('extra', 'Extra', OPT.extra, LBL.extra),
+    ],
+    random: randomHuman,
+    build: buildHuman,
+    palettes: HUMAN_PALS,
+    sizeRange: [0.95, 1.05],
+    name(r, bp) { const L = NAMES[bp.role] || NAMES.soldier; return `${r.pick(L[0])} ${r.pick(L[1])}`; },
+  });
+
+  MF.Gen.humanWeapons = HUMAN_WEAPONS;
+  MF.Gen.humanRoles = ROLES;
 })();
 </script>
 <script>
@@ -2111,7 +4125,8 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
   }
   function sanitize(bp) {
     const b = JSON.parse(JSON.stringify(bp));
-    b.colors = Object.assign({}, MF.PALETTES[b.palette] || MF.PALETTES['Rust Crab'], b.colors || {});
+    b.colors = Object.assign({ tertiary: '#b8323c', skin: '#d99a6c', hair: '#3b2a26', leather: '#6e4a33' }, MF.PALETTES[b.palette] || MF.PALETTES['Rust Crab'], b.colors || {});
+    if (!G.LINES[b.line || 'modular']) b.line = 'modular';
     return b;
   }
   function rebuild(u) {
@@ -2216,7 +4231,7 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     const trigger = k.has('Space');
     for (const u of S.units) {
       u.t += dt;
-      if (u.fire > 0) u.fire = Math.max(0, u.fire - dt * 5);
+      if (u.fire > 0) u.fire = Math.max(0, u.fire - dt * (u.rig.fireDecay || 5));
       if (trigger && S.selected.has(u.id) && !(u.fire > 0.35)) { u.fire = 1; u.fireN = (u.fireN || 0) + 1; }
       const sel = S.selected.has(u.id);
       const go = sel && moving;
@@ -2380,43 +4395,99 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
   const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   // ------------------------------------------------------------ editor
-  const SLOT_DEFS = [
-    ['frame', 'Chassis', G.OPTIONS.frame, G.LABELS.frame],
-    ['torso', 'Torso', G.OPTIONS.torso, G.LABELS.torso],
-    ['head', 'Head', G.OPTIONS.head, G.LABELS.head],
-    ['armL', 'Left arm', G.OPTIONS.arm, G.LABELS.arm],
-    ['armR', 'Right arm', G.OPTIONS.arm, G.LABELS.arm],
-    ['shoulders', 'Shoulders', G.OPTIONS.shoulders, G.LABELS.shoulders],
-    ['back', 'Backpack', G.OPTIONS.back, G.LABELS.back],
-    ['scheme', 'Paint split', G.OPTIONS.scheme, G.LABELS.scheme],
-  ];
+  const slotDefs = (bp) => G.lineOf(bp).slots;
   const SLIDERS = [
     ['bulk', 'Bulk', 0.7, 1.5, 0.05],
     ['legLen', 'Legs', 0.6, 1.5, 0.05],
     ['tall', 'Torso', 0.7, 1.5, 0.05],
     ['armLen', 'Arms', 0.7, 1.4, 0.05],
+    ['size', 'Scale', 0.7, 1.6, 0.05],
     ['edge', 'Bevel', 0, 3, 0.1],
   ];
-  const SWATCHES = [['primary', 'Armor'], ['secondary', 'Trim'], ['metal', 'Frame'], ['accent', 'Glow'], ['glass', 'Glass'], ['outline', 'Line'], ['bg', 'Backdrop'], ['floor', 'Floor']];
+  const SWATCHES_MECH = [['primary', 'Armor'], ['secondary', 'Trim'], ['tertiary', 'Accent 2'], ['metal', 'Frame'], ['accent', 'Glow'], ['glass', 'Glass'], ['outline', 'Line'], ['bg', 'Backdrop'], ['floor', 'Floor']];
+  const SWATCHES_HUMAN = [['primary', 'Armor'], ['secondary', 'Cloth'], ['tertiary', 'Sash'], ['leather', 'Leather'], ['metal', 'Steel'], ['skin', 'Skin'], ['hair', 'Hair'], ['accent', 'Glow'], ['glass', 'Lens'], ['outline', 'Line'], ['bg', 'Backdrop'], ['floor', 'Floor']];
+  const swatchesFor = (bp) => (G.lineOf(bp).group === 'Humans' ? SWATCHES_HUMAN : SWATCHES_MECH);
+  const DEFAULT_COLORS = { tertiary: '#b8323c', skin: '#d99a6c', hair: '#3b2a26', leather: '#6e4a33' };
   const DICE = '<svg viewBox="0 0 14 14" aria-hidden="true"><rect x="1" y="1" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="4.5" cy="4.5" r="1.2" fill="currentColor"/><circle cx="9.5" cy="9.5" r="1.2" fill="currentColor"/><circle cx="7" cy="7" r="1.2" fill="currentColor"/></svg>';
+  let slotsLine = null, swatchSet = null;
 
-  function buildEditor() {
+  function slotRow(key, label, optionsHtml) {
+    const row = document.createElement('div');
+    row.className = 'slot';
+    row.innerHTML = `<label class="slot-label" for="sl-${key}">${label}</label>
+      <select class="select" id="sl-${key}">${optionsHtml}</select>
+      <button class="dice" id="dice-${key}" title="Reroll ${label.toLowerCase()}" aria-label="Reroll ${label.toLowerCase()}">${DICE}</button>
+      <label class="lock" title="Lock ${label.toLowerCase()}"><input type="checkbox" id="lock-${key}" aria-label="Lock ${label.toLowerCase()}"><span></span></label>`;
+    const lk = row.querySelector('input[type=checkbox]');
+    lk.checked = !!S.locks[key];
+    lk.addEventListener('change', () => { S.locks[key] = lk.checked; store.set('locks', S.locks); });
+    row.querySelector('.dice').addEventListener('click', () => rerollSlot(key));
+    return row;
+  }
+
+  // Parts panel: the Line picker, then the active line's own slots.
+  function buildSlots(bp) {
     const slots = $('slots');
-    for (const [key, label, opts, labels] of SLOT_DEFS) {
-      const row = document.createElement('div');
-      row.className = 'slot';
-      row.innerHTML = `<label class="slot-label" for="sl-${key}">${label}</label>
-        <select class="select" id="sl-${key}">${opts.map((o) => `<option value="${o}">${labels[o]}</option>`).join('')}</select>
-        <button class="dice" id="dice-${key}" title="Reroll ${label.toLowerCase()}" aria-label="Reroll ${label.toLowerCase()}">${DICE}</button>
-        <label class="lock" title="Lock ${label.toLowerCase()}"><input type="checkbox" id="lock-${key}" aria-label="Lock ${label.toLowerCase()}"><span></span></label>`;
+    slots.innerHTML = '';
+    const groups = {};
+    for (const id in G.LINES) (groups[G.LINES[id].group] = groups[G.LINES[id].group] || []).push(G.LINES[id]);
+    const lineOpts = Object.keys(groups).map((g) => `<optgroup label="${g}">${groups[g].map((d) => `<option value="${d.id}">${d.label}</option>`).join('')}</optgroup>`).join('');
+    const lineRow = slotRow('line', 'Line', lineOpts);
+    lineRow.classList.add('slot-line');
+    slots.appendChild(lineRow);
+    const lsel = lineRow.querySelector('select');
+    lsel.addEventListener('change', () => { switchLine(lsel.value); lsel.blur(); });
+    for (const d of slotDefs(bp)) {
+      const row = slotRow(d.key, d.label, d.options.map((o) => `<option value="${o}">${(d.labels && d.labels[o]) || o}</option>`).join(''));
       slots.appendChild(row);
       const sel = row.querySelector('select');
-      sel.addEventListener('change', () => { editActive((bp) => { bp[key] = sel.value; }); sel.blur(); });
-      row.querySelector('.dice').addEventListener('click', () => rerollSlot(key));
-      const lk = row.querySelector('input[type=checkbox]');
-      lk.checked = !!S.locks[key];
-      lk.addEventListener('change', () => { S.locks[key] = lk.checked; store.set('locks', S.locks); });
+      // the first slot of a stylized line (role, archetype) re-dresses the unit to match, keeping locked slots
+      const cascade = G.lineOf(bp).id !== 'modular' && d === slotDefs(bp)[0];
+      sel.addEventListener('change', () => { if (cascade) recast(d.key, sel.value); else editActive((b) => { b[d.key] = sel.value; }); sel.blur(); });
     }
+    slotsLine = G.lineOf(bp).id;
+  }
+
+  function buildSwatches(bp) {
+    const set = swatchesFor(bp);
+    if (swatchSet === set) return;
+    swatchSet = set;
+    const sw = $('swatches');
+    sw.innerHTML = '';
+    for (const [key, label] of set) {
+      const d = document.createElement('label');
+      d.className = 'swatch';
+      d.innerHTML = `<span>${label}</span><input type="color" id="sw-${key}" aria-label="${label} colour">`;
+      sw.appendChild(d);
+      const inp = d.querySelector('input');
+      inp.addEventListener('input', () => editActive((b) => { b.colors[key] = inp.value; b.palette = 'custom'; }, true));
+      inp.addEventListener('change', () => pushHistory());
+    }
+  }
+
+  function recast(key, value) {
+    const u = active();
+    if (!u) return;
+    const locks = Object.assign({}, S.locks, { line: 1, [key]: 1, bulk: 1, legLen: 1, tall: 1, armLen: 1, edge: 1, size: 1, palette: 1, number: 1, name: 1 });
+    const prev = Object.assign({}, u.bp, { [key]: value });
+    u.bp = sanitize(G.randomBlueprint(MF.randomSeed(), locks, prev));
+    rebuild(u);
+    pushHistory(); syncEditor(); refreshRoster(); saveHangar();
+  }
+
+  // switching line keeps paint only when it suits the new group
+  function switchLine(id) {
+    const u = active();
+    if (!u) return;
+    const locks = { bulk: 1, legLen: 1, tall: 1, armLen: 1, edge: 1, number: 1 };
+    const sameGroup = G.LINES[id].group === G.lineOf(u.bp).group;
+    if (sameGroup) locks.palette = 1;
+    const nb = G.randomBlueprint(MF.randomSeed(), locks, u.bp, { line: id });
+    u.bp = sanitize(nb); rebuild(u);
+    pushHistory(); syncEditor(); refreshRoster(); saveHangar();
+  }
+
+  function buildEditor() {
     const sliders = $('sliders');
     for (const [key, label, min, max, step] of SLIDERS) {
       const row = document.createElement('div');
@@ -2428,25 +4499,14 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
       inp.addEventListener('change', () => { pushHistory(); inp.blur(); });
     }
     const pre = $('palPreset');
-    pre.innerHTML = Object.keys(MF.PALETTES).map((k) => `<option value="${k}">${k}</option>`).join('') + '<option value="custom">Custom</option>';
     pre.addEventListener('change', () => {
-      if (pre.value !== 'custom') editActive((bp) => { bp.palette = pre.value; bp.colors = { ...MF.PALETTES[pre.value] }; });
+      if (pre.value !== 'custom') editActive((bp) => { bp.palette = pre.value; bp.colors = { ...DEFAULT_COLORS, ...MF.PALETTES[pre.value] }; });
       pre.blur();
     });
-    $('palShuffle').addEventListener('click', () => editActive((bp) => { bp.colors = randomColors(MF.randomSeed()); bp.palette = 'custom'; }));
+    $('palShuffle').addEventListener('click', () => editActive((bp) => { bp.colors = randomColors(MF.randomSeed(), G.lineOf(bp).group === 'Humans'); bp.palette = 'custom'; }));
     const lp = $('lock-palette');
     lp.checked = !!S.locks.palette;
     lp.addEventListener('change', () => { S.locks.palette = lp.checked; store.set('locks', S.locks); });
-    const sw = $('swatches');
-    for (const [key, label] of SWATCHES) {
-      const d = document.createElement('label');
-      d.className = 'swatch';
-      d.innerHTML = `<span>${label}</span><input type="color" id="sw-${key}" aria-label="${label} colour">`;
-      sw.appendChild(d);
-      const inp = d.querySelector('input');
-      inp.addEventListener('input', () => editActive((bp) => { bp.colors[key] = inp.value; bp.palette = 'custom'; }, true));
-      inp.addEventListener('change', () => pushHistory());
-    }
     $('mName').addEventListener('input', (e) => editActive((bp) => { bp.name = e.target.value || 'Unnamed'; }, true, true));
     $('mNumber').addEventListener('input', (e) => {
       const v = e.target.value.replace(/[^0-9-]/g, '').slice(0, 3);
@@ -2458,16 +4518,29 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     const u = active();
     if (!u) return;
     const bp = u.bp;
-    for (const [key] of SLOT_DEFS) $('sl-' + key).value = bp[key];
-    for (const [key] of SLIDERS) { $('sd-' + key).value = bp[key]; $('so-' + key).textContent = (+bp[key]).toFixed(2); }
-    $('palPreset').value = MF.PALETTES[bp.palette] ? bp.palette : 'custom';
-    for (const [key] of SWATCHES) $('sw-' + key).value = bp.colors[key];
+    const def = G.lineOf(bp);
+    if (slotsLine !== def.id) buildSlots(bp);
+    buildSwatches(bp);
+    $('sl-line').value = def.id;
+    for (const d of def.slots) $('sl-' + d.key).value = bp[d.key];
+    for (const [key] of SLIDERS) { $('sd-' + key).value = bp[key] == null ? 1 : bp[key]; $('so-' + key).textContent = (+(bp[key] == null ? 1 : bp[key])).toFixed(2); }
+    const human = def.group === 'Humans';
+    const pre = $('palPreset');
+    const names = Object.keys(MF.PALETTES).filter((k) => !!MF.PALETTES[k].human === human);
+    const want = names.join('|');
+    if (pre.dataset.set !== want) {
+      pre.dataset.set = want;
+      pre.innerHTML = names.map((k) => `<option value="${k}">${k}</option>`).join('') + '<option value="custom">Custom</option>';
+    }
+    pre.value = names.includes(bp.palette) ? bp.palette : 'custom';
+    for (const [key] of swatchSet) $('sw-' + key).value = bp.colors[key] || DEFAULT_COLORS[key] || '#888888';
     if (document.activeElement !== $('mName')) $('mName').value = bp.name;
     if (document.activeElement !== $('mNumber')) $('mNumber').value = bp.number;
-    $('mSpec').textContent = `seed ${bp.seed}\n${Math.round(u.rig.height + (u.rig.hover || 0))}px tall · ${G.LABELS.frame[bp.frame]}`;
+    const main = def.slots[0];
+    $('mSpec').textContent = `seed ${bp.seed}\n${Math.round(u.rig.height + (u.rig.hover || 0))}px tall · ${def.label}${main ? ' · ' + ((main.labels && main.labels[bp[main.key]]) || bp[main.key]) : ''}`;
     const ramps = $('ramps');
     ramps.innerHTML = '';
-    for (const k of ['primary', 'secondary', 'metal', 'accent', 'glass']) {
+    for (const k of human ? ['primary', 'secondary', 'tertiary', 'leather', 'skin', 'hair', 'metal', 'accent'] : ['primary', 'secondary', 'tertiary', 'metal', 'accent', 'glass']) {
       const r = document.createElement('div');
       r.className = 'ramp';
       r.innerHTML = u.pal.ramps[k].map((c) => `<i style="background:${MF.color.rgbToHex(c)}"></i>`).join('');
@@ -2508,15 +4581,18 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
   function rerollSlot(key) {
     editActive((bp) => {
       const seed = MF.randomSeed();
-      const locks = {};
-      for (const [k] of SLOT_DEFS) locks[k] = k !== key;
-      for (const k of ['bulk', 'legLen', 'tall', 'armLen', 'edge', 'palette', 'number', 'name']) locks[k] = true;
+      if (key === 'line') { const ids = Object.keys(G.LINES).filter((id) => id !== G.lineOf(bp).id); bp.__switch = ids[Math.floor(Math.random() * ids.length)]; return; }
+      const locks = { line: 1 };
+      for (const d of slotDefs(bp)) locks[d.key] = d.key !== key;
+      for (const k of ['bulk', 'legLen', 'tall', 'armLen', 'edge', 'size', 'palette', 'number', 'name']) locks[k] = true;
       const fresh = G.randomBlueprint(seed, locks, bp);
       let tries = 0;
       let val = fresh[key];
       while (val === bp[key] && tries++ < 8) val = G.randomBlueprint(MF.randomSeed(), locks, bp)[key];
       bp[key] = val;
     });
+    const u = active();
+    if (u && u.bp.__switch) { const id = u.bp.__switch; delete u.bp.__switch; switchLine(id); }
   }
 
   function randomizeActive() {
@@ -2530,17 +4606,17 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
   function mutateActive() {
     const u = active();
     if (!u) return;
-    const free = SLOT_DEFS.map((d) => d[0]).filter((k) => !S.locks[k]);
+    const free = slotDefs(u.bp).map((d) => d.key).filter((k) => !S.locks[k]);
     const n = 1 + (Math.random() < 0.4 ? 1 : 0);
     editActive((bp) => {
       for (let i = 0; i < n && free.length; i++) {
         const key = free.splice(Math.floor(Math.random() * free.length), 1)[0];
-        const locks = {};
-        for (const [k] of SLOT_DEFS) locks[k] = k !== key;
-        Object.assign(locks, { bulk: 1, legLen: 1, tall: 1, armLen: 1, edge: 1, palette: 1, number: 1, name: 1 });
+        const locks = { line: 1 };
+        for (const d of slotDefs(bp)) locks[d.key] = d.key !== key;
+        Object.assign(locks, { bulk: 1, legLen: 1, tall: 1, armLen: 1, edge: 1, size: 1, palette: 1, number: 1, name: 1 });
         bp[key] = G.randomBlueprint(MF.randomSeed(), locks, bp)[key];
       }
-      for (const [k, , min, max] of SLIDERS) if (!S.locks[k] && Math.random() < 0.5) bp[k] = +Math.min(max, Math.max(min, bp[k] + (Math.random() - 0.5) * 0.25)).toFixed(2);
+      for (const [k, , min, max] of SLIDERS) if (k !== 'size' && !S.locks[k] && Math.random() < 0.5) bp[k] = +Math.min(max, Math.max(min, bp[k] + (Math.random() - 0.5) * 0.25)).toFixed(2);
     });
   }
 
@@ -2580,7 +4656,7 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
   }
 
   // random harmonious colours
-  function randomColors(seed) {
+  function randomColors(seed, human) {
     const r = new MF.RNG(seed);
     const { hslToRgb, rgbToHex } = MF.color;
     const h = r.range(0, 360);
@@ -2600,31 +4676,37 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
       outline: hex(r.range(240, 290), 0.3, 0.08),
       bg: hex(bgH, r.range(0.1, 0.35), bgL),
       floor: hex(bgH, r.range(0.1, 0.3), bgL * 0.9),
+      tertiary: hex(h2 + r.pick([150, 200, 30]), r.range(0.5, 0.8), r.range(0.4, 0.55)),
+      skin: human ? r.pick(['#f0c8a0', '#e0ac85', '#c98d64', '#a8704c', '#7a4e34', '#5a3a28', '#8fb04a', '#8a9aa8']) : '#d99a6c',
+      hair: r.pick(['#2a2020', '#3b2a26', '#6a4428', '#c46a2a', '#e6d7a8', '#d8d8d8', '#3a2a4a']),
+      leather: hex(r.range(15, 35), r.range(0.3, 0.5), r.range(0.22, 0.35)),
     };
   }
 
   // ------------------------------------------------------------ production line
-  const TR = new MF.Renderer(84, 84);
+  const TR = new MF.Renderer(84, 84), TRs = new MF.Renderer(60, 60);
   function rollLine() {
     const g = $('gallery');
     g.innerHTML = '';
     const base = active() ? active().bp : null;
     for (let i = 0; i < 10; i++) {
-      const bp = sanitize(G.randomBlueprint(MF.randomSeed(), S.locks, base));
+      const bp = sanitize(G.randomBlueprint(MF.randomSeed(), S.locks, base, { group: S.lineFilter || undefined }));
       const btn = document.createElement('button');
       btn.className = 'thumb';
       btn.title = bp.name;
-      const c = document.createElement('canvas');
-      c.width = 84; c.height = 84;
       const tmp = makeUnit(bp, 0, 0, 0.62);
       const h = tmp.rig.height + (tmp.rig.hover || 0);
+      const small = h < 56, TRx = small ? TRs : TR, cs = small ? 60 : 84;
+      const c = document.createElement('canvas');
+      c.width = cs; c.height = cs;
       const scale = Math.min(1, 62 / h);
-      TR.render({
+      const oy = small ? Math.round(30 + h * 0.42 + 2) : Math.round(42 + h * 0.45 * scale + 4);
+      TRx.render({
         units: [{ prims: posedPrims(tmp, 0, 0, 0.62), pal: tmp.pal, x: 0, z: 0, radius: tmp.rig.radius, height: h }],
-        cam: { x: 0, z: 0, pitch: S.settings.pitch, ox: 42, oy: Math.round(42 + h * 0.45 * scale + 4) },
+        cam: { x: 0, z: 0, pitch: S.settings.pitch, ox: cs / 2, oy },
         floor: 'plain', bg: tmp.pal.bg, floorRamp: tmp.pal.floor, shadows: S.settings.shadows, light: lightVec(), time: 0,
       });
-      c.getContext('2d').putImageData(TR.image, 0, 0);
+      c.getContext('2d').putImageData(TRx.image, 0, 0);
       const label = document.createElement('span');
       label.textContent = bp.name;
       btn.append(c, label);
@@ -2640,11 +4722,11 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
   }
 
   // ------------------------------------------------------------ export
-  function renderFrame(u, R2, yaw, phase, move, t, opts) {
-    const sp = u.phase, sm = u.move, st = u.t;
-    u.phase = phase; u.move = move; u.t = t;
+  function renderFrame(u, R2, yaw, phase, move, t, opts, fire = 0) {
+    const sp = u.phase, sm = u.move, st = u.t, sf = u.fire, sn = u.fireN;
+    u.phase = phase; u.move = move; u.t = t; u.fire = fire; u.fireN = 1;
     const prims = posedPrims(u, 0, 0, yaw);
-    u.phase = sp; u.move = sm; u.t = st;
+    u.phase = sp; u.move = sm; u.t = st; u.fire = sf; u.fireN = sn;
     R2.render({
       units: [{ prims, pal: u.pal, x: 0, z: 0, radius: u.rig.radius, height: u.rig.height + (u.rig.hover || 0) }],
       cam: { x: 0, z: 0, pitch: S.settings.pitch, ox: R2.w / 2, oy: Math.round(R2.h * 0.72) },
@@ -2654,18 +4736,22 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     return new Uint32Array(R2.image.data.buffer.slice(0));
   }
 
+  // Columns: [idle] + walk frames + attack frames; rows: 8 directions.
+  // cell 'auto' crops tight; a number gives fixed game cells with the feet at a constant anchor.
   function buildSheet(u, opts) {
-    const R2 = new MF.Renderer(220, 220);
+    const R2 = new MF.Renderer(240, 240);
+    const footX = R2.w / 2, footY = Math.round(R2.h * 0.72);
+    const colDefs = [];
+    if (opts.idle) colDefs.push({ name: 'idle', phase: 0, move: 0, t: 0, fire: 0 });
+    for (let i = 0; i < opts.frames; i++) colDefs.push({ name: 'walk' + i, phase: (i / opts.frames) * TAU, move: 1, t: i * 0.1, fire: 0 });
+    for (let i = 0; i < opts.attack; i++) colDefs.push({ name: 'attack' + i, phase: 0, move: 0, t: 0.2 + i * 0.04, fire: 1 - i / opts.attack });
     const frames = [];
     let minX = 1e9, minY = 1e9, maxX = -1, maxY = -1;
     for (let d = 0; d < 8; d++) {
       const yaw = (d * TAU) / 8;
       const row = [];
-      const cols = (opts.idle ? 1 : 0) + opts.frames;
-      for (let f = 0; f < cols; f++) {
-        const isIdle = opts.idle && f === 0;
-        const fi = opts.idle ? f - 1 : f;
-        const px = renderFrame(u, R2, yaw, isIdle ? 0 : (fi / opts.frames) * TAU, isIdle ? 0 : 1, isIdle ? 0 : fi * 0.1, opts);
+      for (const c of colDefs) {
+        const px = renderFrame(u, R2, yaw, c.phase, c.move, c.t, opts, c.fire);
         for (let y = 0; y < R2.h; y++) for (let x = 0; x < R2.w; x++) if (px[y * R2.w + x] >>> 24) {
           if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
         }
@@ -2673,9 +4759,18 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
       }
       frames.push(row);
     }
-    const pad = 1;
-    const cw = maxX - minX + 1 + pad * 2, ch = maxY - minY + 1 + pad * 2;
-    const cols = frames[0].length;
+    let cw, ch, ox, oy, clipped = false;
+    if (opts.cell === 'auto') {
+      const pad = 1;
+      cw = maxX - minX + 1 + pad * 2; ch = maxY - minY + 1 + pad * 2;
+      ox = minX - pad; oy = minY - pad;
+    } else {
+      cw = ch = +opts.cell;
+      const footInCell = ch - Math.max(3, Math.round(ch * 0.08));
+      ox = footX - cw / 2; oy = footY - footInCell;
+      clipped = minX < ox || minY < oy || maxX >= ox + cw || maxY >= oy + ch;
+    }
+    const cols = colDefs.length;
     const sheet = document.createElement('canvas');
     sheet.width = cw * cols; sheet.height = ch * 8;
     const sctx = sheet.getContext('2d');
@@ -2683,7 +4778,14 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     const c32 = new Uint32Array(cell.data.buffer);
     frames.forEach((row, d) => row.forEach((px, f) => {
       c32.fill(0);
-      for (let y = 0; y < ch - pad * 2; y++) for (let x = 0; x < cw - pad * 2; x++) c32[(y + pad) * cw + x + pad] = px[(y + minY) * R2.w + x + minX];
+      for (let y = 0; y < ch; y++) {
+        const sy = y + oy;
+        if (sy < 0 || sy >= R2.h) continue;
+        for (let x = 0; x < cw; x++) {
+          const sx = x + ox;
+          if (sx >= 0 && sx < R2.w) c32[y * cw + x] = px[sy * R2.w + sx];
+        }
+      }
       sctx.putImageData(cell, f * cw, d * ch);
     }));
     let out = sheet;
@@ -2696,14 +4798,20 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     }
     const meta = {
       name: u.bp.name, cellWidth: cw * opts.scale, cellHeight: ch * opts.scale, scale: opts.scale,
-      rows: DIR_NAMES, columns: (opts.idle ? ['idle'] : []).concat(Array.from({ length: opts.frames }, (_, i) => 'walk' + i)),
-      anchor: { x: (R2.w / 2 - minX + pad) * opts.scale, y: (Math.round(R2.h * 0.72) - minY + pad) * opts.scale },
+      rows: DIR_NAMES, columns: colDefs.map((c) => c.name),
+      animations: {
+        idle: opts.idle ? { from: 0, count: 1 } : null,
+        walk: { from: opts.idle ? 1 : 0, count: opts.frames, loop: true },
+        attack: opts.attack ? { from: (opts.idle ? 1 : 0) + opts.frames, count: opts.attack, loop: false } : null,
+      },
+      anchor: { x: (footX - ox) * opts.scale, y: (footY - oy) * opts.scale },
+      clipped,
       blueprint: u.bp,
     };
     return { canvas: out, meta };
   }
 
-  const exportOpts = Object.assign({ frames: 8, scale: 1, idle: true, shadow: true }, store.get('exportOpts', {}));
+  const exportOpts = Object.assign({ frames: 8, attack: 4, cell: 'auto', scale: 1, idle: true, shadow: true }, store.get('exportOpts', {}));
   function openExport() {
     const u = active();
     if (!u) return;
@@ -2712,6 +4820,8 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     body.innerHTML = `
       <div class="opt-row">
         <label>Walk frames <select class="select select-sm" id="exFrames">${[4, 6, 8, 12].map((n) => `<option ${n === exportOpts.frames ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+        <label>Attack frames <select class="select select-sm" id="exAttack">${[0, 3, 4, 6].map((n) => `<option ${n === exportOpts.attack ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+        <label>Cell <select class="select select-sm" id="exCell">${['auto', '64', '96', '128'].map((n) => `<option value="${n}" ${String(exportOpts.cell) === n ? 'selected' : ''}>${n === 'auto' ? 'Tight crop' : n + '×' + n}</option>`).join('')}</select></label>
         <label>Scale <select class="select select-sm" id="exScale">${[1, 2, 3, 4].map((n) => `<option value="${n}" ${n === exportOpts.scale ? 'selected' : ''}>${n}×</option>`).join('')}</select></label>
         <label><input type="checkbox" id="exIdle" ${exportOpts.idle ? 'checked' : ''}> Idle column</label>
         <label><input type="checkbox" id="exShadow" ${exportOpts.shadow ? 'checked' : ''}> Drop shadow</label>
@@ -2720,10 +4830,11 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
       </div>
       <div class="sheet-view" id="sheetView"></div>
       <pre class="meta" id="exMeta"></pre>
-      <p class="hint">Rows run S, SE, E, NE, N, NW, W, SW. If your browser blocks the download, right-click the sheet and choose “Save image as”.</p>`;
+      <p class="hint">Rows run S, SE, E, NE, N, NW, W, SW. Columns: idle, walk loop, then the attack. Fixed cells keep the feet at the same anchor in every frame, ready for a game engine. If your browser blocks the download, right-click the sheet and choose “Save image as”.</p>`;
     let current = null;
     const redraw = () => {
       exportOpts.frames = +$('exFrames').value; exportOpts.scale = +$('exScale').value;
+      exportOpts.attack = +$('exAttack').value; exportOpts.cell = $('exCell').value;
       exportOpts.idle = $('exIdle').checked; exportOpts.shadow = $('exShadow').checked;
       store.set('exportOpts', exportOpts);
       current = buildSheet(u, exportOpts);
@@ -2734,9 +4845,9 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
       img.style.width = current.canvas.width * disp + 'px';
       $('sheetView').innerHTML = '';
       $('sheetView').appendChild(img);
-      $('exMeta').textContent = `${current.canvas.width}×${current.canvas.height}px · cell ${current.meta.cellWidth}×${current.meta.cellHeight} · ${current.meta.columns.length} columns × 8 directions · feet anchor (${current.meta.anchor.x}, ${current.meta.anchor.y})`;
+      $('exMeta').textContent = `${current.canvas.width}×${current.canvas.height}px · cell ${current.meta.cellWidth}×${current.meta.cellHeight} · ${current.meta.columns.length} columns × 8 directions · feet anchor (${current.meta.anchor.x}, ${current.meta.anchor.y})${current.meta.clipped ? ' · this unit is bigger than the cell, so parts are clipped: pick a larger cell' : ''}`;
     };
-    ['exFrames', 'exScale', 'exIdle', 'exShadow'].forEach((id) => $(id).addEventListener('change', redraw));
+    ['exFrames', 'exAttack', 'exCell', 'exScale', 'exIdle', 'exShadow'].forEach((id) => $(id).addEventListener('change', redraw));
     const slug = u.bp.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     $('exPng').addEventListener('click', () => download(current.canvas.toDataURL('image/png'), slug + '-sheet.png'));
     $('exJson').addEventListener('click', () => download('data:application/json,' + encodeURIComponent(JSON.stringify(current.meta, null, 2)), slug + '-sheet.json'));
@@ -2855,7 +4966,7 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
   let saveTimer = 0;
   function saveHangar() {
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => store.set('hangar', S.units.map((u) => ({ bp: u.bp, x: Math.round(u.x), z: Math.round(u.z), yaw: u.yaw }))), 300);
+    saveTimer = setTimeout(() => store.set('hangar.v2', S.units.map((u) => ({ bp: u.bp, x: Math.round(u.x), z: Math.round(u.z), yaw: u.yaw }))), 300);
   }
 
   // ------------------------------------------------------------ hud controls
@@ -2893,6 +5004,12 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     $('btnExport').addEventListener('click', openExport);
     $('btnCode').addEventListener('click', openCode);
     $('btnLine').addEventListener('click', rollLine);
+    S.lineFilter = store.get('lineFilter', '');
+    document.querySelectorAll('#lineFilter .chip').forEach((b) => {
+      const paint = () => document.querySelectorAll('#lineFilter .chip').forEach((x) => { const on = x.dataset.group === S.lineFilter; x.classList.toggle('is-on', on); x.setAttribute('aria-pressed', on); });
+      paint();
+      b.addEventListener('click', () => { S.lineFilter = b.dataset.group; store.set('lineFilter', S.lineFilter); paint(); rollLine(); b.blur(); });
+    });
     $('btnSnap').addEventListener('click', openSnapshot);
   }
   let lineTimer = 0;
@@ -2900,12 +5017,22 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
 
   // ------------------------------------------------------------ starter hangar
   function starterBlueprints() {
-    const mk = (seed, o) => Object.assign(G.randomBlueprint(seed), o);
+    const mk = (seed, o) => Object.assign(G.randomBlueprint(seed, {}, null, { line: 'modular' }), o);
+    // a stylized unit: fixed slots are locked so the rest of the kit rolls to match
+    const mkLine = (seed, line, fixed, palette, extra = {}) => {
+      const prev = Object.assign({ line, palette, colors: { ...MF.PALETTES[palette] } }, fixed);
+      const locks = { line: 1, palette: 1 };
+      for (const k in fixed) locks[k] = 1;
+      return Object.assign(G.randomBlueprint(seed, locks, prev, { line }), extra);
+    };
     return [
-      mk(318, { frame: 'spider', torso: 'core', head: 'none', armL: 'none', armR: 'none', shoulders: 'none', back: 'missiles', scheme: 'split', bulk: 1.2, legLen: 1.05, tall: 1.05, edge: 2.2, palette: 'Rust Crab', colors: { ...MF.PALETTES['Rust Crab'] }, number: '318', name: 'TX-318 Tarantula' }),
-      mk(77, { frame: 'biped', torso: 'hunch', head: 'visor', armL: 'fist', armR: 'cannon', shoulders: 'pauldron', back: 'artillery', scheme: 'mono', bulk: 1.15, legLen: 0.95, tall: 1.05, armLen: 1.1, edge: 1.4, palette: 'Snowcat', colors: { ...MF.PALETTES['Snowcat'] }, number: '077', name: 'RX-077 Yeti' }),
-      mk(412, { frame: 'biped', torso: 'block', head: 'mono', armL: 'missiles', armR: 'gatling', shoulders: 'launcher', back: 'antenna', scheme: 'split', bulk: 1.25, legLen: 0.85, tall: 1.2, armLen: 1, edge: 0.8, palette: 'Jade Sentinel', colors: { ...MF.PALETTES['Jade Sentinel'] }, number: '412', name: 'KV-412 Bastion' }),
-      mk(905, { frame: 'strider', torso: 'wedge', head: 'cockpit', armL: 'gatling', armR: 'gatling', shoulders: 'round', back: 'exhaust', scheme: 'split', bulk: 1, legLen: 1.15, tall: 0.95, edge: 1.6, palette: 'Hazard', colors: { ...MF.PALETTES['Hazard'] }, number: '905', name: 'VT-905 Raptor' }),
+      mkLine(12, 'sd', { sdType: 'hero' }, 'Tricolor', { name: 'RX-078 Paragon', number: '078' }),
+      mkLine(21, 'sd', { sdType: 'commander' }, 'Zaku Green', { name: 'MS-06 Warlord', number: '006' }),
+      mkLine(33, 'sd', { sdType: 'knight' }, 'Red Comet', { name: 'XM-07 Ronin', number: '007' }),
+      mkLine(2, 'human', { role: 'rogue', era: 'fantasy', head: 'hood', weaponR: 'dagger', weaponL: 'dagger' }, 'Night Blade', { name: 'Vex Nightstep' }),
+      mkLine(6, 'human', { role: 'soldier', era: 'scifi', head: 'helm', shoulders: 'pauldrons', weaponR: 'mg' }, 'Ultramarine', { name: 'Sgt. Harlan "Lucky"' }),
+      mkLine(3, 'human', { role: 'berserker', era: 'fantasy', head: 'horned', shoulders: 'fur', weaponR: 'greatsword' }, 'Blood Oath', { name: 'Ulfgar Oathbreaker' }),
+      mk(318, { frame: 'spider', torso: 'core', head: 'none', armL: 'none', armR: 'none', shoulders: 'none', back: 'missiles', scheme: 'split', bulk: 1.2, legLen: 1.05, tall: 1.05, edge: 2.2, size: 1.15, palette: 'Rust Crab', colors: { ...MF.PALETTES['Rust Crab'] }, number: '318', name: 'TX-318 Tarantula' }),
     ];
   }
 
@@ -2913,13 +5040,18 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
     buildEditor();
     bindHud();
     resizeHangar();
-    const saved = store.get('hangar', null);
-    const list = Array.isArray(saved) && saved.length ? saved : starterBlueprints().map((bp, i) => ({ bp, x: (i - 1.5) * 56, z: i % 2 ? 14 : -10, yaw: 0 }));
+    const saved = store.get('hangar.v2', null);
+    const starter = () => {
+      // humans in front, mechs behind
+      const xs = [-80, 0, 80, -54, -8, 42, 150], zs = [-26, -26, -26, 30, 30, 30, 0];
+      return starterBlueprints().map((bp, i) => ({ bp, x: xs[i], z: zs[i], yaw: 0 }));
+    };
+    const list = Array.isArray(saved) && saved.length ? saved : starter();
     for (const s of list) {
       try { S.units.push(makeUnit(s.bp, s.x, s.z, s.yaw || 0)); } catch (e) { /* skip unreadable saved unit */ }
     }
     if (!S.units.length) S.units.push(makeUnit(G.randomBlueprint(MF.randomSeed())));
-    const first = S.units.length > 1 ? S.units[1] : S.units[0];
+    const first = S.units.find((u) => G.lineOf(u.bp).group === 'Humans') || S.units[0];
     S.cam.x = first.x; S.cam.z = first.z;
     selectOnly(first.id);
     pushHistory();
