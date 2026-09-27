@@ -855,7 +855,7 @@
   function decodeBp(code) {
     const raw = code.startsWith('MF1.') ? code.slice(4) : code;
     const bp = JSON.parse(decodeURIComponent(escape(atob(raw))));
-    if (!bp || !bp.frame) throw new Error('bad');
+    if (!bp || !(bp.frame || bp.line)) throw new Error('bad');
     return bp;
   }
 
