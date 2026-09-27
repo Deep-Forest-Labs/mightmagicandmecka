@@ -224,6 +224,7 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
 .stage-inner { position: absolute; inset: 0; overflow: hidden; }
 #hangar {
   position: absolute; left: 0; top: 0;
+  touch-action: none;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   outline: none;
@@ -316,8 +317,8 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
 .meta { font: 12px/1.5 var(--f-mono); color: var(--muted); white-space: pre-wrap; margin: 0; }
 .code-area { width: 100%; min-height: 110px; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--ink); font: 12px/1.4 var(--f-mono); resize: vertical; word-break: break-all; }
 .toast {
-  position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 30;
-  transform: translate(-50%, 20px); opacity: 0;
+  position: fixed; left: 50%; top: calc(64px + env(safe-area-inset-top, 0px)); z-index: 30;
+  transform: translate(-50%, -12px); opacity: 0;
   padding: 8px 14px;
   background: var(--amber); color: var(--amber-ink);
   font-weight: 600; font-size: 13px;

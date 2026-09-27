@@ -1,0 +1,2599 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mecha Factory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600&family=Silkscreen&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root {
+  color-scheme: dark;
+  --ink: #111015;
+  --panel: #19171f;
+  --panel-2: #221f2a;
+  --panel-3: #2b2735;
+  --line: #3a3446;
+  --line-soft: #2c2836;
+  --text: #ebe5da;
+  --muted: #9b93a8;
+  --faint: #6c6479;
+  --amber: #f2a53a;
+  --amber-deep: #b86d16;
+  --amber-ink: #1c1206;
+  --cyan: #6fd6e8;
+  --red: #ff6257;
+  --radius: 3px;
+  --f-display: 'Silkscreen', 'Courier New', monospace;
+  --f-body: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+  --f-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--text);
+  font: 14px/1.4 var(--f-body);
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select { font: inherit; color: inherit; }
+kbd {
+  font: 600 10px/1 var(--f-mono);
+  padding: 2px 4px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 2px;
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+/* ------------------------------------------------ layout */
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 318px minmax(0, 1fr) 232px;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "top top top" "left stage right";
+}
+.topbar { grid-area: top; }
+.panel-left { grid-area: left; }
+.stage { grid-area: stage; }
+.panel-right { grid-area: right; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  border-bottom: 1px solid var(--line);
+  background:
+    repeating-linear-gradient(-45deg, transparent 0 10px, rgba(242,165,58,.06) 10px 20px),
+    var(--panel);
+}
+.brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.brand-mark {
+  align-self: center;
+  width: 14px; height: 14px;
+  background: var(--amber);
+  box-shadow: 4px 4px 0 var(--amber-deep);
+  image-rendering: pixelated;
+}
+.brand-name { font: 20px/1 var(--f-display); letter-spacing: .02em; }
+.brand-sub { color: var(--muted); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+.actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  color: var(--text);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, transform .06s;
+}
+.btn:hover { background: var(--panel-3); border-color: #4d465c; }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible, .chip:focus-visible, .select:focus-visible, .text-input:focus-visible, .thumb:focus-visible, .unit-chip:focus-visible, input[type=range]:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
+.btn-primary { background: var(--amber); border-color: var(--amber); color: var(--amber-ink); font-weight: 600; }
+.btn-primary:hover { background: #ffb851; border-color: #ffb851; }
+.btn-primary kbd { background: rgba(0,0,0,.12); border-color: rgba(0,0,0,.25); color: var(--amber-ink); }
+.btn-sm { padding: 4px 9px; font-size: 13px; }
+
+.chip {
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px; font-weight: 500;
+  cursor: pointer;
+}
+.chip.is-on { color: var(--amber-ink); background: var(--amber); border-color: var(--amber); }
+
+/* ------------------------------------------------ panels */
+.panel {
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--panel);
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.panel-left { border-right: 1px solid var(--line); }
+.panel-right { border-left: 1px solid var(--line); padding: 14px 14px 20px; }
+.block { padding: 14px 16px; border-bottom: 1px solid var(--line-soft); }
+.block-title {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  margin: 0 0 10px;
+  font: 11px/1.2 var(--f-display);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.hint { font: 400 11px/1.35 var(--f-body); letter-spacing: 0; text-transform: none; color: var(--faint); }
+
+.preview-block { display: grid; grid-template-columns: 132px 1fr; gap: 14px; align-items: start; }
+.preview-wrap { display: grid; gap: 6px; }
+#preview {
+  width: 132px; height: 123px;
+  image-rendering: pixelated;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #000;
+}
+.preview-tools { display: flex; gap: 4px; flex-wrap: wrap; }
+.preview-tools .chip { padding: 2px 7px; font-size: 11px; }
+.ident { display: grid; gap: 6px; min-width: 0; }
+.ident-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.field-label { font-size: 11px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+.text-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--ink);
+  font-family: var(--f-mono);
+  font-size: 13px;
+}
+.text-input-sm { width: 52px; text-align: center; }
+.spec { font: 11px/1.4 var(--f-mono); color: var(--muted); width: 100%; font-variant-numeric: tabular-nums; }
+
+.slots { display: grid; gap: 5px; }
+.slot { display: grid; grid-template-columns: 74px minmax(0,1fr) 28px 26px; gap: 5px; align-items: center; }
+.slot-label { font-size: 12px; color: var(--muted); }
+.select {
+  width: 100%;
+  padding: 5px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  font-size: 13px;
+  cursor: pointer;
+}
+.select-sm { width: auto; padding: 3px 6px; font-size: 12px; }
+.dice {
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  cursor: pointer;
+  padding: 0;
+}
+.dice:hover { border-color: var(--amber); }
+.dice svg { width: 14px; height: 14px; }
+.lock { position: relative; display: inline-grid; place-items: center; width: 26px; height: 28px; cursor: pointer; }
+.lock input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.lock span {
+  width: 14px; height: 12px;
+  border: 2px solid var(--faint);
+  border-radius: 2px;
+  position: relative;
+  margin-top: 5px;
+}
+.lock span::before {
+  content: ""; position: absolute; left: 1px; top: -9px;
+  width: 6px; height: 7px;
+  border: 2px solid var(--faint); border-bottom: 0;
+  border-radius: 5px 5px 0 0;
+  transform: translateX(4px);
+}
+.lock input:checked + span, .lock input:checked + span::before { border-color: var(--amber); }
+.lock input:checked + span { background: var(--amber); }
+.lock input:checked + span::before { transform: none; }
+.lock input:focus-visible + span { outline: 2px solid var(--amber); outline-offset: 3px; }
+
+.sliders { display: grid; gap: 8px; }
+.slider { display: grid; grid-template-columns: 74px minmax(0,1fr) 38px; gap: 8px; align-items: center; }
+.slider output { font: 12px var(--f-mono); color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+input[type=range] { width: 100%; accent-color: var(--amber); }
+
+.paint-row { display: grid; grid-template-columns: minmax(0,1fr) auto 26px; gap: 6px; align-items: center; margin-bottom: 10px; }
+.swatches { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px 6px; }
+.swatch { display: grid; gap: 3px; justify-items: start; }
+.swatch span { font-size: 11px; color: var(--muted); }
+.swatch input[type=color] {
+  width: 100%; height: 26px; padding: 0;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: none; cursor: pointer;
+}
+.swatch input[type=color]::-webkit-color-swatch-wrapper { padding: 2px; }
+.swatch input[type=color]::-webkit-color-swatch { border: 0; border-radius: 1px; }
+.ramps { display: grid; gap: 3px; margin-top: 10px; }
+.ramp { display: grid; grid-template-columns: repeat(5, 1fr); height: 9px; }
+
+/* ------------------------------------------------ stage */
+.stage { position: relative; min-height: 0; min-width: 0; background: #000; }
+.stage-inner { position: absolute; inset: 0; overflow: hidden; }
+#hangar {
+  position: absolute; left: 0; top: 0;
+  touch-action: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  outline: none;
+  cursor: crosshair;
+}
+.hud { position: absolute; left: 10px; right: 10px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; pointer-events: none; }
+.hud > * { pointer-events: auto; }
+.hud-top { top: 10px; }
+.hud-bottom { bottom: 10px; align-items: flex-end; }
+.hud-group {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 6px 10px;
+  background: rgba(17,16,21,.82);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  backdrop-filter: blur(4px);
+}
+.hud-group input[type=range] { width: 80px; }
+.hud-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.roster { display: flex; gap: 5px; flex-wrap: wrap; max-width: 100%; }
+.unit-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 9px 4px 5px;
+  background: rgba(17,16,21,.85);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font: 12px var(--f-mono);
+  cursor: pointer;
+  color: var(--muted);
+}
+.unit-chip b { font: 10px/1 var(--f-display); color: var(--faint); min-width: 10px; }
+.unit-chip i { width: 10px; height: 10px; border-radius: 1px; }
+.unit-chip.is-sel { color: var(--text); border-color: var(--amber); }
+.unit-chip.is-sel b { color: var(--amber); }
+.unit-chip.is-active { box-shadow: inset 0 -2px 0 var(--amber); }
+.keys {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  padding: 6px 10px;
+  background: rgba(17,16,21,.82);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 12px; color: var(--muted);
+}
+.keys span { display: inline-flex; align-items: center; gap: 3px; }
+
+/* ------------------------------------------------ gallery */
+.line-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.line-head .block-title { margin: 0; }
+.line-hint { margin: 6px 0 12px; }
+.gallery { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+.thumb {
+  position: relative;
+  display: grid;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  cursor: pointer;
+  overflow: hidden;
+  text-align: left;
+}
+.thumb:hover { border-color: var(--amber); }
+.thumb canvas { width: 100%; aspect-ratio: 1; image-rendering: pixelated; display: block; }
+.thumb span {
+  padding: 4px 6px;
+  font: 10px/1.25 var(--f-mono);
+  color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  border-top: 1px solid var(--line-soft);
+}
+
+/* ------------------------------------------------ modal / toast */
+.modal { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: rgba(8,7,10,.72); }
+.modal-card {
+  width: min(980px, 100%);
+  max-height: calc(100% - 32px);
+  display: grid; grid-template-rows: auto minmax(0,1fr);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.5);
+}
+.modal-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.modal-title { margin: 0; font: 14px/1.2 var(--f-display); color: var(--amber); letter-spacing: .06em; text-transform: uppercase; }
+.modal-body { overflow: auto; padding: 16px; display: grid; gap: 14px; }
+.opt-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+.opt-row label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+.sheet-view { overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); background: repeating-conic-gradient(#1f1c26 0 25%, #272330 0 50%) 0 0 / 16px 16px; padding: 10px; max-height: 56vh; }
+.sheet-view img { image-rendering: pixelated; display: block; max-width: none; }
+.meta { font: 12px/1.5 var(--f-mono); color: var(--muted); white-space: pre-wrap; margin: 0; }
+.code-area { width: 100%; min-height: 110px; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--ink); font: 12px/1.4 var(--f-mono); resize: vertical; word-break: break-all; }
+.toast {
+  position: fixed; left: 50%; top: calc(64px + env(safe-area-inset-top, 0px)); z-index: 30;
+  transform: translate(-50%, -12px); opacity: 0;
+  padding: 8px 14px;
+  background: var(--amber); color: var(--amber-ink);
+  font-weight: 600; font-size: 13px;
+  border-radius: var(--radius);
+  pointer-events: none;
+  transition: opacity .18s, transform .18s;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ------------------------------------------------ responsive */
+@media (max-width: 1180px) {
+  .app { grid-template-columns: 300px minmax(0,1fr); grid-template-areas: "top top" "left stage" "right right"; grid-template-rows: auto minmax(0,1fr) auto; }
+  .panel-right { border-left: 0; border-top: 1px solid var(--line); }
+  .gallery { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+}
+@media (max-width: 760px) {
+  html, body { height: auto; }
+  .app { display: flex; flex-direction: column; height: auto; }
+  .stage { height: 62vh; min-height: 340px; order: 1; }
+  .topbar { order: 0; }
+  .panel-left { order: 2; border-right: 0; overflow: visible; }
+  .panel-right { order: 3; overflow: visible; }
+  .brand-sub { display: none; }
+  .hud-top .hud-group:first-child input[type=range] { width: 60px; }
+  .keys { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast, .btn { transition: none; }
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">Mecha Factory</span>
+      <span class="brand-sub">Bay 07 · pixel assembly line</span>
+    </div>
+    <nav class="actions" aria-label="Factory actions">
+      <button id="btnRandom" class="btn btn-primary" title="Randomize the active mech (R)">Randomize <kbd>R</kbd></button>
+      <button id="btnMutate" class="btn" title="Change one or two parts (M)">Mutate <kbd>M</kbd></button>
+      <button id="btnDeploy" class="btn" title="Deploy a copy into the hangar (N)">Deploy copy <kbd>N</kbd></button>
+      <button id="btnUndo" class="btn" title="Undo (Ctrl+Z)">Undo</button>
+      <button id="btnExport" class="btn" title="Export an 8-direction sprite sheet">Sprite sheet</button>
+      <button id="btnCode" class="btn" title="Copy or paste a blueprint code">Blueprint code</button>
+    </nav>
+  </header>
+
+  <aside class="panel panel-left" aria-label="Assembly">
+    <section class="block preview-block">
+      <div class="preview-wrap">
+        <canvas id="preview" width="120" height="112" aria-label="Turntable preview of the active mech"></canvas>
+        <div class="preview-tools">
+          <button id="pvSpin" class="chip is-on" aria-pressed="true">Spin</button>
+          <button id="pvStep" class="chip" aria-pressed="false">8-dir</button>
+          <button id="pvWalk" class="chip" aria-pressed="false">Walk</button>
+        </div>
+      </div>
+      <div class="ident">
+        <label class="field-label" for="mName">Designation</label>
+        <input id="mName" class="text-input" spellcheck="false" maxlength="32">
+        <div class="ident-row">
+          <label class="field-label" for="mNumber">Hull no.</label>
+          <input id="mNumber" class="text-input text-input-sm" maxlength="3" inputmode="numeric">
+          <span class="spec" id="mSpec"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2 class="block-title">Parts <span class="hint">lock a slot to keep it through rerolls</span></h2>
+      <div id="slots" class="slots"></div>
+    </section>
+
+    <section class="block">
+      <h2 class="block-title">Proportions</h2>
+      <div id="sliders" class="sliders"></div>
+    </section>
+
+    <section class="block">
+      <h2 class="block-title">Paint <span class="hint">5-step ramps with hue shift</span></h2>
+      <div class="paint-row">
+        <select id="palPreset" class="select" aria-label="Palette preset"></select>
+        <button id="palShuffle" class="btn btn-sm" title="Generate a random colour scheme">Shuffle</button>
+        <label class="lock" title="Keep paint through rerolls"><input type="checkbox" id="lock-palette"><span></span></label>
+      </div>
+      <div id="swatches" class="swatches"></div>
+      <div id="ramps" class="ramps" aria-hidden="true"></div>
+    </section>
+  </aside>
+
+  <main class="stage" aria-label="Hangar">
+    <div class="stage-inner" id="stageInner">
+      <canvas id="hangar" tabindex="0" aria-label="Hangar floor. Use W A S D to walk the selected mechs."></canvas>
+      <div class="hud hud-top">
+        <div class="hud-group">
+          <label class="hud-label" for="zoom">Zoom</label>
+          <input type="range" id="zoom" min="2" max="6" step="1" value="3">
+          <label class="hud-label" for="pitch">Camera</label>
+          <input type="range" id="pitch" min="0.3" max="0.95" step="0.05" value="0.55">
+          <label class="hud-label" for="lightAng">Light</label>
+          <input type="range" id="lightAng" min="-3.1" max="3.1" step="0.1" value="-0.9">
+        </div>
+        <div class="hud-group">
+          <select id="floorMode" class="select select-sm" aria-label="Floor style">
+            <option value="tiles">Hangar tiles</option>
+            <option value="grid">Grid</option>
+            <option value="plain">Studio plain</option>
+          </select>
+          <button id="tgShadows" class="chip is-on" aria-pressed="true">Shadows</button>
+          <button id="tgSnap" class="chip is-on" aria-pressed="true" title="Face only the 8 sprite directions">Snap 8-dir</button>
+        </div>
+      </div>
+      <div class="hud hud-bottom">
+        <div id="roster" class="roster" aria-label="Units in hangar"></div>
+        <div class="keys">
+          <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk</span>
+          <span><kbd>Shift</kbd> run</span>
+          <span><kbd>Tab</kbd> / <kbd>1</kbd>–<kbd>9</kbd> select</span>
+          <span><kbd>G</kbd> select all</span>
+          <span>Shift-click to group</span>
+          <span><kbd>Del</kbd> scrap</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <aside class="panel panel-right" aria-label="Production line">
+    <div class="line-head">
+      <h2 class="block-title">Production line</h2>
+      <button id="btnLine" class="btn btn-sm" title="Roll a new batch (respects locks)">New batch</button>
+    </div>
+    <p class="hint line-hint">Click to load into the active unit. Shift-click to deploy as a new unit.</p>
+    <div id="gallery" class="gallery"></div>
+  </aside>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-head">
+      <h2 id="modalTitle" class="modal-title">Sprite sheet</h2>
+      <button class="btn btn-sm" id="modalClose" aria-label="Close">Close</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+// Mecha Factory — core: RNG, transforms, palettes, convex primitives, rig nodes.
+// Everything hangs off the global MF namespace so the app runs from file:// with plain <script> tags.
+(function () {
+  const MF = (window.MF = window.MF || {});
+
+  // ---------------------------------------------------------------- RNG
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  class RNG {
+    constructor(seed) { this.f = mulberry32(seed >>> 0); }
+    next() { return this.f(); }
+    range(a, b) { return a + (b - a) * this.f(); }
+    int(a, b) { return Math.floor(this.range(a, b + 1)); }
+    pick(arr) { return arr[Math.floor(this.f() * arr.length)]; }
+    chance(p) { return this.f() < p; }
+    // weighted pick from {key: weight}
+    weighted(obj) {
+      let total = 0; for (const k in obj) total += obj[k];
+      let r = this.f() * total;
+      for (const k in obj) { r -= obj[k]; if (r <= 0) return k; }
+      return Object.keys(obj)[0];
+    }
+  }
+  MF.RNG = RNG;
+  MF.randomSeed = () => (Math.random() * 0xffffffff) >>> 0;
+
+  // ---------------------------------------------------------------- transforms
+  // Rigid transform stored as Float64Array(12): row-major 3x3 rotation then translation.
+  const mat = () => { const m = new Float64Array(12); m[0] = m[4] = m[8] = 1; return m; };
+
+  // R = Ry(ry) * Rx(rx) * Rz(rz)
+  function matFromEuler(o, px, py, pz, rx, ry, rz) {
+    const cx = Math.cos(rx), sx = Math.sin(rx), cy = Math.cos(ry), sy = Math.sin(ry), cz = Math.cos(rz), sz = Math.sin(rz);
+    o[0] = cy * cz + sy * sx * sz; o[1] = -cy * sz + sy * sx * cz; o[2] = sy * cx;
+    o[3] = cx * sz;               o[4] = cx * cz;                o[5] = -sx;
+    o[6] = -sy * cz + cy * sx * sz; o[7] = sy * sz + cy * sx * cz; o[8] = cy * cx;
+    o[9] = px; o[10] = py; o[11] = pz;
+    return o;
+  }
+  function matMul(o, a, b) {
+    const r0 = a[0] * b[0] + a[1] * b[3] + a[2] * b[6], r1 = a[0] * b[1] + a[1] * b[4] + a[2] * b[7], r2 = a[0] * b[2] + a[1] * b[5] + a[2] * b[8];
+    const r3 = a[3] * b[0] + a[4] * b[3] + a[5] * b[6], r4 = a[3] * b[1] + a[4] * b[4] + a[5] * b[7], r5 = a[3] * b[2] + a[4] * b[5] + a[5] * b[8];
+    const r6 = a[6] * b[0] + a[7] * b[3] + a[8] * b[6], r7 = a[6] * b[1] + a[7] * b[4] + a[8] * b[7], r8 = a[6] * b[2] + a[7] * b[5] + a[8] * b[8];
+    const tx = a[0] * b[9] + a[1] * b[10] + a[2] * b[11] + a[9];
+    const ty = a[3] * b[9] + a[4] * b[10] + a[5] * b[11] + a[10];
+    const tz = a[6] * b[9] + a[7] * b[10] + a[8] * b[11] + a[11];
+    o[0] = r0; o[1] = r1; o[2] = r2; o[3] = r3; o[4] = r4; o[5] = r5; o[6] = r6; o[7] = r7; o[8] = r8;
+    o[9] = tx; o[10] = ty; o[11] = tz;
+    return o;
+  }
+  MF.mat = mat; MF.matFromEuler = matFromEuler; MF.matMul = matMul;
+
+  // ---------------------------------------------------------------- colour
+  function hexToRgb(h) {
+    h = h.replace('#', '');
+    if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+    const n = parseInt(h, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function rgbToHex([r, g, b]) {
+    return '#' + [r, g, b].map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+  }
+  function rgbToHsl([r, g, b]) {
+    r /= 255; g /= 255; b /= 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    let h = 0, s = 0; const l = (mx + mn) / 2;
+    if (mx !== mn) {
+      const d = mx - mn;
+      s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+      if (mx === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (mx === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60;
+    }
+    return [h, s, l];
+  }
+  function hslToRgb([h, s, l]) {
+    h = ((h % 360) + 360) % 360 / 360;
+    if (s === 0) return [l * 255, l * 255, l * 255];
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+    const f = (t) => {
+      if (t < 0) t += 1; if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    };
+    return [f(h + 1 / 3) * 255, f(h) * 255, f(h - 1 / 3) * 255];
+  }
+  // rotate hue h toward target by at most amt degrees
+  function hueToward(h, target, amt) {
+    let d = ((target - h + 540) % 360) - 180;
+    if (Math.abs(d) < amt) return target;
+    return h + Math.sign(d) * amt;
+  }
+  // Pixel-art ramp: 5 swatches [deepest, dark, base, light, highlight] with hue shifting
+  // (shadows lean toward blue/violet, lights toward warm yellow).
+  function makeRamp(hex, opts = {}) {
+    const [h, s, l] = rgbToHsl(hexToRgb(hex));
+    const step = opts.step || 0.12;
+    const shift = opts.shift == null ? 9 : opts.shift;
+    const out = [];
+    for (let i = -2; i <= 2; i++) {
+      let hh = h, ss = s, ll;
+      if (i < 0) {
+        hh = hueToward(h, 255, shift * -i);
+        ss = Math.min(1, s * (1 + 0.08 * -i));
+        ll = l * Math.pow(0.7, -i) - 0.02 * -i;
+      } else if (i > 0) {
+        hh = hueToward(h, 55, shift * i * 0.8);
+        ss = Math.min(1, s * (1 + 0.04 * i));
+        ll = l + (1 - l) * (i === 1 ? 0.2 : 0.46);
+      } else ll = l;
+      out.push(hslToRgb([hh, Math.max(0, ss), Math.max(0.02, Math.min(0.97, ll))]));
+    }
+    return out;
+  }
+  const packRGBA = (r, g, b, a = 255) => ((a << 24) | (Math.round(b) << 16) | (Math.round(g) << 8) | Math.round(r)) >>> 0;
+  MF.color = { hexToRgb, rgbToHex, rgbToHsl, hslToRgb, makeRamp, packRGBA };
+
+  // Palette presets. Base colours feed the ramp generator; everything is editable in the UI.
+  MF.PALETTES = {
+    'Rust Crab':    { primary: '#8c2d45', secondary: '#d27838', metal: '#5b5c6b', accent: '#ff7a3d', glass: '#8fd0ff', outline: '#22111b', bg: '#d9d1c4', floor: '#c7bdae' },
+    'Snowcat':      { primary: '#c3cad6', secondary: '#6b7890', metal: '#3a3c55', accent: '#78e2ff', glass: '#5fd2ff', outline: '#181524', bg: '#4b3f5e', floor: '#3e3450' },
+    'Jade Sentinel':{ primary: '#3e6a5c', secondary: '#b8494b', metal: '#2b3634', accent: '#e8b33c', glass: '#c6ecec', outline: '#18221f', bg: '#9ad8c8', floor: '#85c5b5' },
+    'Desert Ops':   { primary: '#b99c64', secondary: '#687047', metal: '#433d35', accent: '#ff5b39', glass: '#9be7d8', outline: '#201914', bg: '#dcc093', floor: '#c9a978' },
+    'Hazard':       { primary: '#e5b12c', secondary: '#34333d', metal: '#4d4d59', accent: '#ff3d3d', glass: '#7fe0ff', outline: '#16151b', bg: '#3a3944', floor: '#302f39' },
+    'Navy Knight':  { primary: '#dfe5ee', secondary: '#2f5cbc', metal: '#2b3042', accent: '#ffd23f', glass: '#76f0ff', outline: '#141826', bg: '#27314a', floor: '#212a40' },
+    'Toxic':        { primary: '#56663a', secondary: '#c8d33c', metal: '#2e2d34', accent: '#a2ff4d', glass: '#b7ff7a', outline: '#141610', bg: '#262a22', floor: '#20241c' },
+    'Crimson Ronin':{ primary: '#b3242f', secondary: '#2c2733', metal: '#4b4655', accent: '#ffe066', glass: '#ff9f8a', outline: '#150f15', bg: '#1f1b24', floor: '#1a1720' },
+    'Midnight':     { primary: '#3c4066', secondary: '#8b5dd8', metal: '#262638', accent: '#ff4fd8', glass: '#6ff7ff', outline: '#0d0c16', bg: '#17151f', floor: '#13111a' },
+    'Olive Drab':   { primary: '#6b7443', secondary: '#c9b98b', metal: '#383932', accent: '#ffb347', glass: '#a8e0ff', outline: '#16170f', bg: '#8c8a78', floor: '#7d7b69' },
+  };
+
+  // Build render-ready palette: RGB ramps per material + packed outline/floor colours.
+  MF.buildPalette = function (base) {
+    const ramps = {
+      primary: makeRamp(base.primary),
+      secondary: makeRamp(base.secondary),
+      metal: makeRamp(base.metal, { shift: 6 }),
+      accent: makeRamp(base.accent, { shift: 4 }),
+      glass: makeRamp(base.glass, { shift: 4 }),
+    };
+    const pack = {};
+    for (const k in ramps) pack[k] = ramps[k].map((c) => packRGBA(c[0], c[1], c[2]));
+    const o = hexToRgb(base.outline);
+    const bg = hexToRgb(base.bg);
+    // floor tiles: [seam, base, alt, lit edge] — low contrast so mechs pop
+    const fh = rgbToHsl(hexToRgb(base.floor));
+    const fl = [
+      hslToRgb([hueToward(fh[0], 255, 6), Math.min(1, fh[1] * 1.1), fh[2] * 0.72]),
+      hslToRgb(fh),
+      hslToRgb([fh[0], fh[1], Math.min(0.97, fh[2] * 1.05 + 0.008)]),
+      hslToRgb([hueToward(fh[0], 55, 4), fh[1] * 0.95, Math.min(0.97, fh[2] * 1.12 + 0.02)]),
+    ];
+    return {
+      base, ramps, pack,
+      outline: packRGBA(o[0], o[1], o[2]),
+      bg: packRGBA(bg[0], bg[1], bg[2]),
+      bgHex: base.bg,
+      floor: fl.map((c) => packRGBA(c[0], c[1], c[2])),
+    };
+  };
+
+  // ---------------------------------------------------------------- convex primitives
+  // Every primitive is a convex polytope: a list of planes (n·p <= d is inside) in its own local frame.
+  // Boxes can have edges/corners cut (chamfers, wedges). Frustums cover cylinders, cones, barrels.
+  class Prim {
+    constructor(planes, half, opts) {
+      this.np = planes.length / 4;
+      this.planes = new Float64Array(planes);
+      this.hx = half[0]; this.hy = half[1]; this.hz = half[2];
+      this.brad = Math.hypot(half[0], half[1], half[2]);
+      this.mat = opts.mat || 'primary';
+      this.detail = opts.detail || null;
+      this.shadow = opts.shadow !== false;
+      this.local = matFromEuler(mat(), ...(opts.at || [0, 0, 0]), ...(opts.rot || [0, 0, 0]));
+      this.world = mat();
+      this.node = null;
+      this.kind = opts.kind || 'box';
+      this.axis = opts.axis || 'y';
+      // per-frame scratch
+      this.inv = new Float64Array(12);
+      this.frame = new Float64Array(this.np * 4); // den, a, b, c per plane
+      this.v = new Float64Array(12); // o00, exl, eyl, dl
+    }
+  }
+
+  // w,h,d: full size. cuts: [[ax,ay,az,depth], ...]
+  function boxPlanes(hx, hy, hz, cuts) {
+    const p = [1, 0, 0, hx, -1, 0, 0, hx, 0, 1, 0, hy, 0, -1, 0, hy, 0, 0, 1, hz, 0, 0, -1, hz];
+    if (cuts) for (const [ax, ay, az, c] of cuts) {
+      const len = Math.hypot(ax, ay, az);
+      if (!len || c <= 0) continue;
+      const d = (Math.abs(ax) * hx + Math.abs(ay) * hy + Math.abs(az) * hz - c) / len;
+      p.push(ax / len, ay / len, az / len, d);
+    }
+    return p;
+  }
+
+  // chamfer presets for boxes
+  const EDGES = {
+    all: [[1,1,0],[1,-1,0],[-1,1,0],[-1,-1,0],[1,0,1],[1,0,-1],[-1,0,1],[-1,0,-1],[0,1,1],[0,1,-1],[0,-1,1],[0,-1,-1]],
+    vert: [[1,0,1],[1,0,-1],[-1,0,1],[-1,0,-1]],
+    top: [[1,1,0],[-1,1,0],[0,1,1],[0,1,-1]],
+    bottom: [[1,-1,0],[-1,-1,0],[0,-1,1],[0,-1,-1]],
+    front: [[1,0,1],[-1,0,1],[0,1,1],[0,-1,1]],
+    frontTop: [[0,1,1]],
+    frontBottom: [[0,-1,1]],
+    backTop: [[0,1,-1]],
+    sidesTop: [[1,1,0],[-1,1,0]],
+    ends: [[0,1,1],[0,-1,1],[0,1,-1],[0,-1,-1]], // z-ends (tank treads)
+    xends: [[1,1,0],[1,-1,0],[-1,1,0],[-1,-1,0]],
+  };
+  function chamfer(set, c, list = []) {
+    for (const e of EDGES[set]) list.push([e[0], e[1], e[2], c]);
+    return list;
+  }
+
+  function makeBox(w, h, d, opts = {}) {
+    const hx = w / 2, hy = h / 2, hz = d / 2;
+    let cuts = opts.cuts ? opts.cuts.slice() : [];
+    if (opts.bevel) cuts = chamfer(opts.bevelSet || 'all', opts.bevel, cuts);
+    return new Prim(boxPlanes(hx, hy, hz, cuts), [hx, hy, hz], { ...opts, kind: 'box' });
+  }
+
+  // n-sided frustum along axis; r1 at -len/2, r2 at +len/2 (apothem radii)
+  function makeFrustum(axis, r1, r2, len, opts = {}) {
+    const n = opts.sides || 8;
+    const L = len / 2, k = (r2 - r1) / len;
+    const p = [];
+    const put = (radA, radB, ax, d) => {
+      // (radA, radB) radial components, ax axial
+      let v;
+      if (axis === 'y') v = [radA, ax, radB];
+      else if (axis === 'x') v = [ax, radA, radB];
+      else v = [radA, radB, ax];
+      p.push(v[0], v[1], v[2], d);
+    };
+    const off = opts.twist != null ? opts.twist : 0;
+    for (let i = 0; i < n; i++) {
+      const phi = (i / n) * Math.PI * 2 + off;
+      const c = Math.cos(phi), s = Math.sin(phi);
+      const nl = Math.hypot(1, k);
+      put(c / nl, s / nl, -k / nl, (r1 + r2) / 2 / nl);
+    }
+    put(0, 0, 1, L); put(0, 0, -1, L);
+    const R = Math.max(r1, r2) / Math.cos(Math.PI / n);
+    const half = axis === 'y' ? [R, L, R] : axis === 'x' ? [L, R, R] : [R, R, L];
+    return new Prim(p, half, { ...opts, kind: 'frustum', axis });
+  }
+
+  MF.makeBox = makeBox; MF.makeFrustum = makeFrustum; MF.chamfer = chamfer; MF.Prim = Prim;
+
+  // ---------------------------------------------------------------- rig nodes
+  // Build-time size multiplier: part dimensions and joint offsets scale, pixel-sized details don't.
+  let K = 1;
+  MF.setBuildScale = (k) => { K = k; };
+  const sc = (a) => (a ? a.map((v) => v * K) : a);
+  function scaleOpts(o) {
+    if (!o || K === 1) return o || {};
+    const r = { ...o };
+    if (o.at) r.at = sc(o.at);
+    if (o.bevel) r.bevel = o.bevel * K;
+    if (o.cuts) r.cuts = o.cuts.map((c) => [c[0], c[1], c[2], c[3] * K]);
+    if (o.detail) r.detail = Array.isArray(o.detail) ? o.detail.map(scaleDetail) : scaleDetail(o.detail);
+    return r;
+  }
+  function scaleDetail(d) {
+    const r = { ...d };
+    for (const k of ['at', 'u', 'v', 'w', 'band']) if (typeof d[k] === 'number') r[k] = d[k] * K;
+    if (d.pts) r.pts = d.pts.map((p) => [p[0] * K, p[1] * K]);
+    return r;
+  }
+
+  class Node {
+    constructor(name, pos = [0, 0, 0], rot = [0, 0, 0]) {
+      this.name = name;
+      this.pos = pos.slice(); this.rot = rot.slice();
+      this.base = { pos: pos.slice(), rot: rot.slice() };
+      this.children = []; this.prims = [];
+      this.local = mat(); this.world = mat();
+    }
+    add(child) { this.children.push(child); return child; }
+    child(name, pos, rot) { return this.add(new Node(name, sc(pos || [0, 0, 0]), rot)); }
+    box(w, h, d, opts) { const p = makeBox(w * K, h * K, d * K, scaleOpts(opts)); p.node = this; this.prims.push(p); return p; }
+    cyl(axis, r, len, opts = {}) { const p = makeFrustum(axis, r * K, r * K, len * K, scaleOpts(opts)); p.node = this; this.prims.push(p); return p; }
+    cone(axis, r1, r2, len, opts = {}) { const p = makeFrustum(axis, r1 * K, r2 * K, len * K, scaleOpts(opts)); p.node = this; this.prims.push(p); return p; }
+    reset() { this.pos = this.base.pos.slice(); this.rot = this.base.rot.slice(); for (const c of this.children) c.reset(); }
+  }
+  MF.Node = Node;
+
+  // Update world matrices under a parent transform and collect prims.
+  MF.updateRig = function (node, parentWorld, out) {
+    matFromEuler(node.local, node.pos[0], node.pos[1], node.pos[2], node.rot[0], node.rot[1], node.rot[2]);
+    matMul(node.world, parentWorld, node.local);
+    for (const p of node.prims) { matMul(p.world, node.world, p.local); out.push(p); }
+    for (const c of node.children) MF.updateRig(c, node.world, out);
+    return out;
+  };
+
+  MF.findNodes = function (root) {
+    const map = {};
+    (function walk(n) { map[n.name] = n; n.children.forEach(walk); })(root);
+    return map;
+  };
+})();
+</script>
+<script>
+// Mecha Factory — pixel renderer.
+// Orthographic ray-casting of convex primitives into a low-res buffer, then pixel-art shading:
+// quantised light ramps, rim highlights, cast shadows, panel details and 1px outlines.
+(function () {
+  const MF = window.MF;
+  const DIGITS = {
+    '0': ['111', '101', '101', '101', '111'], '1': ['010', '110', '010', '010', '111'], '2': ['111', '001', '111', '100', '111'],
+    '3': ['111', '001', '011', '001', '111'], '4': ['101', '101', '111', '001', '001'], '5': ['111', '100', '111', '001', '111'],
+    '6': ['111', '100', '111', '101', '111'], '7': ['111', '001', '010', '010', '010'], '8': ['111', '101', '111', '101', '111'],
+    '9': ['111', '101', '111', '001', '111'], '-': ['000', '000', '111', '000', '000'],
+  };
+
+  class Renderer {
+    constructor(w, h) { this.resize(w, h); }
+    resize(w, h) {
+      w = Math.max(8, w | 0); h = Math.max(8, h | 0);
+      if (w === this.w && h === this.h) return;
+      this.w = w; this.h = h;
+      const n = w * h;
+      this.depth = new Float32Array(n);
+      this.primIx = new Int32Array(n);
+      this.planeIx = new Uint8Array(n);
+      this.color = new Uint32Array(n);
+      this.unitIx = new Int16Array(n);
+      this.outlineMark = new Uint8Array(n);
+      this.image = new ImageData(w, h);
+      this.out32 = new Uint32Array(this.image.data.buffer);
+    }
+
+    // Generic orthographic raster of convex prims. Ray for cell (X,Y) starts at P + X*ts*ex + Y*ts*ey and runs along d.
+    // Leaves per-prim frame data (p.v, p.frame) for the last basis rendered.
+    _raster(prims, P, ex, ey, d, ts, W, H, depth, primIx, planeIx, unitIx, castersOnly) {
+      for (let pi = 0; pi < prims.length; pi++) {
+        const p = prims[pi];
+        if (castersOnly && !p.shadow) continue;
+        const m = p.world, inv = p.inv, v = p.v, fr = p.frame, pl = p.planes, np = p.np;
+        inv[0] = m[0]; inv[1] = m[3]; inv[2] = m[6]; inv[3] = m[1]; inv[4] = m[4]; inv[5] = m[7]; inv[6] = m[2]; inv[7] = m[5]; inv[8] = m[8];
+        const tx = m[9], ty = m[10], tz = m[11];
+        const qx = P[0] - tx, qy = P[1] - ty, qz = P[2] - tz;
+        v[0] = inv[0] * qx + inv[1] * qy + inv[2] * qz; v[1] = inv[3] * qx + inv[4] * qy + inv[5] * qz; v[2] = inv[6] * qx + inv[7] * qy + inv[8] * qz;
+        const ax = ex[0] * ts, ay = ex[1] * ts, az = ex[2] * ts, bx = ey[0] * ts, by = ey[1] * ts, bz = ey[2] * ts;
+        v[3] = inv[0] * ax + inv[1] * ay + inv[2] * az; v[4] = inv[3] * ax + inv[4] * ay + inv[5] * az; v[5] = inv[6] * ax + inv[7] * ay + inv[8] * az;
+        v[6] = inv[0] * bx + inv[1] * by + inv[2] * bz; v[7] = inv[3] * bx + inv[4] * by + inv[5] * bz; v[8] = inv[6] * bx + inv[7] * by + inv[8] * bz;
+        v[9] = inv[0] * d[0] + inv[1] * d[1] + inv[2] * d[2]; v[10] = inv[3] * d[0] + inv[4] * d[1] + inv[5] * d[2]; v[11] = inv[6] * d[0] + inv[7] * d[1] + inv[8] * d[2];
+        for (let j = 0; j < np; j++) {
+          const nx = pl[j * 4], ny = pl[j * 4 + 1], nz = pl[j * 4 + 2];
+          fr[j * 4] = nx * v[9] + ny * v[10] + nz * v[11];
+          fr[j * 4 + 1] = pl[j * 4 + 3] - (nx * v[0] + ny * v[1] + nz * v[2]);
+          fr[j * 4 + 2] = nx * v[3] + ny * v[4] + nz * v[5];
+          fr[j * 4 + 3] = nx * v[6] + ny * v[7] + nz * v[8];
+        }
+        let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+        for (let k = 0; k < 8; k++) {
+          const lx = k & 1 ? p.hx : -p.hx, ly = k & 2 ? p.hy : -p.hy, lz = k & 4 ? p.hz : -p.hz;
+          const rx = m[0] * lx + m[1] * ly + m[2] * lz + tx - P[0];
+          const ry = m[3] * lx + m[4] * ly + m[5] * lz + ty - P[1];
+          const rz = m[6] * lx + m[7] * ly + m[8] * lz + tz - P[2];
+          const sx = (rx * ex[0] + ry * ex[1] + rz * ex[2]) / ts, sy = (rx * ey[0] + ry * ey[1] + rz * ey[2]) / ts;
+          if (sx < minX) minX = sx; if (sx > maxX) maxX = sx; if (sy < minY) minY = sy; if (sy > maxY) maxY = sy;
+        }
+        const x0 = Math.max(0, Math.floor(minX)), x1 = Math.min(W - 1, Math.ceil(maxX));
+        const y0 = Math.max(0, Math.floor(minY)), y1 = Math.min(H - 1, Math.ceil(maxY));
+        if (x0 > x1 || y0 > y1) continue;
+        for (let Y = y0; Y <= y1; Y++) {
+          const row = Y * W;
+          for (let X = x0; X <= x1; X++) {
+            let tE = -1e9, tX = 1e9, pe = -1, hit = true;
+            for (let j = 0, o = 0; j < np; j++, o += 4) {
+              const den = fr[o];
+              const dist = fr[o + 1] - X * fr[o + 2] - Y * fr[o + 3];
+              if (den < -1e-9) { const t = dist / den; if (t > tE) { tE = t; pe = j; } }
+              else if (den > 1e-9) { const t = dist / den; if (t < tX) tX = t; }
+              else if (dist < 0) { hit = false; break; }
+              if (tE > tX) { hit = false; break; }
+            }
+            if (!hit || pe < 0) continue;
+            const ix = row + X;
+            if (tE < depth[ix]) { depth[ix] = tE; primIx[ix] = pi; if (planeIx) planeIx[ix] = pe; if (unitIx) unitIx[ix] = p._unit; }
+          }
+        }
+      }
+    }
+
+    // Shadow map: raster all casters from the light's direction over the units' bounds.
+    _shadowPass(prims, units, L) {
+      const d = [-L[0], -L[1], -L[2]];
+      let up = Math.abs(d[1]) > 0.98 ? [0, 0, 1] : [0, 1, 0];
+      // ex = normalize(up x d), ey = d x ex
+      let ex = [up[1] * d[2] - up[2] * d[1], up[2] * d[0] - up[0] * d[2], up[0] * d[1] - up[1] * d[0]];
+      const el = Math.hypot(ex[0], ex[1], ex[2]); ex = ex.map((c) => c / el);
+      const ey = [d[1] * ex[2] - d[2] * ex[1], d[2] * ex[0] - d[0] * ex[2], d[0] * ex[1] - d[1] * ex[0]];
+      let minA = 1e9, maxA = -1e9, minB = 1e9, maxB = -1e9;
+      for (const u of units) {
+        const cy = (u.height || 60) / 2, r = Math.max(u.radius || 30, cy) + 4;
+        const a = u.x * ex[0] + cy * ex[1] + u.z * ex[2], b = u.x * ey[0] + cy * ey[1] + u.z * ey[2];
+        minA = Math.min(minA, a - r); maxA = Math.max(maxA, a + r); minB = Math.min(minB, b - r); maxB = Math.max(maxB, b + r);
+      }
+      let ts = 1;
+      while ((maxA - minA) / ts > 1400 || (maxB - minB) / ts > 1400) ts *= 2;
+      const W = Math.ceil((maxA - minA) / ts) + 2, H = Math.ceil((maxB - minB) / ts) + 2;
+      const sm = this.sm || (this.sm = {});
+      if (!sm.depth || sm.depth.length < W * H) { sm.depth = new Float32Array(W * H); sm.prim = new Int32Array(W * H); }
+      sm.depth.fill(1e9, 0, W * H); sm.prim.fill(-1, 0, W * H);
+      const P = [minA * ex[0] + minB * ey[0], minA * ex[1] + minB * ey[1], minA * ex[2] + minB * ey[2]];
+      Object.assign(sm, { W, H, P, ex, ey, d, ts });
+      this._raster(prims, P, ex, ey, d, ts, W, H, sm.depth, sm.prim, null, null, true);
+    }
+
+    // Is world point q in shadow? self = prim index of the surface (convex prims never shadow themselves).
+    _inShadow(qx, qy, qz, self, bias) {
+      const sm = this.sm;
+      const rx = qx - sm.P[0], ry = qy - sm.P[1], rz = qz - sm.P[2];
+      const i = Math.round((rx * sm.ex[0] + ry * sm.ex[1] + rz * sm.ex[2]) / sm.ts);
+      const j = Math.round((rx * sm.ey[0] + ry * sm.ey[1] + rz * sm.ey[2]) / sm.ts);
+      if (i < 0 || j < 0 || i >= sm.W || j >= sm.H) return false;
+      const k = j * sm.W + i;
+      const pr = sm.prim[k];
+      if (pr < 0 || pr === self) return false;
+      return sm.depth[k] < rx * sm.d[0] + ry * sm.d[1] + rz * sm.d[2] - bias;
+    }
+
+    // scene: { units:[{prims, pal, x, z, radius, height, selected}], cam:{x,z,pitch,ox,oy},
+    //          floor: 'tiles'|'grid'|'plain'|'none', bg: packed, floorRamp, light:[x,y,z], shadows:bool, time }
+    render(scene) {
+      const W = this.w, H = this.h, N = W * H;
+      const depth = this.depth, primIx = this.primIx, planeIx = this.planeIx, color = this.color, unitIx = this.unitIx;
+      depth.fill(1e9); primIx.fill(-1); unitIx.fill(-1);
+      const cam = scene.cam;
+      const pitch = cam.pitch, S = Math.sin(pitch), C = Math.cos(pitch);
+      const ox = cam.ox, oy = cam.oy, cx = cam.x, cz = cam.z;
+      const Lraw = scene.light || [-0.5, 0.78, 0.38];
+      const Ll = Math.hypot(Lraw[0], Lraw[1], Lraw[2]);
+      const Lx = Lraw[0] / Ll, Ly = Lraw[1] / Ll, Lz = Lraw[2] / Ll;
+      const shadowOn = scene.shadows !== false;
+
+      const prims = [];
+      const units = scene.units;
+      for (let u = 0; u < units.length; u++) for (const p of units[u].prims) { p._unit = u; prims.push(p); }
+
+      if (shadowOn && units.length) this._shadowPass(prims, units, [Lx, Ly, Lz]);
+      // main camera: pixel (X,Y) centre ray origin P00 + X*ex + Y*ey, direction d
+      const P00 = [0.5 - ox + cx, (oy - 0.5) * C, cz - (oy - 0.5) * S];
+      this._raster(prims, P00, [1, 0, 0], [0, -C, S], [0, -S, -C], 1, W, H, depth, primIx, planeIx, unitIx, false);
+
+      // ---------------- floor & background
+      const floorMode = scene.floor || 'tiles';
+      const transparent = floorMode === 'none';
+      const bg = scene.bg;
+      const fl = scene.floorRamp;
+      const tile = scene.tileSize || 32;
+      const floorShade = this.floorShade && this.floorShade.length === N ? this.floorShade : (this.floorShade = new Uint8Array(N));
+      floorShade.fill(0);
+      for (let Y = 0; Y < H; Y++) {
+        const u = oy - Y - 0.5;
+        const wz = cz - u / S;
+        const tzI = Math.floor(wz / tile);
+        const tzUp = Math.floor((cz - (u + 1) / S) / tile);
+        const seamZ = tzI !== tzUp;
+        const inTileZ = ((wz % tile) + tile) % tile;
+        for (let X = 0; X < W; X++) {
+          const ix = Y * W + X;
+          if (primIx[ix] >= 0) continue;
+          const wx = X + 0.5 - ox + cx;
+          if (shadowOn && this._inShadow(wx, 0, wz, -1, 0.6)) floorShade[ix] = 1;
+          if (transparent) continue;
+          let c = bg;
+          if (floorMode === 'tiles') {
+            const txI = Math.floor(wx / tile);
+            const inX = ((wx % tile) + tile) % tile;
+            const checker = (txI + tzI) & 1;
+            c = fl[checker ? 2 : 1];
+            if (seamZ || inX < 1) c = fl[0];
+            else if (inTileZ < 2 && inX < tile - 1) c = fl[3];
+            else if (inX >= 3 && inX < 4 && inTileZ >= 4 && inTileZ < 6) c = fl[0];
+          } else if (floorMode === 'grid') {
+            const inX = ((wx % tile) + tile) % tile;
+            c = seamZ || inX < 1 ? fl[0] : bg;
+          }
+          color[ix] = floorShade[ix] ? darken(c, 0.74) : c;
+        }
+      }
+      // selection rings
+      if (!transparent) for (let u = 0; u < units.length; u++) {
+        const un = units[u];
+        if (!un.selected) continue;
+        const rr = (un.radius || 30) * 0.72;
+        const X0 = Math.max(0, Math.floor(un.x - rr - 2 - cx + ox)), X1 = Math.min(W - 1, Math.ceil(un.x + rr + 2 - cx + ox));
+        const Y0 = Math.max(0, Math.floor(oy + (un.z - rr - 2 - cz) * S)), Y1 = Math.min(H - 1, Math.ceil(oy + (un.z + rr + 2 - cz) * S));
+        for (let Y = Y0; Y <= Y1; Y++) {
+          const wz = cz - (oy - Y - 0.5) / S;
+          for (let X = X0; X <= X1; X++) {
+            const ix = Y * W + X;
+            if (primIx[ix] >= 0) continue;
+            const dx = X + 0.5 - ox + cx - un.x, dz = wz - un.z;
+            const r = Math.sqrt(dx * dx + dz * dz);
+            if (Math.abs(r - rr) < 1.15) {
+              const ang = Math.atan2(dz, dx) + (scene.time || 0) * 1.5;
+              if (((ang / (Math.PI * 2)) * 16 + 16) % 2 < 1.25) { color[ix] = un.pal.pack.accent[3]; floorShade[ix] = 2; }
+            }
+          }
+        }
+      }
+
+      // ---------------- shade geometry
+      const EW = 0.95; // rim width in world px
+      for (let Y = 0; Y < H; Y++) {
+        for (let X = 0; X < W; X++) {
+          const ix = Y * W + X;
+          const pi = primIx[ix];
+          if (pi < 0) continue;
+          const p = prims[pi], pal = units[p._unit].pal, m = p.world, v = p.v, pl = p.planes;
+          const pe = planeIx[ix], t = depth[ix];
+          // local hit
+          const lx = v[0] + X * v[3] + Y * v[6] + t * v[9];
+          const ly = v[1] + X * v[4] + Y * v[7] + t * v[10];
+          const lz = v[2] + X * v[5] + Y * v[8] + t * v[11];
+          const nlx = pl[pe * 4], nly = pl[pe * 4 + 1], nlz = pl[pe * 4 + 2];
+          const nwx = m[0] * nlx + m[1] * nly + m[2] * nlz, nwy = m[3] * nlx + m[4] * nly + m[5] * nlz, nwz = m[6] * nlx + m[7] * nly + m[8] * nlz;
+          const lum = nwx * Lx + nwy * Ly + nwz * Lz;
+          const matName = p.mat;
+          const ramp = pal.pack[matName] || pal.pack.primary;
+          if (matName === 'accent' || matName === 'lamp') {
+            // emissive: flat bright, subtle pulse
+            let e = lum > 0.2 ? 4 : 3;
+            if (units[p._unit].blink && ((scene.time || 0) * 2 + p._unit) % 3 < 0.25) e = 2;
+            color[ix] = (pal.pack.accent)[e];
+            continue;
+          }
+          let idx = lum >= 0.62 ? 3 : lum >= 0.08 ? 2 : 1;
+          if (matName === 'glass') idx = Math.min(4, idx + (((X + Y) & 3) === 0 && lum > 0 ? 1 : 0));
+          // rim highlight: near an edge shared with a brighter visible face
+          let best = EW, bj = -1;
+          for (let j = 0; j < p.np; j++) {
+            if (j === pe) continue;
+            if (p.frame[j * 4] >= 0) continue; // only front-facing neighbours
+            const s = pl[j * 4 + 3] - (pl[j * 4] * lx + pl[j * 4 + 1] * ly + pl[j * 4 + 2] * lz);
+            if (s < best) { best = s; bj = j; }
+          }
+          if (bj >= 0) {
+            const ax = pl[bj * 4], ay = pl[bj * 4 + 1], az = pl[bj * 4 + 2];
+            const lj = (m[0] * ax + m[1] * ay + m[2] * az) * Lx + (m[3] * ax + m[4] * ay + m[5] * az) * Ly + (m[6] * ax + m[7] * ay + m[8] * az) * Lz;
+            if (lj > lum + 0.12) idx = Math.min(4, idx + 1); else if (lj < lum - 0.5 && idx > 1 && lum > 0.5) idx--;
+          }
+          // cast shadow from other parts
+          if (shadowOn && lum > -0.25) {
+            const wx = m[0] * lx + m[1] * ly + m[2] * lz + m[9];
+            const wy = m[3] * lx + m[4] * ly + m[5] * lz + m[10];
+            const wz = m[6] * lx + m[7] * ly + m[8] * lz + m[11];
+            if (this._inShadow(wx, wy, wz, pi, 1.3)) idx = Math.max(1, idx - 1);
+          }
+          // surface details
+          let rampUse = ramp;
+          if (p.detail) {
+            const r = applyDetail(p, pe, lx, ly, lz, nlx, nly, nlz, idx, scene, pal);
+            if (r !== null) {
+              if (r >= 100) { rampUse = r >= 200 ? pal.pack.accent : pal.pack[p.detail.mat2 || 'secondary']; idx = r % 100; }
+              else idx = r;
+            }
+          }
+          color[ix] = rampUse[Math.max(0, Math.min(4, idx))];
+        }
+      }
+
+      // ---------------- outlines
+      const om = this.outlineMark; om.fill(0);
+      const out = this.out32;
+      const thr = scene.lineThreshold || 2.2;
+      for (let Y = 0; Y < H; Y++) {
+        for (let X = 0; X < W; X++) {
+          const ix = Y * W + X;
+          const pi = primIx[ix];
+          if (pi < 0) {
+            // silhouette: any neighbour with geometry?
+            let nb = -1;
+            if (X > 0 && primIx[ix - 1] >= 0) nb = ix - 1;
+            else if (X < W - 1 && primIx[ix + 1] >= 0) nb = ix + 1;
+            else if (Y > 0 && primIx[ix - W] >= 0) nb = ix - W;
+            else if (Y < H - 1 && primIx[ix + W] >= 0) nb = ix + W;
+            if (nb >= 0) { out[ix] = units[unitIx[nb]].pal.outline; om[ix] = 1; unitIx[ix] = unitIx[nb]; }
+            else out[ix] = transparent ? (floorShade[ix] === 1 ? scene.shadowPacked || 0x55000000 : 0) : color[ix];
+            continue;
+          }
+          const d = depth[ix];
+          let line = false, far = false;
+          if (X > 0 && primIx[ix - 1] >= 0 && primIx[ix - 1] !== pi && depth[ix - 1] < d - thr) { line = true; if (depth[ix - 1] < d - thr * 4) far = true; }
+          if (!line && X < W - 1 && primIx[ix + 1] >= 0 && primIx[ix + 1] !== pi && depth[ix + 1] < d - thr) { line = true; if (depth[ix + 1] < d - thr * 4) far = true; }
+          if (!line && Y > 0 && primIx[ix - W] >= 0 && primIx[ix - W] !== pi && depth[ix - W] < d - thr) { line = true; if (depth[ix - W] < d - thr * 4) far = true; }
+          if (!line && Y < H - 1 && primIx[ix + W] >= 0 && primIx[ix + W] !== pi && depth[ix + W] < d - thr) { line = true; if (depth[ix + W] < d - thr * 4) far = true; }
+          if (line) {
+            const p = prims[pi];
+            const pal = units[p._unit].pal;
+            out[ix] = far || unitIx[ix] !== unitIx[ix - 1] ? pal.outline : mix(pal.outline, (pal.pack[p.mat] || pal.pack.primary)[0], 0.5);
+          } else out[ix] = color[ix];
+        }
+      }
+      return this.image;
+    }
+
+  }
+
+  // Procedural decals. Returns new ramp index, index+100 for mat2 ramp, index+200 for accent ramp, or null.
+  function applyDetail(p, pe, lx, ly, lz, nx, ny, nz, idx, scene, pal) {
+    const det = p.detail;
+    const list = Array.isArray(det) ? det : [det];
+    let res = null;
+    const ax = Math.abs(nx), ay = Math.abs(ny), az = Math.abs(nz);
+    let face, u, v, hu, hv;
+    if (ax >= ay && ax >= az) { face = nx > 0 ? '+x' : '-x'; u = lz * Math.sign(nx); v = ly; hu = p.hz; hv = p.hy; }
+    else if (ay >= az) { face = ny > 0 ? '+y' : '-y'; u = lx; v = lz; hu = p.hx; hv = p.hz; }
+    else { face = nz > 0 ? '+z' : '-z'; u = -lx * Math.sign(nz); v = ly; hu = p.hx; hv = p.hy; }
+    for (const d of list) {
+      if (d.face && d.face !== 'any') {
+        if (d.face === 'side') { if (face !== '+x' && face !== '-x') continue; }
+        else if (d.face === 'front+side') { if (face !== '+z' && face !== '+x' && face !== '-x') continue; }
+        else if (d.face === 'notTop') { if (face === '+y' || face === '-y') continue; }
+        else if (d.face !== face) continue;
+      }
+      const cur = res === null ? idx : res % 100;
+      switch (d.type) {
+        case 'panel': { // a seam line across the face
+          const pos = d.at || 0;
+          if (Math.abs((d.dir === 'h' ? v : u) - pos) < 0.5) res = Math.max(0, cur - 2);
+          break;
+        }
+        case 'vent': {
+          const ins = d.inset == null ? 1.5 : d.inset;
+          if (Math.abs(u) < hu - ins && Math.abs(v) < hv - ins) {
+            const k = Math.floor((v + hv) / (d.pitch || 2));
+            res = k % 2 === 0 ? 0 : Math.max(1, cur - 1);
+          }
+          break;
+        }
+        case 'grid': { // missile pod holes
+          const cell = d.cell || 3.5;
+          const ins = d.inset == null ? 1 : d.inset;
+          if (Math.abs(u) < hu - ins && Math.abs(v) < hv - ins) {
+            const fu = (((u + hu - ins) % cell) + cell) % cell, fv = (((v + hv - ins) % cell) + cell) % cell;
+            if (fu < cell - 1 && fv < cell - 1) res = fu < 1 && fv < 1 ? 202 : 0;
+          }
+          break;
+        }
+        case 'stripe': { // hazard stripes
+          const w = d.width || 3;
+          if (d.band == null || Math.abs(v - (d.band || 0)) < (d.bandH || 2)) {
+            if ((((u + v) % (w * 2)) + w * 2) % (w * 2) < w) res = 100 + cur;
+          }
+          break;
+        }
+        case 'band': { // solid colour band on mat2
+          if (Math.abs((d.dir === 'v' ? u : v) - (d.at || 0)) < (d.size || 1.5)) res = 100 + cur;
+          break;
+        }
+        case 'light': { // small emissive light(s)
+          const pts = d.pts || [[0, 0]];
+          for (const q of pts) if (Math.abs(u - q[0]) < (d.size || 0.9) && Math.abs(v - q[1]) < (d.size || 0.9)) res = 200 + (d.dim ? 3 : 4);
+          break;
+        }
+        case 'eye': { // horizontal slit visor
+          if (Math.abs(v - (d.at || 0)) < (d.h || 0.9) && Math.abs(u) < (d.w || hu - 1)) res = 200 + 4;
+          break;
+        }
+        case 'tread': {
+          const off = scene.treadOffset ? scene.treadOffset[p._unit] || 0 : 0;
+          const k = d.axis === 'v' ? v : u;
+          if ((((k + off * (d.dirSign || 1)) % 3) + 3) % 3 < 1.1) res = Math.max(0, cur - 2);
+          break;
+        }
+        case 'bolts': {
+          const ins = d.inset || 1.6;
+          if (Math.abs(Math.abs(u) - (hu - ins)) < 0.55 && Math.abs(Math.abs(v) - (hv - ins)) < 0.55) res = Math.min(4, cur + 1) === cur ? cur - 1 : Math.min(4, cur + 1);
+          break;
+        }
+        case 'number': {
+          const text = String(d.text || '318');
+          const sc = d.scale || 1;
+          const tw = text.length * 4 - 1;
+          const bu = Math.floor((u - (d.u || 0)) / sc + tw / 2), bv = Math.floor(((d.v || 0) - v) / sc + 2.5);
+          if (bv >= 0 && bv < 5 && bu >= 0 && bu < tw) {
+            const ci = Math.floor(bu / 4), col = bu % 4;
+            const g = DIGITS[text[ci]];
+            if (col < 3 && g && g[bv][col] === '1') res = d.dark ? 1 : 100 + Math.min(4, cur + 1);
+          }
+          break;
+        }
+      }
+    }
+    return res;
+  }
+
+  function mix(a, b, t) {
+    const r = (a & 255) * (1 - t) + (b & 255) * t, g = ((a >> 8) & 255) * (1 - t) + ((b >> 8) & 255) * t, bl = ((a >> 16) & 255) * (1 - t) + ((b >> 16) & 255) * t;
+    return MF.color.packRGBA(r, g, bl);
+  }
+  function darken(c, k, tint) {
+    let r = (c & 255) * k, g = ((c >> 8) & 255) * k, b = ((c >> 16) & 255) * k;
+    // shadows lean cool
+    b = Math.min(255, b + 10); r = Math.max(0, r - 4);
+    return MF.color.packRGBA(r, g, b);
+  }
+  MF.Renderer = Renderer;
+})();
+</script>
+<script>
+// Mecha Factory — blueprints, part library, rigs and walk cycles.
+// A blueprint is plain JSON (shareable); build(bp) turns it into a node hierarchy + animator.
+(function () {
+  const MF = window.MF;
+  const { RNG } = MF;
+  const PI = Math.PI;
+
+  const OPTIONS = {
+    frame: ['biped', 'strider', 'spider', 'crawler', 'tank', 'hover'],
+    torso: ['block', 'wedge', 'barrel', 'hunch', 'core'],
+    head: ['visor', 'mono', 'cockpit', 'horned', 'sensor', 'none'],
+    arm: ['cannon', 'gatling', 'missiles', 'fist', 'claw', 'blade', 'shield', 'drill', 'none'],
+    shoulders: ['pauldron', 'round', 'launcher', 'spiked', 'none'],
+    back: ['missiles', 'exhaust', 'antenna', 'tank', 'radar', 'artillery', 'wings', 'none'],
+    scheme: ['mono', 'split', 'inverse'],
+  };
+  const LABELS = {
+    frame: { biped: 'Biped', strider: 'Reverse-joint', spider: 'Quad spider', crawler: 'Hex crawler', tank: 'Treads', hover: 'Hover' },
+    torso: { block: 'Block', wedge: 'Wedge chest', barrel: 'Barrel', hunch: 'Hunchback', core: 'Turret core' },
+    head: { visor: 'Visor', mono: 'Mono-eye', cockpit: 'Cockpit', horned: 'V-fin', sensor: 'Sensor bar', none: 'Headless' },
+    arm: { cannon: 'Rail cannon', gatling: 'Gatling', missiles: 'Rocket pod', fist: 'Power fist', claw: 'Claw', blade: 'Energy blade', shield: 'Shield', drill: 'Drill', none: 'None' },
+    shoulders: { pauldron: 'Pauldrons', round: 'Round guards', launcher: 'Launchers', spiked: 'Spiked', none: 'None' },
+    back: { missiles: 'Missile rack', exhaust: 'Exhaust stacks', antenna: 'Antenna', tank: 'Fuel tank', radar: 'Radar dish', artillery: 'Artillery', wings: 'Fins', none: 'None' },
+    scheme: { mono: 'Solid', split: 'Two-tone', inverse: 'Inverted' },
+  };
+
+  const NAMES = ['Bulwark', 'Scorpion', 'Mantis', 'Warden', 'Hornet', 'Goliath', 'Talon', 'Jackal', 'Rook', 'Cinder', 'Paladin', 'Vulture', 'Basilisk', 'Kodiak', 'Stinger', 'Harrier', 'Anvil', 'Wraith', 'Ironclad', 'Tarantula', 'Sabre', 'Colossus', 'Marauder', 'Bastion', 'Onager', 'Kestrel', 'Behemoth', 'Scarab', 'Tempest', 'Grendel', 'Halberd', 'Mule', 'Nomad', 'Specter', 'Hammerhead', 'Locust', 'Raptor', 'Titan', 'Viper', 'Yeti'];
+  const PREFIX = ['MK', 'RX', 'VT', 'GX', 'AR', 'TX', 'ZR', 'KV', 'HX', 'M'];
+
+  // ------------------------------------------------------------- random blueprint
+  function randomBlueprint(seed, locks = {}, prev = null) {
+    const r = new RNG(seed);
+    const keep = (k, gen) => (locks[k] && prev && prev[k] !== undefined ? prev[k] : gen());
+    const frame = keep('frame', () => r.weighted({ biped: 5, strider: 3, spider: 3, crawler: 2, tank: 2, hover: 2 }));
+    const legged = frame === 'biped' || frame === 'strider';
+    const bp = { v: 1, seed, frame };
+    bp.torso = keep('torso', () => (frame === 'spider' || frame === 'crawler' ? r.weighted({ core: 5, block: 2, barrel: 2, wedge: 1 }) : r.weighted({ block: 3, wedge: 3, barrel: 2, hunch: 2, core: 1 })));
+    bp.head = keep('head', () => (bp.torso === 'core' ? r.weighted({ none: 4, sensor: 2, mono: 1 }) : r.weighted({ visor: 3, mono: 2, cockpit: 2, horned: 2, sensor: 1, none: 1 })));
+    const armPool = legged || frame === 'hover' ? { cannon: 3, gatling: 3, missiles: 2, fist: 3, claw: 2, blade: 2, shield: 2, drill: 1 } : { cannon: 3, gatling: 3, missiles: 3, claw: 1, drill: 1, none: 2 };
+    bp.armL = keep('armL', () => r.weighted(armPool));
+    bp.armR = keep('armR', () => (r.chance(0.45) ? bp.armL : r.weighted(armPool)));
+    bp.shoulders = keep('shoulders', () => r.weighted({ pauldron: 4, round: 2, launcher: 2, spiked: 1, none: 2 }));
+    bp.back = keep('back', () => r.weighted({ missiles: 3, exhaust: 2, antenna: 2, tank: 2, radar: 1, artillery: 2, wings: 1, none: 2 }));
+    bp.scheme = keep('scheme', () => r.weighted({ mono: 2, split: 3, inverse: 1 }));
+    bp.bulk = keep('bulk', () => +r.range(0.8, 1.35).toFixed(2));
+    bp.legLen = keep('legLen', () => +r.range(0.75, 1.3).toFixed(2));
+    bp.tall = keep('tall', () => +r.range(0.8, 1.3).toFixed(2));
+    bp.armLen = keep('armLen', () => +r.range(0.8, 1.25).toFixed(2));
+    bp.edge = keep('edge', () => +r.range(0.8, 2.4).toFixed(1));
+    bp.size = keep('size', () => +r.range(1.0, 1.3).toFixed(2));
+    bp.palette = keep('palette', () => r.pick(Object.keys(MF.PALETTES)));
+    bp.colors = locks.palette && prev && prev.colors ? { ...prev.colors } : { ...MF.PALETTES[bp.palette] };
+    bp.number = keep('number', () => String(r.int(100, 999)));
+    bp.name = keep('name', () => `${r.pick(PREFIX)}-${bp.number} ${r.pick(NAMES)}`);
+    return bp;
+  }
+
+  // ------------------------------------------------------------- build
+  function build(bp) {
+    const r = new RNG((bp.seed || 1) ^ 0x9e3779b9);
+    const root = new MF.Node('root');
+    const bulk = bp.bulk || 1, tall = bp.tall || 1, legLen = bp.legLen || 1, armLen = bp.armLen || 1;
+    const e = bp.edge == null ? 1.5 : bp.edge;
+    const mats = { mono: ['primary', 'primary', 'secondary'], split: ['primary', 'secondary', 'secondary'], inverse: ['secondary', 'secondary', 'primary'] }[bp.scheme || 'split'];
+    const k = bp.size || 1;
+    const ctx = { bp, r, root, bulk, tall, legLen, armLen, e, k, A: mats[0], B: mats[1], T: mats[2], M: 'metal', anims: [], stride: 30, hover: 0 };
+    MF.setBuildScale(k);
+    try {
+      const hub = buildFrame(ctx);           // returns node the torso sits on
+      const tor = buildTorso(ctx, hub);       // returns anchors
+      buildHead(ctx, tor);
+      buildArm(ctx, tor, -1, bp.armL);
+      buildArm(ctx, tor, 1, bp.armR);
+      buildBack(ctx, tor);
+    } finally {
+      MF.setBuildScale(1);
+    }
+    ctx.stride *= k; ctx.hover *= k;
+
+    // bounds for shadows / framing
+    const prims = MF.updateRig(root, MF.mat(), []);
+    let maxY = 0, rad = 0, minY = 1e9;
+    for (const p of prims) {
+      maxY = Math.max(maxY, p.world[10] + p.brad);
+      minY = Math.min(minY, p.world[10] - p.brad);
+      rad = Math.max(rad, Math.hypot(p.world[9], p.world[11]) + p.brad * 0.7);
+    }
+    const nodes = MF.findNodes(root);
+    return {
+      root, nodes, height: maxY, radius: Math.max(14, rad), stride: ctx.stride, hover: ctx.hover,
+      animate(st) {
+        root.reset();
+        for (const a of ctx.anims) a(st, nodes);
+      },
+    };
+  }
+
+  // ------------------------------------------------------------- frames / locomotion
+  function buildFrame(ctx) {
+    switch (ctx.bp.frame) {
+      case 'strider': return frameStrider(ctx);
+      case 'spider': return frameLegs(ctx, 4);
+      case 'crawler': return frameLegs(ctx, 6);
+      case 'tank': return frameTank(ctx);
+      case 'hover': return frameHover(ctx);
+      default: return frameBiped(ctx);
+    }
+  }
+
+  function frameBiped(ctx) {
+    const { root, bulk, legLen, e, B, T, M, r } = ctx;
+    const thighL = Math.round(11 * legLen + 3), shinL = Math.round(12 * legLen + 3), footH = 3;
+    const skirts = r.chance(0.6), pistons = r.chance(0.6);
+    const legW = Math.round(4.5 * bulk + 1.5);
+    const hipX = Math.round(4 * bulk + 3);
+    const hipY = footH + thighL + shinL;
+    const armored = r.chance(0.6);
+    const pelvis = root.child('pelvis', [0, hipY, 0]);
+    pelvis.box(hipX * 2 - 1, 5, 7, { mat: M, bevel: 1 });
+    pelvis.box(hipX * 1.2, 4, 3, { mat: T, at: [0, -1.5, 3.5], cuts: [[0, -1, 1, 2]] });
+    if (skirts) for (const s of [-1, 1]) pelvis.box(2, 8, 8, { mat: ctx.A, at: [s * (hipX + legW / 2 + 1.8), -3, 0], rot: [0, 0, s * 0.12], bevel: 0.7, cuts: [[0, -1, 1, 2.5], [0, -1, -1, 2.5]], detail: { type: 'panel', face: 'side', at: 0, dir: 'h' } });
+    for (const s of [-1, 1]) {
+      const hip = pelvis.child('hip' + s, [s * hipX, -1, 0]);
+      hip.cyl('x', 2.6, 4, { mat: M, at: [s * 0.5, 0, 0] });
+      hip.box(legW, thighL + 1, legW + 1, { at: [0, -thighL / 2, 0], mat: B, bevel: Math.min(e, 1.5) });
+      if (armored) hip.box(legW + 1.5, thighL * 0.55, 2.5, { at: [s * 0.5, -thighL * 0.35, legW / 2 + 0.8], mat: T, bevel: 0.8, detail: { type: 'panel', face: '+z', at: 0, dir: 'h' } });
+      const knee = hip.child('knee' + s, [0, -thighL, 0]);
+      knee.cyl('x', 2.4, legW + 1.2, { mat: M });
+      knee.box(legW + 2, shinL, legW + 3, { at: [0, -shinL / 2 - 0.5, 0.4], mat: B, bevel: e, bevelSet: 'vert', detail: armored ? { type: 'vent', face: '+z', pitch: 2, inset: 1.5 } : { type: 'panel', face: '+z', at: 0 } });
+      knee.box(legW + 1, 4.5, 3, { at: [0, -0.5, legW / 2 + 2], mat: T, cuts: [[0, 1, 1, 1.6], [0, -1, 1, 1.2]] });
+      if (pistons) knee.cyl('y', 0.9, shinL * 0.55, { at: [0, -shinL * 0.45, -(legW / 2 + 2.2)], mat: M, sides: 6 });
+      const ankle = knee.child('ankle' + s, [0, -shinL, 0]);
+      ankle.cyl('x', 1.8, legW + 2.5, { mat: M, at: [0, -0.5, 0] });
+      ankle.box(legW + 3.5, footH, legW + 8, { at: [0, -footH / 2, 1.5], mat: M, bevel: 1, bevelSet: 'top' });
+      ankle.box(legW + 2.5, 2, 3, { at: [0, -0.6, legW / 2 + 5], mat: T, cuts: [[0, 1, 1, 1.2]] });
+    }
+    const L = thighL + shinL, A = 0.42;
+    ctx.stride = 4 * L * Math.sin(A);
+    ctx.anims.push((st, n) => {
+      const m = st.move, ph = st.phase;
+      const drop = L * (1 - Math.cos(A * m * Math.sin(ph)));
+      n.pelvis.pos[1] -= (drop + Math.sin(st.t * 2.2) * 0.35 * (1 - m)) * ctx.k;
+      n.pelvis.rot[1] = Math.sin(ph) * 0.07 * m;
+      for (const s of [-1, 1]) {
+        const p = s < 0 ? ph : ph + PI;
+        const hip = -A * Math.sin(p) * m;
+        const knee = Math.max(0, Math.cos(p)) * 0.9 * m;
+        n['hip' + s].rot[0] = hip;
+        n['knee' + s].rot[0] = knee;
+        n['ankle' + s].rot[0] = -(hip + knee) * 0.85;
+      }
+      if (n.torso) { n.torso.rot[2] = Math.sin(ph) * 0.03 * m; n.torso.rot[1] = -Math.sin(ph) * 0.1 * m; }
+    });
+    ctx.gait = 'biped';
+    return pelvis;
+  }
+
+  function frameStrider(ctx) {
+    const { root, bulk, legLen, e, B, T, M } = ctx;
+    const T1 = Math.round(10 * legLen + 2), S1 = Math.round(T1 * 0.95), M1 = Math.round(7 * legLen + 2), footH = 2.5;
+    const a1 = -0.65, a2 = 1.35, a3 = -0.7;
+    const legW = Math.round(4 * bulk + 1.5);
+    const hipX = Math.round(4.5 * bulk + 3);
+    const hipY = footH + T1 * Math.cos(a1) + S1 * Math.cos(a1 + a2) + M1;
+    const pelvis = root.child('pelvis', [0, hipY, 0]);
+    pelvis.box(hipX * 2, 6, 8, { mat: M, bevel: 1.2 });
+    for (const s of [-1, 1]) {
+      const hip = pelvis.child('hip' + s, [s * hipX, 0, 0], [a1, 0, 0]);
+      hip.cyl('x', 3.2, 4.5, { mat: M, at: [s * 0.6, 0, 0] });
+      hip.box(legW + 1, T1 + 2, legW + 3, { at: [0, -T1 / 2, 0], mat: B, bevel: e, detail: { type: 'panel', face: '+z', at: 0, dir: 'v' } });
+      hip.box(legW + 2, T1 * 0.5, 2, { at: [s * 0.3, -T1 * 0.3, legW / 2 + 2], mat: T, bevel: 0.8 });
+      const knee = hip.child('knee' + s, [0, -T1, 0], [a2, 0, 0]);
+      knee.cyl('x', 2.6, legW + 2, { mat: M });
+      knee.box(legW, S1, legW, { at: [0, -S1 / 2, 0], mat: M, bevel: 0.8 });
+      knee.box(legW + 1, S1 * 0.7, 2, { at: [0, -S1 * 0.45, -legW / 2 - 0.5], mat: B, bevel: 0.8 });
+      const ank = knee.child('ankle' + s, [0, -S1, 0], [a3, 0, 0]);
+      ank.cyl('x', 2, legW + 1, { mat: M });
+      ank.box(legW + 1, M1, legW + 1, { at: [0, -M1 / 2, 0], mat: B, bevel: 1 });
+      const foot = ank.child('foot' + s, [0, -M1, 0], [-(a1 + a2 + a3), 0, 0]);
+      foot.box(legW + 3, footH, legW + 8, { at: [0, -footH / 2, 2], mat: M, bevel: 0.8, bevelSet: 'top' });
+      foot.box(2, footH, 5, { at: [0, -footH / 2, -legW / 2 - 2.5], mat: M });
+    }
+    const L = hipY, A = 0.38;
+    ctx.stride = 4 * L * Math.sin(A) * 0.8;
+    ctx.anims.push((st, n) => {
+      const m = st.move, ph = st.phase;
+      n.pelvis.pos[1] -= (L * (1 - Math.cos(A * m * Math.sin(ph))) * 0.8 + Math.sin(st.t * 2.4) * 0.35 * (1 - m)) * ctx.k;
+      n.pelvis.rot[0] = 0.05 * m;
+      for (const s of [-1, 1]) {
+        const p = s < 0 ? ph : ph + PI;
+        const hip = -A * Math.sin(p) * m;
+        const lift = Math.max(0, Math.cos(p)) * m;
+        n['hip' + s].rot[0] += hip - lift * 0.35;
+        n['knee' + s].rot[0] += lift * 0.5;
+        n['ankle' + s].rot[0] += -lift * 0.3;
+        n['foot' + s].rot[0] += -(hip + lift * -0.15) * 0.9;
+      }
+      if (n.torso) n.torso.rot[1] = -Math.sin(ph) * 0.08 * m;
+    });
+    ctx.gait = 'biped';
+    return pelvis;
+  }
+
+  function frameLegs(ctx, count) {
+    const { root, bulk, legLen, e, A, B, T, M, r } = ctx;
+    const H = Math.round(9 + 7 * legLen);
+    const hubR = Math.round(8 * bulk + 2);
+    const hub = root.child('pelvis', [0, H, 0]);
+    hub.cyl('y', hubR * 0.8, 5, { mat: M, sides: 8, twist: PI / 8 });
+    hub.box(hubR * 1.6, 3, hubR * 1.6, { at: [0, -3, 0], mat: M, bevel: 2, bevelSet: 'vert', detail: { type: 'vent', face: '+z', pitch: 2, inset: 1 } });
+    const F = Math.round(9 * legLen + 3), alpha = 0.5, beta = 0.28;
+    const kneeY = H + F * Math.sin(alpha);
+    const Tb = kneeY / Math.cos(beta);
+    const angles = count === 4 ? [PI / 4, -PI / 4, (3 * PI) / 4, (-3 * PI) / 4] : [0.9, -0.9, PI / 2, -PI / 2, 2.25, -2.25];
+    // gait groups: diagonal pairs (quad) or tripods (hex)
+    const groups = count === 4 ? [0, 1, 1, 0] : [0, 1, 1, 0, 0, 1];
+    const legs = [];
+    angles.forEach((a, i) => {
+      const side = Math.sign(Math.sin(a)) || 1;
+      const rootN = hub.child('leg' + i, [Math.sin(a) * hubR * 0.75, 0, Math.cos(a) * hubR * 0.75], [0, a - PI / 2, 0]);
+      const coxa = rootN.child('coxa' + i);
+      coxa.cyl('y', 3, 6, { mat: M });
+      const fem = coxa.child('femur' + i, [1, 1, 0], [0, 0, alpha]);
+      fem.box(F + 2, 5, 5 * bulk + 1, { at: [F / 2, 0, 0], mat: B, bevel: e, detail: { type: 'panel', face: '+y', at: 0, dir: 'v' } });
+      fem.box(F * 0.6, 2, 5 * bulk + 2, { at: [F * 0.45, 2.8, 0], mat: T, bevel: 0.6 });
+      const knee = fem.child('knee' + i, [F, 0, 0], [0, 0, beta - alpha]);
+      knee.cyl('z', 3.3, 5 * bulk + 3, { mat: M });
+      knee.box(5.5, Tb * 0.62, 5 * bulk + 1.5, { at: [0.8, -Tb * 0.33, 0], mat: A, bevel: e, bevelSet: 'vert', detail: { type: 'bolts', face: 'any', inset: 1.5 } });
+      knee.box(3.5, Tb * 0.4, 3, { at: [0, -Tb * 0.78, 0], mat: M, bevel: 0.6 });
+      knee.cone('y', 1.2, 2.6, 4, { at: [0, -Tb + 1.5, 0], mat: M, sides: 6 });
+      legs.push({ i, side, g: groups[i] });
+    });
+    const reach = F * Math.cos(alpha) + Tb * Math.sin(beta) + hubR * 0.75;
+    const sweep = 0.32;
+    ctx.stride = 2 * reach * Math.sin(sweep) * 2;
+    ctx.anims.push((st, n) => {
+      const m = st.move;
+      n.pelvis.pos[1] += (Math.sin(st.phase * 2) * 0.5 * m + Math.sin(st.t * 2) * 0.3 * (1 - m)) * ctx.k;
+      for (const L of legs) {
+        const p = st.phase + L.g * PI + (count === 6 ? 0 : 0);
+        const lift = Math.max(0, Math.sin(p)) * m;
+        n['coxa' + L.i].rot[1] = L.side * sweep * Math.cos(p) * m;
+        n['femur' + L.i].rot[2] += lift * 0.35;
+        n['knee' + L.i].rot[2] -= lift * 0.2;
+      }
+    });
+    ctx.gait = 'legs';
+    return hub;
+  }
+
+  function frameTank(ctx) {
+    const { root, bulk, legLen, e, A, B, T, M } = ctx;
+    const tw = Math.round(5 * bulk + 2), th = Math.round(7 + 3 * legLen), tl = Math.round(22 * bulk + 6);
+    const gap = Math.round(6 * bulk + 2);
+    const hub = root.child('pelvis', [0, th + 1, 0]);
+    for (const s of [-1, 1]) {
+      const tr = root.child('tread' + s, [s * (gap + tw / 2), th / 2, 0]);
+      tr.box(tw, th, tl, { mat: M, cuts: MF.chamfer('ends', th * 0.45), detail: [{ type: 'tread', face: '+y', axis: 'v', dirSign: 1 }, { type: 'tread', face: '+z', axis: 'v' }, { type: 'tread', face: '-z', axis: 'v' }] });
+      const wheels = Math.max(3, Math.round(tl / 7));
+      for (let k = 0; k < wheels; k++) {
+        const z = -tl / 2 + 4 + (k * (tl - 8)) / (wheels - 1);
+        tr.cyl('x', 2.3, 1.2, { mat: M, at: [s * (tw / 2 + 0.3), -0.5, z], sides: 8 });
+      }
+      tr.box(tw + 1.5, 2.5, tl - th * 0.8, { at: [s * 0.3, th / 2 - 0.2, 0], mat: B, bevel: 0.8, detail: { type: 'stripe', face: '+y', width: 2, mat2: 'secondary' } });
+    }
+    hub.box(gap * 2, th - 1, tl * 0.8, { at: [0, -th / 2, 0], mat: M, bevel: 1.5 });
+    hub.box(gap * 2 + 2, 3, tl * 0.75, { at: [0, 0, 0], mat: A, bevel: e, cuts: [[0, 1, 1, 2]], detail: { type: 'vent', face: '+y', pitch: 2, inset: 3 } });
+    ctx.stride = 40;
+    ctx.anims.push((st, n) => {
+      n.pelvis.pos[1] += Math.sin(st.t * 30) * 0.25 * st.move;
+      n.pelvis.rot[0] = -0.03 * st.move;
+    });
+    ctx.gait = 'tread';
+    return hub;
+  }
+
+  function frameHover(ctx) {
+    const { root, bulk, legLen, e, A, B, T, M } = ctx;
+    const R = Math.round(8 * bulk + 3);
+    const lift = Math.round(6 + 4 * legLen);
+    const hub = root.child('pelvis', [0, lift + 6, 0]);
+    hub.cone('y', R, R * 0.7, 6, { mat: B, sides: 8, twist: PI / 8, at: [0, -3, 0], detail: { type: 'band', at: 0, size: 0.8, mat2: 'secondary' } });
+    hub.cone('y', R * 0.7, R * 0.95, 3, { mat: M, sides: 8, twist: PI / 8, at: [0, -7.5, 0] });
+    for (let k = 0; k < 4; k++) {
+      const a = PI / 4 + (k * PI) / 2;
+      hub.cone('y', 1.2, 2.6, 4, { mat: M, sides: 6, at: [Math.sin(a) * R * 0.6, -10, Math.cos(a) * R * 0.6] });
+      hub.cone('y', 0.4, 1.8, 2, { mat: 'accent', sides: 6, shadow: false, at: [Math.sin(a) * R * 0.6, -12.5, Math.cos(a) * R * 0.6] });
+    }
+    ctx.hover = lift;
+    ctx.stride = 60;
+    ctx.anims.push((st, n) => {
+      n.pelvis.pos[1] += Math.sin(st.t * 3) * 1.2 * ctx.k;
+      n.pelvis.rot[0] = 0.18 * st.move;
+      n.pelvis.rot[2] = Math.sin(st.t * 1.7) * 0.03;
+    });
+    ctx.gait = 'hover';
+    return hub;
+  }
+
+  // ------------------------------------------------------------- torso
+  function buildTorso(ctx, hub) {
+    const { bp, bulk, tall, e, A, B, T, M, r } = ctx;
+    const W = Math.round(15 * bulk + 3), Ht = Math.round(11 * tall + 3), D = Math.round(10 * bulk + 2);
+    const torso = hub.child('torso', [0, 2.5, 0]);
+    const num = { type: 'number', face: 'side', text: bp.number, u: 0, v: 0 };
+    const out = { node: torso, W, D, Ht };
+    switch (bp.torso) {
+      case 'wedge': {
+        torso.box(W * 0.5, 5, D * 0.6, { at: [0, 2.5, 0], mat: M, bevel: 1 });
+        torso.box(W, Ht, D, { at: [0, 4 + Ht / 2, 0], mat: A, bevel: Math.min(e, 2), cuts: [[0, -1, 1, Math.min(D, Ht) * 0.55], [1, 0, 1, 2], [-1, 0, 1, 2]], detail: [num, { type: 'panel', face: '+y', at: 0, dir: 'v' }] });
+        torso.box(W * 0.62, Ht * 0.45, 3, { at: [0, 4 + Ht * 0.7, D / 2 + 0.6], mat: T, cuts: [[0, -1, 1, 2], [1, 0, 1, 1.5], [-1, 0, 1, 1.5]], detail: { type: 'vent', face: '+z', pitch: 2, inset: 1.2 } });
+        torso.box(W * 0.35, 3, D * 0.7, { at: [0, 4 + Ht + 0.8, -1], mat: M, bevel: 1 });
+        Object.assign(out, { neck: [0, 4 + Ht + 1.5, 0.5], shY: 4 + Ht - 3, shX: W / 2, backY: 4 + Ht * 0.6, backZ: -D / 2, topY: 4 + Ht });
+        break;
+      }
+      case 'barrel': {
+        const R = Math.round(W / 2);
+        torso.box(W * 0.5, 5, D * 0.6, { at: [0, 2.5, 0], mat: M, bevel: 1 });
+        torso.cone('y', R * 0.85, R, Ht, { at: [0, 4 + Ht / 2, 0], mat: A, sides: 8, twist: PI / 8, detail: [{ type: 'band', at: Ht * 0.15, size: 1.2, mat2: 'secondary' }, { ...num, face: 'side', v: -Ht * 0.2 }] });
+        torso.cone('y', R, R * 0.7, 3, { at: [0, 4 + Ht + 1.5, 0], mat: T, sides: 8, twist: PI / 8 });
+        torso.box(R * 0.9, 3, 2, { at: [0, 4 + Ht * 0.35, R - 0.2], mat: M, detail: { type: 'light', face: '+z', pts: [[-2, 0], [0, 0], [2, 0]], size: 0.6 } });
+        Object.assign(out, { neck: [0, 4 + Ht + 3, 0], shY: 4 + Ht - 3, shX: R, backY: 4 + Ht * 0.55, backZ: -R, topY: 4 + Ht + 3 });
+        break;
+      }
+      case 'hunch': {
+        torso.box(W * 0.5, 5, D * 0.6, { at: [0, 2.5, 0], mat: M, bevel: 1 });
+        torso.box(W * 0.9, Ht * 0.7, D, { at: [0, 4 + Ht * 0.35, 0], mat: B, bevel: e, detail: { type: 'vent', face: '+z', pitch: 2, inset: 2 } });
+        torso.box(W * 1.05, Ht * 0.65, D * 1.1, { at: [0, 4 + Ht * 0.8, -1.5], mat: A, bevel: Math.min(2.5, e + 0.5), cuts: [[0, 1, 1, 3]], rot: [-0.18, 0, 0], detail: [num, { type: 'panel', face: '+y', at: 0, dir: 'v' }] });
+        Object.assign(out, { neck: [0, 4 + Ht * 0.85, D * 0.45], shY: 4 + Ht * 0.8, shX: W * 0.52, backY: 4 + Ht * 0.8, backZ: -D * 0.55 - 1.5, topY: 4 + Ht * 1.1, headSunk: true });
+        break;
+      }
+      case 'core': {
+        const Wc = Math.round(W * 1.15), Hc = Math.round(Ht * 1.05), Dc = Math.round(D * 1.25);
+        torso.box(Wc, Hc, Dc, { at: [0, Hc / 2, 0], mat: A, bevel: Math.max(2, e + 0.5), detail: [{ ...num, face: '+x' }, { type: 'panel', face: '+y', at: -Dc * 0.15, dir: 'h' }, { type: 'bolts', face: '-x', inset: 2 }] });
+        // front "face" plate with lens, like a turret head
+        torso.box(Wc * 0.55, Hc * 0.6, 2.5, { at: [-Wc * 0.12, Hc * 0.55, Dc / 2 + 0.8], mat: T, bevel: 1, detail: { type: 'vent', face: '+z', pitch: 2, inset: 1.2 } });
+        torso.cyl('z', 3.2, 2.5, { at: [Wc * 0.26, Hc * 0.62, Dc / 2 + 1], mat: M });
+        torso.cyl('z', 1.8, 1.5, { at: [Wc * 0.26, Hc * 0.62, Dc / 2 + 2.6], mat: 'glass' });
+        torso.box(Wc * 0.8, 3, Dc * 0.8, { at: [0, -1, 0], mat: M, bevel: 1, detail: { type: 'vent', face: 'side', pitch: 2, inset: 0.5 } });
+        Object.assign(out, { neck: [0, Hc + 1, 1], shY: Hc * 0.55, shX: Wc / 2, backY: Hc * 0.6, backZ: -Dc / 2, topY: Hc, W: Wc, D: Dc });
+        break;
+      }
+      default: { // block
+        torso.box(W * 0.55, 5, D * 0.6, { at: [0, 2.5, 0], mat: M, bevel: 1, detail: { type: 'vent', face: '+z', pitch: 1.5, inset: 0.6 } });
+        torso.box(W, Ht, D, { at: [0, 4 + Ht / 2, 0], mat: A, bevel: e, detail: [num, { type: 'panel', face: '+z', at: 0, dir: 'v' }] });
+        torso.box(W * 0.7, Ht * 0.5, 2.5, { at: [0, 4 + Ht * 0.6, D / 2 + 0.6], mat: T, bevel: 1, cuts: [[0, -1, 1, 1.5]], detail: { type: 'light', face: '+z', pts: [[W * 0.22, Ht * 0.12]], size: 0.7 } });
+        torso.box(W * 0.4, 2.5, D * 0.8, { at: [0, 4 + Ht + 0.8, 0], mat: M, bevel: 0.8 });
+        Object.assign(out, { neck: [0, 4 + Ht + 1.5, 0.5], shY: 4 + Ht - 3, shX: W / 2, backY: 4 + Ht * 0.55, backZ: -D / 2, topY: 4 + Ht });
+      }
+    }
+    greebleTorso(ctx, out);
+    ctx.anims.push((st, n) => {
+      n.torso.pos[1] += Math.sin(st.t * 2.2 + 0.6) * 0.3 * (1 - st.move) * ctx.k;
+    });
+    return out;
+  }
+
+  function greebleTorso(ctx, t) {
+    const { r, M, T } = ctx;
+    const n = t.node;
+    const midY = (t.shY + (t.topY || t.shY)) / 2 - 2;
+    if (r.chance(0.55) && ctx.bp.torso !== 'barrel') {
+      // side vent pods under the shoulders
+      for (const s of [-1, 1]) n.box(2, 4, Math.max(4, t.D * 0.45), { at: [s * (t.W / 2 + 0.8), Math.max(5, t.shY - 5), -0.5], mat: M, bevel: 0.5, detail: { type: 'vent', face: 'side', pitch: 1.5, inset: 0.4 } });
+    }
+    if (r.chance(0.5)) {
+      // twin exhaust pipes low on the back
+      for (const s of [-1, 1]) n.cyl('z', 1.1, 4, { at: [s * t.W * 0.22, 5.5, -t.D / 2 - 1.5], mat: M, sides: 6 });
+    }
+    if (r.chance(0.45)) {
+      // hose from chest to back
+      n.cyl('x', 0.8, t.W * 0.5, { at: [0, midY, -t.D / 2 - 0.6], mat: M, sides: 6 });
+    }
+    if (r.chance(0.5)) n.box(1.4, 1.4, 1.2, { at: [t.W * 0.3, t.shY + 1, t.D / 2 + 0.2], mat: 'accent', shadow: false });
+  }
+
+  // ------------------------------------------------------------- head
+  function buildHead(ctx, tor) {
+    const { bp, bulk, e, A, B, T, M, r } = ctx;
+    if (bp.head === 'none') {
+      tor.node.box(tor.W * 0.4, 1.6, 1, { at: [0, tor.topY - 3.5, tor.D / 2 + 0.2], mat: 'accent', shadow: false });
+      return;
+    }
+    const neck = tor.node.child('neck', tor.neck);
+    const hw = Math.round(6 + 2 * bulk), hh = 6, hd = 7;
+    const sunk = tor.headSunk ? -2 : 0;
+    const head = neck.child('head', [0, sunk, 0]);
+    neck.box(3.5, 3, 3.5, { at: [0, 0, 0], mat: M });
+    switch (bp.head) {
+      case 'mono': {
+        head.box(hw + 1, hh, hd, { at: [0, hh / 2 + 1, 0], mat: A, bevel: 1.5 });
+        head.cyl('z', 2.6, 2, { at: [0, hh / 2 + 1.2, hd / 2 + 0.6], mat: M });
+        head.cyl('z', 1.3, 1, { at: [0, hh / 2 + 1.2, hd / 2 + 1.6], mat: 'accent', shadow: false });
+        head.box(1.5, 3, 4, { at: [0, hh + 2, -1], mat: T, cuts: [[0, 1, 1, 1.2]] });
+        break;
+      }
+      case 'cockpit': {
+        head.box(hw + 3, hh, hd + 3, { at: [0, hh / 2 + 1, 0], mat: A, bevel: 1, cuts: [[0, 1, 1, 3.5]] });
+        head.box(hw + 0.5, 2.6, 1.2, { at: [0, hh / 2 + 2.4, hd / 2 + 0.2], mat: 'glass', rot: [-0.75, 0, 0] });
+        head.box(2, 2, 2, { at: [(hw + 3) / 2, hh / 2, 1], mat: M });
+        head.box(2, 2, 2, { at: [-(hw + 3) / 2, hh / 2, 1], mat: M });
+        break;
+      }
+      case 'horned': {
+        head.box(hw, hh, hd, { at: [0, hh / 2 + 1, 0], mat: A, bevel: 1.2, detail: { type: 'eye', face: '+z', at: 0.3, h: 0.7, w: hw / 2 - 1.2 } });
+        head.box(hw * 0.5, 2, 2, { at: [0, 1.8, hd / 2 + 0.3], mat: M });
+        for (const s of [-1, 1]) head.box(1.4, 7, 1.4, { at: [s * 2.8, hh + 3.5, hd / 2 - 0.5], rot: [0, 0, -s * 0.85], mat: 'secondary', shadow: true });
+        head.box(2, 2, 1.5, { at: [0, hh + 1.5, hd / 2 - 0.2], mat: 'accent' });
+        break;
+      }
+      case 'sensor': {
+        head.box(hw + 5, 4, hd - 1, { at: [0, 3, 0], mat: A, bevel: 1, detail: { type: 'light', face: '+z', pts: [[-3, 0], [0, 0], [3, 0]], size: 0.75 } });
+        head.box(1, 8, 1, { at: [(hw + 5) / 2 - 1, 8, -1], mat: M });
+        head.box(1.6, 1.6, 1.6, { at: [(hw + 5) / 2 - 1, 12, -1], mat: 'accent' });
+        break;
+      }
+      default: { // visor
+        head.box(hw, hh, hd, { at: [0, hh / 2 + 1, 0], mat: A, bevel: Math.min(2, e), detail: { type: 'eye', face: '+z', at: 0.5, h: 0.8, w: hw / 2 - 1 } });
+        head.box(hw + 1.5, 2, hd * 0.7, { at: [0, hh + 1.2, -0.5], mat: T, bevel: 0.6 });
+        head.box(hw * 0.6, 2.2, 2, { at: [0, 1.6, hd / 2 + 0.2], mat: M, detail: { type: 'vent', face: '+z', pitch: 1.2, inset: 0.2 } });
+      }
+    }
+    ctx.anims.push((st, n) => {
+      if (!n.head) return;
+      n.head.rot[1] = Math.sin(st.t * 0.7) * 0.25 * (1 - st.move);
+      n.head.rot[0] = Math.sin(st.phase * 2) * 0.03 * st.move;
+    });
+  }
+
+  // ------------------------------------------------------------- arms
+  function buildArm(ctx, tor, s, type) {
+    const { bp, bulk, armLen, e, A, B, T, M } = ctx;
+    const legged = ctx.gait === 'biped' || ctx.gait === 'hover';
+    const hardpoint = !legged; // spiders / tanks mount weapons directly
+    const shoulder = tor.node.child('shoulder' + s, [s * (tor.shX + 2.2), tor.shY, 0]);
+    shoulder.cyl('x', 2.8, 4, { mat: M });
+    buildShoulderArmor(ctx, shoulder, s);
+    if (type === 'none') return;
+    const up = Math.round(8 * armLen + 1), fo = Math.round(8 * armLen + 2);
+    const aw = Math.round(4 * bulk + 1);
+    const ranged = type === 'cannon' || type === 'gatling' || type === 'missiles';
+    let wrist;
+    if (hardpoint) {
+      // weapon mount pointing forward
+      const mount = shoulder.child('elbow' + s, [s * 2.5, 0, 0], [-PI / 2, 0, 0]);
+      mount.box(aw + 1, 6, aw + 2, { at: [0, -2, 0], mat: B, bevel: 1 });
+      wrist = mount.child('wrist' + s, [0, -5, 0]);
+    } else {
+      const upper = shoulder.child('upper' + s, [s * 2.4, -1, 0]);
+      upper.box(aw, up, aw, { at: [0, -up / 2, 0], mat: M, bevel: 0.8 });
+      const elbow = upper.child('elbow' + s, [0, -up, 0], [ranged ? -1.25 : -0.3, 0, 0]);
+      elbow.cyl('x', 2.2, aw + 1, { mat: M });
+      if (!ranged) elbow.box(aw + 1, 3, 2, { at: [0, 0.5, -aw / 2 - 1.2], mat: T, cuts: [[0, 1, -1, 1.2]] });
+      elbow.box(aw + 2, fo, aw + 2, { at: [0, -fo / 2, 0], mat: B, bevel: e, bevelSet: 'vert', detail: { type: 'panel', face: 'side', at: 0, dir: 'h' } });
+      wrist = elbow.child('wrist' + s, [0, -fo, 0]);
+    }
+    const w = wrist;
+    switch (type) {
+      case 'cannon': {
+        const len = Math.round(16 + 6 * armLen);
+        w.box(aw + 2, 5, aw + 2, { at: [0, -2, 0], mat: T, bevel: 1, detail: { type: 'vent', face: 'side', pitch: 1.5, inset: 0.6 } });
+        w.cyl('y', 1.5, len, { at: [0, -4 - len / 2, 0], mat: M, sides: 6 });
+        w.box(3.5, 3, 3.5, { at: [0, -4 - len + 1.5, 0], mat: M, bevel: 0.6 });
+        w.box(1.8, 1, 1.8, { at: [0, -4 - len, 0], mat: M });
+        break;
+      }
+      case 'gatling': {
+        const spin = w.child('spin' + s, [0, -3, 0]);
+        w.box(aw + 3, 4, aw + 3, { at: [0, -1.5, 0], mat: T, bevel: 1.2 });
+        for (let k = 0; k < 4; k++) {
+          const a = (k / 4) * PI * 2;
+          spin.cyl('y', 0.9, 11, { at: [Math.cos(a) * 1.7, -6, Math.sin(a) * 1.7], mat: M, sides: 6 });
+        }
+        spin.cyl('y', 2.8, 1.5, { at: [0, -9, 0], mat: M });
+        ctx.anims.push((st, n) => { n['spin' + s].rot[1] = st.t * (4 + 14 * st.move); });
+        break;
+      }
+      case 'missiles': {
+        w.box(aw + 5, 9, aw + 4, { at: [s * 1.5, -4, 0], mat: A, bevel: 1, detail: [{ type: 'grid', face: '-y', cell: 3, inset: 0.8 }, { type: 'stripe', face: 'side', width: 2, band: 0, bandH: 1.2, mat2: 'secondary' }] });
+        break;
+      }
+      case 'claw': {
+        w.box(aw + 1, 3, aw + 1, { at: [0, -1, 0], mat: M, bevel: 0.8 });
+        for (const [dx, dz, rz, rx] of [[-1.6, 1, 0.35, -0.2], [1.6, 1, -0.35, -0.2], [0, -1.8, 0, 0.35]]) {
+          const f = w.child('claw' + s + dx + dz, [dx, -2.5, dz], [rx, 0, rz]);
+          f.box(1.6, 6, 1.6, { at: [0, -3, 0], mat: T, cuts: [[0, -1, 1, 1.2]] });
+        }
+        break;
+      }
+      case 'blade': {
+        w.box(aw + 1.5, 4, aw + 1.5, { at: [0, -1.5, 0], mat: M, bevel: 1 });
+        w.box(1, 16 * armLen, 3, { at: [0, -4 - 8 * armLen, 0.8], mat: 'accent', cuts: [[0, -1, 1, 2.5]], shadow: false });
+        break;
+      }
+      case 'shield': {
+        w.box(aw + 1, 4, aw + 1, { at: [0, -1.5, 0], mat: M, bevel: 1 });
+        const sh = w.child('shield' + s, [s * (aw / 2 + 2), 3, 0]);
+        sh.box(2, 18 * armLen, 12 * bulk, { at: [0, -3, 0], mat: A, bevel: 1, cuts: [[0, -1, 1, 4], [0, -1, -1, 4]], detail: [{ type: 'band', face: 'side', at: -3, size: 1.2, mat2: 'secondary' }, { type: 'band', face: 'side', at: 0.5, size: 0.6, mat2: 'secondary' }, { type: 'bolts', face: 'side', inset: 1.5 }] });
+        break;
+      }
+      case 'drill': {
+        w.box(aw + 2, 4, aw + 2, { at: [0, -1.5, 0], mat: T, bevel: 1 });
+        const d = w.child('spin' + s, [0, -4, 0]);
+        d.cone('y', 0.3, 3.6, 12, { at: [0, -6, 0], mat: M, sides: 6, detail: { type: 'band', dir: 'h', at: 0, size: 0.6 } });
+        ctx.anims.push((st, n) => { n['spin' + s].rot[1] = st.t * (3 + 12 * st.move); });
+        break;
+      }
+      default: { // fist
+        w.box(aw + 2.5, 5, aw + 2.5, { at: [0, -2.5, 0.3], mat: M, bevel: 1, detail: { type: 'panel', face: '+z', at: -0.8, dir: 'h' } });
+        w.box(aw + 3, 2, aw + 3, { at: [0, -0.2, 0.3], mat: T, bevel: 0.6 });
+      }
+    }
+    if (!hardpoint) {
+      ctx.anims.push((st, n) => {
+        const k = ranged ? 0.12 : 0.4;
+        const sw = Math.sin(st.phase + (s < 0 ? 0 : PI)) * k * st.move;
+        n['shoulder' + s].rot[0] = sw;
+        n['upper' + s].rot[2] = s * (0.08 + Math.sin(st.t * 2.2) * 0.02);
+      });
+    }
+  }
+
+  function buildShoulderArmor(ctx, shoulder, s) {
+    const { bp, bulk, e, A, T, M } = ctx;
+    const w = Math.round(6 + 2 * bulk), h = 6, d = Math.round(8 + 3 * bulk);
+    switch (bp.shoulders) {
+      case 'pauldron':
+        shoulder.box(w, h, d, { at: [s * 2.6, 2.2, 0], mat: A, bevel: Math.min(2, e), cuts: [[s, 1, 0, 2.5]], detail: { type: 'stripe', face: 'side', width: 2, mat2: bp.scheme === 'inverse' ? 'primary' : 'secondary', band: -1, bandH: 1.2 } });
+        break;
+      case 'round':
+        shoulder.cyl('x', 4.6, w, { at: [s * 2.5, 1.5, 0], mat: T, sides: 8, twist: PI / 8, detail: { type: 'bolts', face: 'side', inset: 1.8 } });
+        break;
+      case 'launcher':
+        shoulder.box(w, h - 1, d, { at: [s * 2.6, 2, 0], mat: A, bevel: 1.2 });
+        shoulder.box(w - 1, 5, d - 2, { at: [s * 2.6, 6.8, -0.5], mat: T, bevel: 0.8, rot: [-0.25, 0, 0], detail: { type: 'grid', face: '+z', cell: 2.5, inset: 0.6 } });
+        break;
+      case 'spiked':
+        shoulder.box(w, h, d, { at: [s * 2.6, 2.2, 0], mat: A, bevel: Math.min(2, e) });
+        for (const z of [-2.5, 0.5, 3.5]) shoulder.cone('y', 1.4, 0.2, 4, { at: [s * 3, 6.5, z], mat: M, sides: 5 });
+        break;
+      default:
+        break;
+    }
+  }
+
+  // ------------------------------------------------------------- back
+  function buildBack(ctx, tor) {
+    const { bp, bulk, tall, e, A, B, T, M } = ctx;
+    if (bp.back === 'none') return;
+    const back = tor.node.child('back', [0, tor.backY, tor.backZ]);
+    switch (bp.back) {
+      case 'missiles': {
+        back.box(tor.W * 0.6, 7, 4, { at: [0, 0, -2], mat: M, bevel: 1 });
+        for (const s of [-1, 1]) {
+          back.box(5, 11, 5, { at: [s * 3.4, 7, -3], rot: [-0.35, 0, 0], mat: T, bevel: 0.8, detail: [{ type: 'grid', face: '+y', cell: 2.5, inset: 0.5 }, { type: 'panel', face: 'side', at: 0, dir: 'h' }] });
+        }
+        break;
+      }
+      case 'exhaust': {
+        back.box(tor.W * 0.55, 8, 4, { at: [0, 0, -2], mat: B, bevel: 1, detail: { type: 'vent', face: '-z', pitch: 2 } });
+        for (const s of [-1, 1]) {
+          back.cyl('y', 2, 10, { at: [s * 3.2, 6, -3.5], mat: M, sides: 8 });
+          back.cyl('y', 1.2, 1, { at: [s * 3.2, 11.2, -3.5], mat: 'accent', shadow: false, sides: 8 });
+        }
+        break;
+      }
+      case 'antenna': {
+        back.box(tor.W * 0.5, 6, 4, { at: [0, 1, -2], mat: B, bevel: 1 });
+        back.box(1, 18 * tall, 1, { at: [tor.W * 0.2, 11 * tall, -2.5], mat: M });
+        back.box(1.8, 1.8, 1.8, { at: [tor.W * 0.2, 20 * tall + 1, -2.5], mat: 'accent', shadow: false });
+        back.box(1, 10 * tall, 1, { at: [-tor.W * 0.15, 7 * tall, -2.5], mat: M });
+        break;
+      }
+      case 'tank': {
+        back.cyl('x', 4.2, tor.W * 0.85, { at: [0, 1, -4], mat: T, sides: 8, twist: PI / 8, detail: { type: 'band', dir: 'v', at: 0, size: 1.2, mat2: 'secondary' } });
+        back.box(2, 5, 3, { at: [tor.W * 0.3, 5, -4], mat: M });
+        break;
+      }
+      case 'radar': {
+        back.box(4, 6, 4, { at: [0, 1, -2], mat: M, bevel: 1 });
+        back.box(1.4, 8, 1.4, { at: [0, 7, -2.5], mat: M });
+        const dish = back.child('dish', [0, 12, -3], [-0.6, 0, 0]);
+        dish.cone('y', 7 * bulk, 5 * bulk, 2, { mat: T, sides: 10, detail: { type: 'bolts', inset: 2 } });
+        dish.box(1, 3, 1, { at: [0, 2, 0], mat: 'accent', shadow: false });
+        ctx.anims.push((st, n) => { n.dish.rot[1] = st.t * 0.9; });
+        break;
+      }
+      case 'artillery': {
+        const s = bp.armR === 'none' || bp.armR === 'shield' ? 1 : -1;
+        back.box(6, 7, 6, { at: [s * tor.W * 0.25, 3, -2], mat: M, bevel: 1 });
+        const gun = back.child('gun', [s * tor.W * 0.3, 8, -1], [-0.1, 0, 0]);
+        gun.box(6, 6, 12, { at: [0, 0, 0], mat: A, bevel: e, detail: { type: 'vent', face: 'side', pitch: 2 } });
+        gun.cyl('z', 1.6, 22 + 6 * tall, { at: [0, 0.5, 6 + 11 + 3 * tall], mat: M, sides: 6 });
+        gun.box(3.8, 3.8, 4, { at: [0, 0.5, 6 + 22 + 6 * tall], mat: M, bevel: 0.6 });
+        break;
+      }
+      case 'wings': {
+        back.box(tor.W * 0.5, 7, 4, { at: [0, 2, -2], mat: M, bevel: 1 });
+        for (const s of [-1, 1]) {
+          const wg = back.child('wing' + s, [s * 3, 5, -3], [0.35, 0, -s * 0.5]);
+          wg.box(2, 16 * tall, 7, { at: [0, 8 * tall, 0], mat: A, cuts: [[0, 1, -1, 4]], bevel: 0.6, detail: { type: 'stripe', face: 'side', width: 2, mat2: 'secondary', band: 4, bandH: 1.5 } });
+        }
+        ctx.anims.push((st, n) => { const f = Math.sin(st.t * 1.5) * 0.04; if (n['wing-1']) { n['wing-1'].rot[2] += f; n['wing1'].rot[2] -= f; } });
+        break;
+      }
+    }
+  }
+
+  MF.Gen = { OPTIONS, LABELS, randomBlueprint, build, NAMES, PREFIX };
+})();
+</script>
+<script>
+// Mecha Factory — application: hangar, WASD control, editor panel, production line, export.
+(function () {
+  const MF = window.MF;
+  const G = MF.Gen;
+  const $ = (id) => document.getElementById(id);
+  const TAU = Math.PI * 2;
+  const DIR_NAMES = ['S', 'SE', 'E', 'NE', 'N', 'NW', 'W', 'SW'];
+
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('mf.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem('mf.' + k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
+  };
+
+  // ------------------------------------------------------------ state
+  const S = {
+    units: [],
+    nextId: 1,
+    selected: new Set(),
+    activeId: null,
+    locks: store.get('locks', {}),
+    settings: Object.assign({ zoom: 3, pitch: 0.55, lightAng: -0.9, floor: 'tiles', shadows: true, snap: true }, store.get('settings', {})),
+    preview: { spin: true, step: false, walk: false },
+    keys: new Set(),
+    cam: { x: 0, z: 0 },
+    time: 0,
+    history: [],
+  };
+
+  // ------------------------------------------------------------ units
+  function makeUnit(bp, x = 0, z = 0, yaw = 0) {
+    const u = { id: S.nextId++, bp: sanitize(bp), x, z, yaw, targetYaw: yaw, phase: 0, move: 0, dist: 0, t: Math.random() * 10 };
+    rebuild(u);
+    return u;
+  }
+  function sanitize(bp) {
+    const b = JSON.parse(JSON.stringify(bp));
+    b.colors = Object.assign({}, MF.PALETTES[b.palette] || MF.PALETTES['Rust Crab'], b.colors || {});
+    return b;
+  }
+  function rebuild(u) {
+    u.rig = G.build(u.bp);
+    u.pal = MF.buildPalette(u.bp.colors);
+  }
+  const active = () => S.units.find((u) => u.id === S.activeId) || S.units[0];
+
+  function lightVec() {
+    const a = S.settings.lightAng;
+    return [Math.sin(a) * 0.62, 0.78, Math.cos(a) * 0.62];
+  }
+
+  function posedPrims(u, x, z, yaw) {
+    u.rig.animate({ phase: u.phase, move: u.move, t: u.t });
+    const w = MF.matFromEuler(MF.mat(), x, u.rig.hover || 0, z, 0, yaw, 0);
+    return MF.updateRig(u.rig.root, w, []);
+  }
+
+  // ------------------------------------------------------------ hangar rendering
+  const hangar = $('hangar');
+  const hctx = hangar.getContext('2d');
+  const R = new MF.Renderer(320, 200);
+  const bufCanvas = document.createElement('canvas');
+  let viewW = 320, viewH = 200;
+
+  function resizeHangar() {
+    const box = $('stageInner').getBoundingClientRect();
+    const z = S.settings.zoom;
+    viewW = Math.max(40, Math.floor(box.width / z));
+    viewH = Math.max(40, Math.floor(box.height / z));
+    R.resize(viewW, viewH);
+    hangar.width = viewW; hangar.height = viewH;
+    hangar.style.width = viewW * z + 'px';
+    hangar.style.height = viewH * z + 'px';
+    bufCanvas.width = viewW; bufCanvas.height = viewH;
+  }
+  new ResizeObserver(resizeHangar).observe($('stageInner'));
+
+  function stagePalette() {
+    const a = active();
+    return a ? a.pal : MF.buildPalette(MF.PALETTES['Snowcat']);
+  }
+
+  function renderHangar() {
+    const pal = stagePalette();
+    const scene = {
+      units: S.units.map((u) => ({ prims: posedPrims(u, u.x, u.z, u.yaw), pal: u.pal, x: u.x, z: u.z, radius: u.rig.radius, height: u.rig.height + (u.rig.hover || 0), selected: S.selected.has(u.id) })),
+      cam: { x: Math.round(S.cam.x), z: Math.round(S.cam.z), pitch: S.settings.pitch, ox: Math.floor(viewW / 2), oy: Math.floor(viewH * 0.62) },
+      floor: S.settings.floor, bg: pal.bg, floorRamp: pal.floor, shadows: S.settings.shadows, light: lightVec(), time: S.time,
+      treadOffset: S.units.map((u) => u.dist),
+    };
+    R.render(scene);
+    hctx.putImageData(R.image, 0, 0);
+  }
+
+  // ------------------------------------------------------------ preview (turntable)
+  const pv = $('preview');
+  const pctx = pv.getContext('2d');
+  const PR = new MF.Renderer(pv.width, pv.height);
+  let pvYaw = 0.6, pvPhase = 0;
+  function renderPreview(dt) {
+    const u = active();
+    if (!u) return;
+    if (S.preview.spin) pvYaw += dt * 0.9;
+    let yaw = pvYaw;
+    if (S.preview.step) yaw = Math.round(pvYaw / (TAU / 8)) * (TAU / 8);
+    const savePh = u.phase, saveMove = u.move;
+    if (S.preview.walk) { pvPhase += dt * 6; u.phase = pvPhase; u.move = 1; } else { u.move = 0; }
+    const prims = posedPrims(u, 0, 0, yaw);
+    u.phase = savePh; u.move = saveMove;
+    const h = u.rig.height + (u.rig.hover || 0);
+    PR.render({
+      units: [{ prims, pal: u.pal, x: 0, z: 0, radius: u.rig.radius, height: h }],
+      cam: { x: 0, z: 0, pitch: S.settings.pitch, ox: pv.width / 2, oy: Math.round(pv.height * 0.5 + h * 0.42) },
+      floor: 'plain', bg: u.pal.bg, floorRamp: u.pal.floor, shadows: S.settings.shadows, light: lightVec(), time: S.time,
+    });
+    pctx.putImageData(PR.image, 0, 0);
+  }
+
+  // ------------------------------------------------------------ simulation
+  function update(dt) {
+    S.time += dt;
+    let vx = 0, vz = 0;
+    const k = S.keys;
+    if (k.has('KeyW') || k.has('ArrowUp')) vz -= 1;
+    if (k.has('KeyS') || k.has('ArrowDown')) vz += 1;
+    if (k.has('KeyA') || k.has('ArrowLeft')) vx -= 1;
+    if (k.has('KeyD') || k.has('ArrowRight')) vx += 1;
+    if (S.touchVec) { vx = S.touchVec[0]; vz = S.touchVec[1]; }
+    const moving = vx !== 0 || vz !== 0;
+    const len = Math.hypot(vx, vz) || 1;
+    vx /= len; vz /= len;
+    const run = k.has('ShiftLeft') || k.has('ShiftRight') || (S.touchVec && S.touchVec[2]);
+
+    for (const u of S.units) {
+      u.t += dt;
+      const sel = S.selected.has(u.id);
+      const go = sel && moving;
+      if (go) {
+        let ty = Math.atan2(vx, vz);
+        if (S.settings.snap) ty = Math.round(ty / (TAU / 8)) * (TAU / 8);
+        u.targetYaw = ty;
+      }
+      // turn toward target (fast, shortest way)
+      let dy = ((u.targetYaw - u.yaw + Math.PI * 3) % TAU) - Math.PI;
+      const turnRate = 14 * dt;
+      u.yaw += Math.abs(dy) < turnRate ? dy : Math.sign(dy) * turnRate;
+      const facingOk = Math.abs(dy) < 0.8;
+      const target = go ? (run ? 1.25 : 1) : 0;
+      u.move += (Math.min(1, target) - u.move) * Math.min(1, dt * 9);
+      if (u.move < 0.002) u.move = 0;
+      if (go && facingOk) {
+        const speed = (u.rig.stride / 1.25) * (run ? 1.8 : 1) * (u.bp.frame === 'hover' ? 1.1 : 1);
+        const sp = Math.min(70, Math.max(22, speed));
+        const d = sp * dt;
+        u.x += vx * d; u.z += vz * d;
+        u.dist += d;
+        u.phase += (d / u.rig.stride) * TAU;
+      } else if (u.move > 0.01) {
+        // settle the stride
+        u.phase += dt * 3 * u.move;
+      }
+    }
+    // keep units from overlapping
+    for (let it = 0; it < 2; it++) for (let i = 0; i < S.units.length; i++) for (let j = i + 1; j < S.units.length; j++) {
+      const a = S.units[i], b = S.units[j];
+      const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz) || 0.01;
+      const min = (a.rig.radius + b.rig.radius) * 0.72;
+      if (d < min) {
+        const push = (min - d) / 2, nx = dx / d, nz = dz / d;
+        const aw = S.selected.has(a.id) && !S.selected.has(b.id) ? 0.2 : 1, bw = S.selected.has(b.id) && !S.selected.has(a.id) ? 0.2 : 1;
+        a.x -= nx * push * aw; a.z -= nz * push * aw; b.x += nx * push * bw; b.z += nz * push * bw;
+      }
+    }
+    // camera follows selection
+    const focus = S.units.filter((u) => S.selected.has(u.id));
+    const list = focus.length ? focus : S.units;
+    if (list.length) {
+      let fx = 0, fz = 0;
+      for (const u of list) { fx += u.x; fz += u.z; }
+      fx /= list.length; fz /= list.length;
+      const f = Math.min(1, dt * 3);
+      S.cam.x += (fx - S.cam.x) * f; S.cam.z += (fz - S.cam.z) * f;
+    }
+  }
+
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    update(dt);
+    renderHangar();
+    renderPreview(dt);
+    requestAnimationFrame(loop);
+  }
+
+  // ------------------------------------------------------------ input
+  const isTyping = (el) => el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['range', 'checkbox', 'color'].includes(el.type)));
+  window.addEventListener('keydown', (e) => {
+    if (isTyping(e.target) || !$('modal').hidden) { if (e.key === 'Escape') closeModal(); return; }
+    const code = e.code;
+    if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight'].includes(code)) {
+      if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'range' && code.startsWith('Arrow')) return;
+      if (e.target && e.target.tagName === 'SELECT') e.target.blur();
+      S.keys.add(code);
+      if (code.startsWith('Arrow')) e.preventDefault();
+      return;
+    }
+    if (e.ctrlKey || e.metaKey) {
+      if (code === 'KeyZ') { e.preventDefault(); undo(); }
+      return;
+    }
+    if (e.altKey) return;
+    if (code === 'Tab') { e.preventDefault(); cycle(e.shiftKey ? -1 : 1); }
+    else if (/^Digit[1-9]$/.test(code)) { const u = S.units[+code.slice(5) - 1]; if (u) selectOnly(u.id); }
+    else if (code === 'KeyG') { S.units.forEach((u) => S.selected.add(u.id)); refreshRoster(); }
+    else if (code === 'KeyR') randomizeActive();
+    else if (code === 'KeyM') mutateActive();
+    else if (code === 'KeyN') deployCopy();
+    else if (code === 'Delete' || code === 'Backspace') scrapSelected();
+  });
+  window.addEventListener('keyup', (e) => S.keys.delete(e.code));
+  window.addEventListener('blur', () => S.keys.clear());
+
+  // touch: drag anywhere on the hangar as a virtual stick, tap to select
+  let touch = null;
+  hangar.addEventListener('pointermove', (e) => {
+    if (!touch || e.pointerId !== touch.id) return;
+    const dx = e.clientX - touch.x, dy = e.clientY - touch.y, len = Math.hypot(dx, dy);
+    if (len > 12) { touch.moved = true; S.touchVec = [dx / len, dy / len, len > 90]; }
+    else S.touchVec = null;
+  });
+  const endTouch = (e) => {
+    if (!touch || e.pointerId !== touch.id) return;
+    const t = touch; touch = null; S.touchVec = null;
+    if (!t.moved) pick(t.px, t.py, false);
+  };
+  hangar.addEventListener('pointerup', endTouch);
+  hangar.addEventListener('pointercancel', endTouch);
+
+  function pick(clientX, clientY, multi) {
+    const rect = hangar.getBoundingClientRect();
+    const X = Math.floor(((clientX - rect.left) / rect.width) * viewW), Y = Math.floor(((clientY - rect.top) / rect.height) * viewH);
+    if (X < 0 || Y < 0 || X >= viewW || Y >= viewH) return;
+    const ui = R.unitIx[Y * viewW + X];
+    if (ui < 0) return;
+    const u = S.units[ui];
+    if (multi) {
+      if (S.selected.has(u.id) && S.selected.size > 1) S.selected.delete(u.id); else S.selected.add(u.id);
+      S.activeId = u.id; syncEditor(); refreshRoster();
+    } else selectOnly(u.id);
+  }
+
+  hangar.addEventListener('pointerdown', (e) => {
+    hangar.focus();
+    if (e.pointerType === 'touch') {
+      touch = { id: e.pointerId, x: e.clientX, y: e.clientY, px: e.clientX, py: e.clientY, moved: false };
+      hangar.setPointerCapture(e.pointerId);
+      return;
+    }
+    pick(e.clientX, e.clientY, e.shiftKey || e.ctrlKey || e.metaKey);
+  });
+
+  function selectOnly(id) {
+    S.selected = new Set([id]);
+    S.activeId = id;
+    syncEditor(); refreshRoster();
+  }
+  function cycle(dir) {
+    if (!S.units.length) return;
+    const i = S.units.findIndex((u) => u.id === S.activeId);
+    const n = S.units[(i + dir + S.units.length) % S.units.length];
+    selectOnly(n.id);
+  }
+
+  // ------------------------------------------------------------ roster
+  function refreshRoster() {
+    const el = $('roster');
+    el.innerHTML = '';
+    S.units.forEach((u, i) => {
+      const b = document.createElement('button');
+      b.className = 'unit-chip' + (S.selected.has(u.id) ? ' is-sel' : '') + (u.id === S.activeId ? ' is-active' : '');
+      b.innerHTML = `<b>${i + 1}</b><i style="background:${u.bp.colors.primary}"></i>${escapeHtml(u.bp.name.split(' ').slice(-1)[0])}`;
+      b.title = u.bp.name + ' — click to select, shift-click to group';
+      b.addEventListener('click', (e) => {
+        if (e.shiftKey) { S.selected.add(u.id); S.activeId = u.id; syncEditor(); refreshRoster(); }
+        else selectOnly(u.id);
+        hangar.focus();
+      });
+      el.appendChild(b);
+    });
+  }
+  const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // ------------------------------------------------------------ editor
+  const SLOT_DEFS = [
+    ['frame', 'Chassis', G.OPTIONS.frame, G.LABELS.frame],
+    ['torso', 'Torso', G.OPTIONS.torso, G.LABELS.torso],
+    ['head', 'Head', G.OPTIONS.head, G.LABELS.head],
+    ['armL', 'Left arm', G.OPTIONS.arm, G.LABELS.arm],
+    ['armR', 'Right arm', G.OPTIONS.arm, G.LABELS.arm],
+    ['shoulders', 'Shoulders', G.OPTIONS.shoulders, G.LABELS.shoulders],
+    ['back', 'Backpack', G.OPTIONS.back, G.LABELS.back],
+    ['scheme', 'Paint split', G.OPTIONS.scheme, G.LABELS.scheme],
+  ];
+  const SLIDERS = [
+    ['bulk', 'Bulk', 0.7, 1.5, 0.05],
+    ['legLen', 'Legs', 0.6, 1.5, 0.05],
+    ['tall', 'Torso', 0.7, 1.5, 0.05],
+    ['armLen', 'Arms', 0.7, 1.4, 0.05],
+    ['edge', 'Bevel', 0, 3, 0.1],
+  ];
+  const SWATCHES = [['primary', 'Armor'], ['secondary', 'Trim'], ['metal', 'Frame'], ['accent', 'Glow'], ['glass', 'Glass'], ['outline', 'Line'], ['bg', 'Backdrop'], ['floor', 'Floor']];
+  const DICE = '<svg viewBox="0 0 14 14" aria-hidden="true"><rect x="1" y="1" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="4.5" cy="4.5" r="1.2" fill="currentColor"/><circle cx="9.5" cy="9.5" r="1.2" fill="currentColor"/><circle cx="7" cy="7" r="1.2" fill="currentColor"/></svg>';
+
+  function buildEditor() {
+    const slots = $('slots');
+    for (const [key, label, opts, labels] of SLOT_DEFS) {
+      const row = document.createElement('div');
+      row.className = 'slot';
+      row.innerHTML = `<label class="slot-label" for="sl-${key}">${label}</label>
+        <select class="select" id="sl-${key}">${opts.map((o) => `<option value="${o}">${labels[o]}</option>`).join('')}</select>
+        <button class="dice" id="dice-${key}" title="Reroll ${label.toLowerCase()}" aria-label="Reroll ${label.toLowerCase()}">${DICE}</button>
+        <label class="lock" title="Lock ${label.toLowerCase()}"><input type="checkbox" id="lock-${key}" aria-label="Lock ${label.toLowerCase()}"><span></span></label>`;
+      slots.appendChild(row);
+      const sel = row.querySelector('select');
+      sel.addEventListener('change', () => { editActive((bp) => { bp[key] = sel.value; }); sel.blur(); });
+      row.querySelector('.dice').addEventListener('click', () => rerollSlot(key));
+      const lk = row.querySelector('input[type=checkbox]');
+      lk.checked = !!S.locks[key];
+      lk.addEventListener('change', () => { S.locks[key] = lk.checked; store.set('locks', S.locks); });
+    }
+    const sliders = $('sliders');
+    for (const [key, label, min, max, step] of SLIDERS) {
+      const row = document.createElement('div');
+      row.className = 'slider';
+      row.innerHTML = `<label class="slot-label" for="sd-${key}">${label}</label><input type="range" id="sd-${key}" min="${min}" max="${max}" step="${step}"><output id="so-${key}"></output>`;
+      sliders.appendChild(row);
+      const inp = row.querySelector('input');
+      inp.addEventListener('input', () => { $('so-' + key).textContent = (+inp.value).toFixed(2); editActive((bp) => { bp[key] = +inp.value; }, true); });
+      inp.addEventListener('change', () => { pushHistory(); inp.blur(); });
+    }
+    const pre = $('palPreset');
+    pre.innerHTML = Object.keys(MF.PALETTES).map((k) => `<option value="${k}">${k}</option>`).join('') + '<option value="custom">Custom</option>';
+    pre.addEventListener('change', () => {
+      if (pre.value !== 'custom') editActive((bp) => { bp.palette = pre.value; bp.colors = { ...MF.PALETTES[pre.value] }; });
+      pre.blur();
+    });
+    $('palShuffle').addEventListener('click', () => editActive((bp) => { bp.colors = randomColors(MF.randomSeed()); bp.palette = 'custom'; }));
+    const lp = $('lock-palette');
+    lp.checked = !!S.locks.palette;
+    lp.addEventListener('change', () => { S.locks.palette = lp.checked; store.set('locks', S.locks); });
+    const sw = $('swatches');
+    for (const [key, label] of SWATCHES) {
+      const d = document.createElement('label');
+      d.className = 'swatch';
+      d.innerHTML = `<span>${label}</span><input type="color" id="sw-${key}" aria-label="${label} colour">`;
+      sw.appendChild(d);
+      const inp = d.querySelector('input');
+      inp.addEventListener('input', () => editActive((bp) => { bp.colors[key] = inp.value; bp.palette = 'custom'; }, true));
+      inp.addEventListener('change', () => pushHistory());
+    }
+    $('mName').addEventListener('input', (e) => editActive((bp) => { bp.name = e.target.value || 'Unnamed'; }, true, true));
+    $('mNumber').addEventListener('input', (e) => {
+      const v = e.target.value.replace(/[^0-9-]/g, '').slice(0, 3);
+      editActive((bp) => { bp.number = v || '0'; }, true);
+    });
+  }
+
+  function syncEditor() {
+    const u = active();
+    if (!u) return;
+    const bp = u.bp;
+    for (const [key] of SLOT_DEFS) $('sl-' + key).value = bp[key];
+    for (const [key] of SLIDERS) { $('sd-' + key).value = bp[key]; $('so-' + key).textContent = (+bp[key]).toFixed(2); }
+    $('palPreset').value = MF.PALETTES[bp.palette] ? bp.palette : 'custom';
+    for (const [key] of SWATCHES) $('sw-' + key).value = bp.colors[key];
+    if (document.activeElement !== $('mName')) $('mName').value = bp.name;
+    if (document.activeElement !== $('mNumber')) $('mNumber').value = bp.number;
+    $('mSpec').textContent = `seed ${bp.seed}\n${Math.round(u.rig.height + (u.rig.hover || 0))}px tall · ${G.LABELS.frame[bp.frame]}`;
+    const ramps = $('ramps');
+    ramps.innerHTML = '';
+    for (const k of ['primary', 'secondary', 'metal', 'accent', 'glass']) {
+      const r = document.createElement('div');
+      r.className = 'ramp';
+      r.innerHTML = u.pal.ramps[k].map((c) => `<i style="background:${MF.color.rgbToHex(c)}"></i>`).join('');
+      ramps.appendChild(r);
+    }
+  }
+
+  function pushHistory() {
+    const u = active();
+    if (!u) return;
+    const snap = JSON.stringify({ id: u.id, bp: u.bp });
+    if (S.history[S.history.length - 1] !== snap) S.history.push(snap);
+    if (S.history.length > 80) S.history.shift();
+  }
+  function undo() {
+    if (S.history.length < 2) { toast('Nothing to undo'); return; }
+    S.history.pop();
+    const prev = JSON.parse(S.history[S.history.length - 1]);
+    const u = S.units.find((x) => x.id === prev.id);
+    if (!u) return;
+    u.bp = prev.bp; rebuild(u);
+    S.activeId = u.id; S.selected = new Set([u.id]);
+    syncEditor(); refreshRoster(); saveHangar();
+  }
+
+  // apply a change to the active unit (and all selected units for paint-free part edits)
+  function editActive(fn, live = false, skipSync = false) {
+    const u = active();
+    if (!u) return;
+    fn(u.bp);
+    rebuild(u);
+    if (!live) pushHistory();
+    if (!skipSync) syncEditor();
+    refreshRoster();
+    saveHangar();
+  }
+
+  function rerollSlot(key) {
+    editActive((bp) => {
+      const seed = MF.randomSeed();
+      const locks = {};
+      for (const [k] of SLOT_DEFS) locks[k] = k !== key;
+      for (const k of ['bulk', 'legLen', 'tall', 'armLen', 'edge', 'palette', 'number', 'name']) locks[k] = true;
+      const fresh = G.randomBlueprint(seed, locks, bp);
+      let tries = 0;
+      let val = fresh[key];
+      while (val === bp[key] && tries++ < 8) val = G.randomBlueprint(MF.randomSeed(), locks, bp)[key];
+      bp[key] = val;
+    });
+  }
+
+  function randomizeActive() {
+    const u = active();
+    if (!u) return;
+    const nb = G.randomBlueprint(MF.randomSeed(), S.locks, u.bp);
+    u.bp = sanitize(nb); rebuild(u);
+    pushHistory(); syncEditor(); refreshRoster(); saveHangar();
+  }
+
+  function mutateActive() {
+    const u = active();
+    if (!u) return;
+    const free = SLOT_DEFS.map((d) => d[0]).filter((k) => !S.locks[k]);
+    const n = 1 + (Math.random() < 0.4 ? 1 : 0);
+    editActive((bp) => {
+      for (let i = 0; i < n && free.length; i++) {
+        const key = free.splice(Math.floor(Math.random() * free.length), 1)[0];
+        const locks = {};
+        for (const [k] of SLOT_DEFS) locks[k] = k !== key;
+        Object.assign(locks, { bulk: 1, legLen: 1, tall: 1, armLen: 1, edge: 1, palette: 1, number: 1, name: 1 });
+        bp[key] = G.randomBlueprint(MF.randomSeed(), locks, bp)[key];
+      }
+      for (const [k, , min, max] of SLIDERS) if (!S.locks[k] && Math.random() < 0.5) bp[k] = +Math.min(max, Math.max(min, bp[k] + (Math.random() - 0.5) * 0.25)).toFixed(2);
+    });
+  }
+
+  function spawnPoint() {
+    // find a free spot near the camera
+    for (let r = 0; r < 24; r++) {
+      const a = Math.random() * TAU, d = 36 + r * 8;
+      const x = S.cam.x + Math.cos(a) * d, z = S.cam.z + Math.sin(a) * d * 0.6;
+      if (S.units.every((u) => Math.hypot(u.x - x, u.z - z) > u.rig.radius * 1.6 + 16)) return [x, z];
+    }
+    return [S.cam.x + 40, S.cam.z];
+  }
+  function deploy(bp, select = true) {
+    if (S.units.length >= 12) { toast('Hangar is full (12 units). Scrap one first.'); return null; }
+    const [x, z] = spawnPoint();
+    const u = makeUnit(bp, x, z, 0);
+    S.units.push(u);
+    if (select) selectOnly(u.id); else refreshRoster();
+    pushHistory(); saveHangar();
+    return u;
+  }
+  function deployCopy() {
+    const u = active();
+    const bp = u ? JSON.parse(JSON.stringify(u.bp)) : G.randomBlueprint(MF.randomSeed());
+    deploy(bp);
+    toast('Deployed ' + bp.name);
+  }
+  function scrapSelected() {
+    if (S.units.length <= 1) { toast('Keep at least one unit in the hangar'); return; }
+    const before = S.units.length;
+    S.units = S.units.filter((u) => !S.selected.has(u.id));
+    if (!S.units.length) S.units.push(makeUnit(G.randomBlueprint(MF.randomSeed())));
+    const n = before - S.units.length;
+    selectOnly(S.units[0].id);
+    saveHangar();
+    toast(`Scrapped ${n} unit${n === 1 ? '' : 's'}`);
+  }
+
+  // random harmonious colours
+  function randomColors(seed) {
+    const r = new MF.RNG(seed);
+    const { hslToRgb, rgbToHex } = MF.color;
+    const h = r.range(0, 360);
+    const mode = r.pick(['comp', 'analog', 'triad', 'mono']);
+    const h2 = mode === 'comp' ? h + 180 + r.range(-20, 20) : mode === 'analog' ? h + r.pick([-40, 40]) : mode === 'triad' ? h + 120 : h + r.range(-10, 10);
+    const pl = r.range(0.35, 0.7), ps = r.range(0.25, 0.65);
+    const hex = (hh, s, l) => rgbToHex(hslToRgb([hh, s, l]));
+    const light = r.chance(0.35);
+    const bgL = light ? r.range(0.72, 0.86) : r.range(0.1, 0.2);
+    const bgH = r.chance(0.5) ? h + 180 : r.range(0, 360);
+    return {
+      primary: hex(h, ps, light ? r.range(0.72, 0.85) : pl),
+      secondary: hex(h2, r.range(0.4, 0.8), r.range(0.4, 0.6)),
+      metal: hex(r.range(200, 280), r.range(0.05, 0.2), r.range(0.22, 0.38)),
+      accent: hex(r.pick([h2 + 30, 50, 190, 330, 100]), 1, 0.6),
+      glass: hex(r.range(170, 210), 0.8, 0.72),
+      outline: hex(r.range(240, 290), 0.3, 0.08),
+      bg: hex(bgH, r.range(0.1, 0.35), bgL),
+      floor: hex(bgH, r.range(0.1, 0.3), bgL * 0.9),
+    };
+  }
+
+  // ------------------------------------------------------------ production line
+  const TR = new MF.Renderer(84, 84);
+  function rollLine() {
+    const g = $('gallery');
+    g.innerHTML = '';
+    const base = active() ? active().bp : null;
+    for (let i = 0; i < 10; i++) {
+      const bp = sanitize(G.randomBlueprint(MF.randomSeed(), S.locks, base));
+      const btn = document.createElement('button');
+      btn.className = 'thumb';
+      btn.title = bp.name;
+      const c = document.createElement('canvas');
+      c.width = 84; c.height = 84;
+      const tmp = makeUnit(bp, 0, 0, 0.62);
+      const h = tmp.rig.height + (tmp.rig.hover || 0);
+      const scale = Math.min(1, 62 / h);
+      TR.render({
+        units: [{ prims: posedPrims(tmp, 0, 0, 0.62), pal: tmp.pal, x: 0, z: 0, radius: tmp.rig.radius, height: h }],
+        cam: { x: 0, z: 0, pitch: S.settings.pitch, ox: 42, oy: Math.round(42 + h * 0.45 * scale + 4) },
+        floor: 'plain', bg: tmp.pal.bg, floorRamp: tmp.pal.floor, shadows: S.settings.shadows, light: lightVec(), time: 0,
+      });
+      c.getContext('2d').putImageData(TR.image, 0, 0);
+      const label = document.createElement('span');
+      label.textContent = bp.name;
+      btn.append(c, label);
+      btn.addEventListener('click', (e) => {
+        if (e.shiftKey) { deploy(bp); toast('Deployed ' + bp.name); return; }
+        const u = active();
+        if (!u) { deploy(bp); return; }
+        u.bp = sanitize(bp); rebuild(u);
+        pushHistory(); syncEditor(); refreshRoster(); saveHangar();
+      });
+      g.appendChild(btn);
+    }
+    S.nextId += 0;
+  }
+
+  // ------------------------------------------------------------ export
+  function renderFrame(u, R2, yaw, phase, move, t, opts) {
+    const sp = u.phase, sm = u.move, st = u.t;
+    u.phase = phase; u.move = move; u.t = t;
+    const prims = posedPrims(u, 0, 0, yaw);
+    u.phase = sp; u.move = sm; u.t = st;
+    R2.render({
+      units: [{ prims, pal: u.pal, x: 0, z: 0, radius: u.rig.radius, height: u.rig.height + (u.rig.hover || 0) }],
+      cam: { x: 0, z: 0, pitch: S.settings.pitch, ox: R2.w / 2, oy: Math.round(R2.h * 0.72) },
+      floor: 'none', shadows: opts.shadow, light: lightVec(), time: t, treadOffset: [phase * 3],
+      shadowPacked: 0x66000000,
+    });
+    return new Uint32Array(R2.image.data.buffer.slice(0));
+  }
+
+  function buildSheet(u, opts) {
+    const R2 = new MF.Renderer(220, 220);
+    const frames = [];
+    let minX = 1e9, minY = 1e9, maxX = -1, maxY = -1;
+    for (let d = 0; d < 8; d++) {
+      const yaw = (d * TAU) / 8;
+      const row = [];
+      const cols = (opts.idle ? 1 : 0) + opts.frames;
+      for (let f = 0; f < cols; f++) {
+        const isIdle = opts.idle && f === 0;
+        const fi = opts.idle ? f - 1 : f;
+        const px = renderFrame(u, R2, yaw, isIdle ? 0 : (fi / opts.frames) * TAU, isIdle ? 0 : 1, isIdle ? 0 : fi * 0.1, opts);
+        for (let y = 0; y < R2.h; y++) for (let x = 0; x < R2.w; x++) if (px[y * R2.w + x] >>> 24) {
+          if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
+        }
+        row.push(px);
+      }
+      frames.push(row);
+    }
+    const pad = 1;
+    const cw = maxX - minX + 1 + pad * 2, ch = maxY - minY + 1 + pad * 2;
+    const cols = frames[0].length;
+    const sheet = document.createElement('canvas');
+    sheet.width = cw * cols; sheet.height = ch * 8;
+    const sctx = sheet.getContext('2d');
+    const cell = new ImageData(cw, ch);
+    const c32 = new Uint32Array(cell.data.buffer);
+    frames.forEach((row, d) => row.forEach((px, f) => {
+      c32.fill(0);
+      for (let y = 0; y < ch - pad * 2; y++) for (let x = 0; x < cw - pad * 2; x++) c32[(y + pad) * cw + x + pad] = px[(y + minY) * R2.w + x + minX];
+      sctx.putImageData(cell, f * cw, d * ch);
+    }));
+    let out = sheet;
+    if (opts.scale > 1) {
+      out = document.createElement('canvas');
+      out.width = sheet.width * opts.scale; out.height = sheet.height * opts.scale;
+      const o = out.getContext('2d');
+      o.imageSmoothingEnabled = false;
+      o.drawImage(sheet, 0, 0, out.width, out.height);
+    }
+    const meta = {
+      name: u.bp.name, cellWidth: cw * opts.scale, cellHeight: ch * opts.scale, scale: opts.scale,
+      rows: DIR_NAMES, columns: (opts.idle ? ['idle'] : []).concat(Array.from({ length: opts.frames }, (_, i) => 'walk' + i)),
+      anchor: { x: (R2.w / 2 - minX + pad) * opts.scale, y: (Math.round(R2.h * 0.72) - minY + pad) * opts.scale },
+      blueprint: u.bp,
+    };
+    return { canvas: out, meta };
+  }
+
+  const exportOpts = Object.assign({ frames: 8, scale: 1, idle: true, shadow: true }, store.get('exportOpts', {}));
+  function openExport() {
+    const u = active();
+    if (!u) return;
+    const body = $('modalBody');
+    $('modalTitle').textContent = 'Sprite sheet · ' + u.bp.name;
+    body.innerHTML = `
+      <div class="opt-row">
+        <label>Walk frames <select class="select select-sm" id="exFrames">${[4, 6, 8, 12].map((n) => `<option ${n === exportOpts.frames ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+        <label>Scale <select class="select select-sm" id="exScale">${[1, 2, 3, 4].map((n) => `<option value="${n}" ${n === exportOpts.scale ? 'selected' : ''}>${n}×</option>`).join('')}</select></label>
+        <label><input type="checkbox" id="exIdle" ${exportOpts.idle ? 'checked' : ''}> Idle column</label>
+        <label><input type="checkbox" id="exShadow" ${exportOpts.shadow ? 'checked' : ''}> Drop shadow</label>
+        <button class="btn btn-primary btn-sm" id="exPng">Download PNG</button>
+        <button class="btn btn-sm" id="exJson">Download JSON</button>
+      </div>
+      <div class="sheet-view" id="sheetView"></div>
+      <pre class="meta" id="exMeta"></pre>
+      <p class="hint">Rows run S, SE, E, NE, N, NW, W, SW. If your browser blocks the download, right-click the sheet and choose “Save image as”.</p>`;
+    let current = null;
+    const redraw = () => {
+      exportOpts.frames = +$('exFrames').value; exportOpts.scale = +$('exScale').value;
+      exportOpts.idle = $('exIdle').checked; exportOpts.shadow = $('exShadow').checked;
+      store.set('exportOpts', exportOpts);
+      current = buildSheet(u, exportOpts);
+      const img = new Image();
+      img.src = current.canvas.toDataURL('image/png');
+      img.alt = 'Sprite sheet for ' + u.bp.name;
+      const disp = Math.max(1, Math.round(2 / exportOpts.scale));
+      img.style.width = current.canvas.width * disp + 'px';
+      $('sheetView').innerHTML = '';
+      $('sheetView').appendChild(img);
+      $('exMeta').textContent = `${current.canvas.width}×${current.canvas.height}px · cell ${current.meta.cellWidth}×${current.meta.cellHeight} · ${current.meta.columns.length} columns × 8 directions · feet anchor (${current.meta.anchor.x}, ${current.meta.anchor.y})`;
+    };
+    ['exFrames', 'exScale', 'exIdle', 'exShadow'].forEach((id) => $(id).addEventListener('change', redraw));
+    const slug = u.bp.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    $('exPng').addEventListener('click', () => download(current.canvas.toDataURL('image/png'), slug + '-sheet.png'));
+    $('exJson').addEventListener('click', () => download('data:application/json,' + encodeURIComponent(JSON.stringify(current.meta, null, 2)), slug + '-sheet.json'));
+    openModal();
+    redraw();
+  }
+
+  function download(href, name) {
+    const a = document.createElement('a');
+    a.href = href; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  function openCode() {
+    const u = active();
+    if (!u) return;
+    const code = encodeBp(u.bp);
+    $('modalTitle').textContent = 'Blueprint code';
+    $('modalBody').innerHTML = `
+      <p class="hint">This code rebuilds ${escapeHtml(u.bp.name)} exactly, paint included. Paste a code below to load it into the active unit.</p>
+      <textarea class="code-area" id="codeOut" readonly spellcheck="false">${code}</textarea>
+      <div class="opt-row"><button class="btn btn-primary btn-sm" id="codeCopy">Copy code</button></div>
+      <textarea class="code-area" id="codeIn" spellcheck="false" placeholder="Paste a blueprint code here"></textarea>
+      <div class="opt-row"><button class="btn btn-sm" id="codeLoad">Load into active unit</button><button class="btn btn-sm" id="codeDeploy">Deploy as new unit</button></div>`;
+    $('codeCopy').addEventListener('click', () => {
+      const ta = $('codeOut');
+      const done = () => toast('Blueprint code copied');
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done, () => { ta.select(); toast('Code selected. Press Ctrl+C to copy.'); });
+      else { ta.select(); toast('Code selected. Press Ctrl+C to copy.'); }
+    });
+    const read = () => { try { return decodeBp($('codeIn').value.trim()); } catch (e) { toast('That code could not be read. Check that it was pasted in full.'); return null; } };
+    $('codeLoad').addEventListener('click', () => { const bp = read(); if (!bp) return; const a = active(); a.bp = sanitize(bp); rebuild(a); pushHistory(); syncEditor(); refreshRoster(); saveHangar(); closeModal(); toast('Loaded ' + bp.name); });
+    $('codeDeploy').addEventListener('click', () => { const bp = read(); if (!bp) return; closeModal(); deploy(bp); });
+    openModal();
+  }
+  function encodeBp(bp) { return 'MF1.' + btoa(unescape(encodeURIComponent(JSON.stringify(bp)))); }
+  function decodeBp(code) {
+    const raw = code.startsWith('MF1.') ? code.slice(4) : code;
+    const bp = JSON.parse(decodeURIComponent(escape(atob(raw))));
+    if (!bp || !bp.frame) throw new Error('bad');
+    return bp;
+  }
+
+  function openModal() { $('modal').hidden = false; S.keys.clear(); setTimeout(() => $('modalClose').focus(), 0); }
+  function closeModal() { $('modal').hidden = true; hangar.focus(); }
+  $('modalClose').addEventListener('click', closeModal);
+  $('modal').addEventListener('click', (e) => { if (e.target === $('modal')) closeModal(); });
+
+  let toastTimer = 0;
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  // ------------------------------------------------------------ persistence
+  let saveTimer = 0;
+  function saveHangar() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => store.set('hangar', S.units.map((u) => ({ bp: u.bp, x: Math.round(u.x), z: Math.round(u.z), yaw: u.yaw }))), 300);
+  }
+
+  // ------------------------------------------------------------ hud controls
+  function bindHud() {
+    const st = S.settings;
+    const save = () => store.set('settings', st);
+    $('zoom').value = st.zoom; $('pitch').value = st.pitch; $('lightAng').value = st.lightAng; $('floorMode').value = st.floor;
+    $('zoom').addEventListener('input', (e) => { st.zoom = +e.target.value; resizeHangar(); save(); });
+    $('pitch').addEventListener('input', (e) => { st.pitch = +e.target.value; save(); });
+    $('pitch').addEventListener('change', () => rollLineSoon());
+    $('lightAng').addEventListener('input', (e) => { st.lightAng = +e.target.value; save(); });
+    $('floorMode').addEventListener('change', (e) => { st.floor = e.target.value; save(); e.target.blur(); });
+    const toggle = (id, key) => {
+      const b = $(id);
+      const paint = () => { b.classList.toggle('is-on', !!st[key]); b.setAttribute('aria-pressed', !!st[key]); };
+      paint();
+      b.addEventListener('click', () => { st[key] = !st[key]; paint(); save(); b.blur(); });
+    };
+    toggle('tgShadows', 'shadows');
+    toggle('tgSnap', 'snap');
+    const pvT = (id, key) => {
+      const b = $(id);
+      b.addEventListener('click', () => {
+        S.preview[key] = !S.preview[key];
+        if (key === 'step' && S.preview.step) S.preview.spin = true;
+        for (const [i, k] of [['pvSpin', 'spin'], ['pvStep', 'step'], ['pvWalk', 'walk']]) { $(i).classList.toggle('is-on', S.preview[k]); $(i).setAttribute('aria-pressed', S.preview[k]); }
+        b.blur();
+      });
+    };
+    pvT('pvSpin', 'spin'); pvT('pvStep', 'step'); pvT('pvWalk', 'walk');
+    $('btnRandom').addEventListener('click', randomizeActive);
+    $('btnMutate').addEventListener('click', mutateActive);
+    $('btnDeploy').addEventListener('click', deployCopy);
+    $('btnUndo').addEventListener('click', undo);
+    $('btnExport').addEventListener('click', openExport);
+    $('btnCode').addEventListener('click', openCode);
+    $('btnLine').addEventListener('click', rollLine);
+  }
+  let lineTimer = 0;
+  const rollLineSoon = () => { clearTimeout(lineTimer); lineTimer = setTimeout(rollLine, 200); };
+
+  // ------------------------------------------------------------ starter hangar
+  function starterBlueprints() {
+    const mk = (seed, o) => Object.assign(G.randomBlueprint(seed), o);
+    return [
+      mk(318, { frame: 'spider', torso: 'core', head: 'none', armL: 'none', armR: 'none', shoulders: 'none', back: 'missiles', scheme: 'split', bulk: 1.2, legLen: 1.05, tall: 1.05, edge: 2.2, palette: 'Rust Crab', colors: { ...MF.PALETTES['Rust Crab'] }, number: '318', name: 'TX-318 Tarantula' }),
+      mk(77, { frame: 'biped', torso: 'hunch', head: 'visor', armL: 'fist', armR: 'cannon', shoulders: 'pauldron', back: 'artillery', scheme: 'mono', bulk: 1.15, legLen: 0.95, tall: 1.05, armLen: 1.1, edge: 1.4, palette: 'Snowcat', colors: { ...MF.PALETTES['Snowcat'] }, number: '077', name: 'RX-077 Yeti' }),
+      mk(412, { frame: 'biped', torso: 'block', head: 'mono', armL: 'missiles', armR: 'gatling', shoulders: 'launcher', back: 'antenna', scheme: 'split', bulk: 1.25, legLen: 0.85, tall: 1.2, armLen: 1, edge: 0.8, palette: 'Jade Sentinel', colors: { ...MF.PALETTES['Jade Sentinel'] }, number: '412', name: 'KV-412 Bastion' }),
+      mk(905, { frame: 'strider', torso: 'wedge', head: 'cockpit', armL: 'gatling', armR: 'gatling', shoulders: 'round', back: 'exhaust', scheme: 'split', bulk: 1, legLen: 1.15, tall: 0.95, edge: 1.6, palette: 'Hazard', colors: { ...MF.PALETTES['Hazard'] }, number: '905', name: 'VT-905 Raptor' }),
+    ];
+  }
+
+  function init() {
+    buildEditor();
+    bindHud();
+    resizeHangar();
+    const saved = store.get('hangar', null);
+    const list = Array.isArray(saved) && saved.length ? saved : starterBlueprints().map((bp, i) => ({ bp, x: (i - 1.5) * 56, z: i % 2 ? 14 : -10, yaw: 0 }));
+    for (const s of list) {
+      try { S.units.push(makeUnit(s.bp, s.x, s.z, s.yaw || 0)); } catch (e) { /* skip unreadable saved unit */ }
+    }
+    if (!S.units.length) S.units.push(makeUnit(G.randomBlueprint(MF.randomSeed())));
+    const first = S.units.length > 1 ? S.units[1] : S.units[0];
+    S.cam.x = first.x; S.cam.z = first.z;
+    selectOnly(first.id);
+    pushHistory();
+    rollLine();
+    hangar.focus();
+    requestAnimationFrame(loop);
+    window.MFApp = { S, toast, deploy, active, buildSheet, openExport };
+  }
+  init();
+})();
+</script>
+</body>
+</html>

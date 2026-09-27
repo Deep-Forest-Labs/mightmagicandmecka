@@ -49,7 +49,7 @@
   }
 
   function posedPrims(u, x, z, yaw) {
-    u.rig.animate({ phase: u.phase, move: u.move, t: u.t });
+    u.rig.animate({ phase: u.phase, move: u.move, t: u.t, fire: u.fire || 0, fireN: u.fireN || 0 });
     const w = MF.matFromEuler(MF.mat(), x, u.rig.hover || 0, z, 0, yaw, 0);
     return MF.updateRig(u.rig.root, w, []);
   }
@@ -81,9 +81,15 @@
 
   function renderHangar() {
     const pal = stagePalette();
+    // snap to whole screen pixels so sprites don't shimmer while moving (z is foreshortened by sin(pitch))
+    const sp = Math.sin(S.settings.pitch);
+    const snapZ = (z) => Math.round(z * sp) / sp;
     const scene = {
-      units: S.units.map((u) => ({ prims: posedPrims(u, u.x, u.z, u.yaw), pal: u.pal, x: u.x, z: u.z, radius: u.rig.radius, height: u.rig.height + (u.rig.hover || 0), selected: S.selected.has(u.id) })),
-      cam: { x: Math.round(S.cam.x), z: Math.round(S.cam.z), pitch: S.settings.pitch, ox: Math.floor(viewW / 2), oy: Math.floor(viewH * 0.62) },
+      units: S.units.map((u) => {
+        const x = Math.round(u.x), z = snapZ(u.z);
+        return { prims: posedPrims(u, x, z, u.yaw), pal: u.pal, x, z, radius: u.rig.radius, height: u.rig.height + (u.rig.hover || 0), selected: S.selected.has(u.id) };
+      }),
+      cam: { x: Math.round(S.cam.x), z: snapZ(S.cam.z), pitch: S.settings.pitch, ox: Math.floor(viewW / 2), oy: Math.floor(viewH * 0.62) },
       floor: S.settings.floor, bg: pal.bg, floorRamp: pal.floor, shadows: S.settings.shadows, light: lightVec(), time: S.time,
       treadOffset: S.units.map((u) => u.dist),
     };
@@ -124,13 +130,17 @@
     if (k.has('KeyS') || k.has('ArrowDown')) vz += 1;
     if (k.has('KeyA') || k.has('ArrowLeft')) vx -= 1;
     if (k.has('KeyD') || k.has('ArrowRight')) vx += 1;
+    if (S.touchVec) { vx = S.touchVec[0]; vz = S.touchVec[1]; }
     const moving = vx !== 0 || vz !== 0;
     const len = Math.hypot(vx, vz) || 1;
     vx /= len; vz /= len;
-    const run = k.has('ShiftLeft') || k.has('ShiftRight');
+    const run = k.has('ShiftLeft') || k.has('ShiftRight') || (S.touchVec && S.touchVec[2]);
 
+    const trigger = k.has('Space');
     for (const u of S.units) {
       u.t += dt;
+      if (u.fire > 0) u.fire = Math.max(0, u.fire - dt * 5);
+      if (trigger && S.selected.has(u.id) && !(u.fire > 0.35)) { u.fire = 1; u.fireN = (u.fireN || 0) + 1; }
       const sel = S.selected.has(u.id);
       const go = sel && moving;
       if (go) {
@@ -159,10 +169,10 @@
       }
     }
     // keep units from overlapping
-    for (let i = 0; i < S.units.length; i++) for (let j = i + 1; j < S.units.length; j++) {
+    for (let it = 0; it < 2; it++) for (let i = 0; i < S.units.length; i++) for (let j = i + 1; j < S.units.length; j++) {
       const a = S.units[i], b = S.units[j];
       const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz) || 0.01;
-      const min = (a.rig.radius + b.rig.radius) * 0.55;
+      const min = (a.rig.radius + b.rig.radius) * 0.72;
       if (d < min) {
         const push = (min - d) / 2, nx = dx / d, nz = dz / d;
         const aw = S.selected.has(a.id) && !S.selected.has(b.id) ? 0.2 : 1, bw = S.selected.has(b.id) && !S.selected.has(a.id) ? 0.2 : 1;
@@ -196,7 +206,8 @@
   window.addEventListener('keydown', (e) => {
     if (isTyping(e.target) || !$('modal').hidden) { if (e.key === 'Escape') closeModal(); return; }
     const code = e.code;
-    if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight'].includes(code)) {
+    if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'Space'].includes(code)) {
+      if (code === 'Space') e.preventDefault();
       if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'range' && code.startsWith('Arrow')) return;
       if (e.target && e.target.tagName === 'SELECT') e.target.blur();
       S.keys.add(code);
@@ -215,23 +226,49 @@
     else if (code === 'KeyM') mutateActive();
     else if (code === 'KeyN') deployCopy();
     else if (code === 'Delete' || code === 'Backspace') scrapSelected();
+    else if (code === 'KeyL') lineUp();
+    else if (code === 'KeyP') openSnapshot();
   });
   window.addEventListener('keyup', (e) => S.keys.delete(e.code));
   window.addEventListener('blur', () => S.keys.clear());
 
-  hangar.addEventListener('pointerdown', (e) => {
-    hangar.focus();
+  // touch: drag anywhere on the hangar as a virtual stick, tap to select
+  let touch = null;
+  hangar.addEventListener('pointermove', (e) => {
+    if (!touch || e.pointerId !== touch.id) return;
+    const dx = e.clientX - touch.x, dy = e.clientY - touch.y, len = Math.hypot(dx, dy);
+    if (len > 12) { touch.moved = true; S.touchVec = [dx / len, dy / len, len > 90]; }
+    else S.touchVec = null;
+  });
+  const endTouch = (e) => {
+    if (!touch || e.pointerId !== touch.id) return;
+    const t = touch; touch = null; S.touchVec = null;
+    if (!t.moved) pick(t.px, t.py, false);
+  };
+  hangar.addEventListener('pointerup', endTouch);
+  hangar.addEventListener('pointercancel', endTouch);
+
+  function pick(clientX, clientY, multi) {
     const rect = hangar.getBoundingClientRect();
-    const X = Math.floor(((e.clientX - rect.left) / rect.width) * viewW), Y = Math.floor(((e.clientY - rect.top) / rect.height) * viewH);
+    const X = Math.floor(((clientX - rect.left) / rect.width) * viewW), Y = Math.floor(((clientY - rect.top) / rect.height) * viewH);
     if (X < 0 || Y < 0 || X >= viewW || Y >= viewH) return;
     const ui = R.unitIx[Y * viewW + X];
-    if (ui >= 0) {
-      const u = S.units[ui];
-      if (e.shiftKey || e.ctrlKey || e.metaKey) {
-        if (S.selected.has(u.id) && S.selected.size > 1) S.selected.delete(u.id); else S.selected.add(u.id);
-        S.activeId = u.id; syncEditor(); refreshRoster();
-      } else selectOnly(u.id);
+    if (ui < 0) return;
+    const u = S.units[ui];
+    if (multi) {
+      if (S.selected.has(u.id) && S.selected.size > 1) S.selected.delete(u.id); else S.selected.add(u.id);
+      S.activeId = u.id; syncEditor(); refreshRoster();
+    } else selectOnly(u.id);
+  }
+
+  hangar.addEventListener('pointerdown', (e) => {
+    hangar.focus();
+    if (e.pointerType === 'touch') {
+      touch = { id: e.pointerId, x: e.clientX, y: e.clientY, px: e.clientX, py: e.clientY, moved: false };
+      hangar.setPointerCapture(e.pointerId);
+      return;
     }
+    pick(e.clientX, e.clientY, e.shiftKey || e.ctrlKey || e.metaKey);
   });
 
   function selectOnly(id) {
@@ -432,10 +469,10 @@
 
   function spawnPoint() {
     // find a free spot near the camera
-    for (let r = 0; r < 12; r++) {
-      const a = Math.random() * TAU, d = 30 + r * 12;
+    for (let r = 0; r < 24; r++) {
+      const a = Math.random() * TAU, d = 36 + r * 8;
       const x = S.cam.x + Math.cos(a) * d, z = S.cam.z + Math.sin(a) * d * 0.6;
-      if (S.units.every((u) => Math.hypot(u.x - x, u.z - z) > 36)) return [x, z];
+      if (S.units.every((u) => Math.hypot(u.x - x, u.z - z) > u.rig.radius * 1.6 + 16)) return [x, z];
     }
     return [S.cam.x + 40, S.cam.z];
   }
@@ -523,7 +560,6 @@
       });
       g.appendChild(btn);
     }
-    S.nextId += 0;
   }
 
   // ------------------------------------------------------------ export
@@ -637,6 +673,43 @@
     document.body.appendChild(a); a.click(); a.remove();
   }
 
+  function lineUp() {
+    const n = S.units.length;
+    let total = 0;
+    for (const u of S.units) total += u.rig.radius * 1.5 + 6;
+    let x = S.cam.x - total / 2;
+    for (const u of S.units) {
+      const w = u.rig.radius * 1.5 + 6;
+      u.x = x + w / 2; u.z = S.cam.z; u.yaw = u.targetYaw = 0;
+      x += w;
+    }
+    S.selected = new Set(S.units.map((u) => u.id));
+    refreshRoster(); saveHangar();
+    toast(`Lined up ${n} unit${n === 1 ? '' : 's'}`);
+  }
+
+  function openSnapshot() {
+    const z = S.settings.zoom;
+    const c = document.createElement('canvas');
+    c.width = viewW * z; c.height = viewH * z;
+    const cx = c.getContext('2d');
+    cx.imageSmoothingEnabled = false;
+    cx.drawImage(hangar, 0, 0, c.width, c.height);
+    const one = hangar.toDataURL('image/png');
+    const big = c.toDataURL('image/png');
+    $('modalTitle').textContent = 'Hangar snapshot';
+    $('modalBody').innerHTML = `
+      <div class="opt-row">
+        <button class="btn btn-primary btn-sm" id="snapBig">Download ${viewW * z}×${viewH * z}</button>
+        <button class="btn btn-sm" id="snapOne">Download 1× pixels (${viewW}×${viewH})</button>
+      </div>
+      <div class="sheet-view"><img src="${big}" alt="Hangar snapshot" style="width:100%;max-width:${viewW * z}px"></div>
+      <p class="hint">Press L before a snapshot to line every unit up facing the camera. If the download is blocked, right-click the image and choose “Save image as”.</p>`;
+    $('snapBig').addEventListener('click', () => download(big, 'mecha-hangar.png'));
+    $('snapOne').addEventListener('click', () => download(one, 'mecha-hangar-1x.png'));
+    openModal();
+  }
+
   function openCode() {
     const u = active();
     if (!u) return;
@@ -721,6 +794,7 @@
     $('btnExport').addEventListener('click', openExport);
     $('btnCode').addEventListener('click', openCode);
     $('btnLine').addEventListener('click', rollLine);
+    $('btnSnap').addEventListener('click', openSnapshot);
   }
   let lineTimer = 0;
   const rollLineSoon = () => { clearTimeout(lineTimer); lineTimer = setTimeout(rollLine, 200); };

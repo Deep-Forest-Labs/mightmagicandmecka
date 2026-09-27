@@ -292,12 +292,18 @@
     box(w, h, d, opts) { const p = makeBox(w * K, h * K, d * K, scaleOpts(opts)); p.node = this; this.prims.push(p); return p; }
     cyl(axis, r, len, opts = {}) { const p = makeFrustum(axis, r * K, r * K, len * K, scaleOpts(opts)); p.node = this; this.prims.push(p); return p; }
     cone(axis, r1, r2, len, opts = {}) { const p = makeFrustum(axis, r1 * K, r2 * K, len * K, scaleOpts(opts)); p.node = this; this.prims.push(p); return p; }
-    reset() { this.pos = this.base.pos.slice(); this.rot = this.base.rot.slice(); for (const c of this.children) c.reset(); }
+    reset() {
+      const p = this.pos, bp = this.base.pos, r = this.rot, br = this.base.rot;
+      p[0] = bp[0]; p[1] = bp[1]; p[2] = bp[2]; r[0] = br[0]; r[1] = br[1]; r[2] = br[2];
+      this.hidden = !!this.startHidden;
+      for (const c of this.children) c.reset();
+    }
   }
   MF.Node = Node;
 
   // Update world matrices under a parent transform and collect prims.
   MF.updateRig = function (node, parentWorld, out) {
+    if (node.hidden) return out;
     matFromEuler(node.local, node.pos[0], node.pos[1], node.pos[2], node.rot[0], node.rot[1], node.rot[2]);
     matMul(node.world, parentWorld, node.local);
     for (const p of node.prims) { matMul(p.world, node.world, p.local); out.push(p); }
