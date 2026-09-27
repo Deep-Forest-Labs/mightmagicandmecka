@@ -274,6 +274,9 @@ input[type=range] { width: 100%; accent-color: var(--amber); }
 .line-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .line-head .block-title { margin: 0; }
 .line-hint { margin: 6px 0 12px; }
+.line-filter { display: flex; gap: 4px; margin-top: 10px; }
+.slot-line { padding-bottom: 6px; margin-bottom: 4px; border-bottom: 1px dashed var(--line-soft); }
+.slot-line .slot-label { color: var(--amber); }
 .gallery { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
 .thumb {
   position: relative;

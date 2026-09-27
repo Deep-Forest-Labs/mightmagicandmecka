@@ -114,7 +114,12 @@
       <h2 class="block-title">Production line</h2>
       <button id="btnLine" class="btn btn-sm" title="Roll a new batch (respects locks)">New batch</button>
     </div>
-    <p class="hint line-hint">Click to load into the active unit. Shift-click to deploy as a new unit.</p>
+    <div class="line-filter" id="lineFilter" role="group" aria-label="Filter the production line">
+      <button class="chip is-on" data-group="" aria-pressed="true">All</button>
+      <button class="chip" data-group="Mechs" aria-pressed="false">Mechs</button>
+      <button class="chip" data-group="Humans" aria-pressed="false">Humans</button>
+    </div>
+    <p class="hint line-hint">Click to load into the active unit. Shift-click to deploy as a new unit. Lock a slot to roll variations of it.</p>
     <div id="gallery" class="gallery"></div>
   </aside>
 </div>

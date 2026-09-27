@@ -34,7 +34,8 @@
   }
   function sanitize(bp) {
     const b = JSON.parse(JSON.stringify(bp));
-    b.colors = Object.assign({}, MF.PALETTES[b.palette] || MF.PALETTES['Rust Crab'], b.colors || {});
+    b.colors = Object.assign({ tertiary: '#b8323c', skin: '#d99a6c', hair: '#3b2a26', leather: '#6e4a33' }, MF.PALETTES[b.palette] || MF.PALETTES['Rust Crab'], b.colors || {});
+    if (!G.LINES[b.line || 'modular']) b.line = 'modular';
     return b;
   }
   function rebuild(u) {
@@ -139,7 +140,7 @@
     const trigger = k.has('Space');
     for (const u of S.units) {
       u.t += dt;
-      if (u.fire > 0) u.fire = Math.max(0, u.fire - dt * 5);
+      if (u.fire > 0) u.fire = Math.max(0, u.fire - dt * (u.rig.fireDecay || 5));
       if (trigger && S.selected.has(u.id) && !(u.fire > 0.35)) { u.fire = 1; u.fireN = (u.fireN || 0) + 1; }
       const sel = S.selected.has(u.id);
       const go = sel && moving;
@@ -303,43 +304,87 @@
   const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   // ------------------------------------------------------------ editor
-  const SLOT_DEFS = [
-    ['frame', 'Chassis', G.OPTIONS.frame, G.LABELS.frame],
-    ['torso', 'Torso', G.OPTIONS.torso, G.LABELS.torso],
-    ['head', 'Head', G.OPTIONS.head, G.LABELS.head],
-    ['armL', 'Left arm', G.OPTIONS.arm, G.LABELS.arm],
-    ['armR', 'Right arm', G.OPTIONS.arm, G.LABELS.arm],
-    ['shoulders', 'Shoulders', G.OPTIONS.shoulders, G.LABELS.shoulders],
-    ['back', 'Backpack', G.OPTIONS.back, G.LABELS.back],
-    ['scheme', 'Paint split', G.OPTIONS.scheme, G.LABELS.scheme],
-  ];
+  const slotDefs = (bp) => G.lineOf(bp).slots;
   const SLIDERS = [
     ['bulk', 'Bulk', 0.7, 1.5, 0.05],
     ['legLen', 'Legs', 0.6, 1.5, 0.05],
     ['tall', 'Torso', 0.7, 1.5, 0.05],
     ['armLen', 'Arms', 0.7, 1.4, 0.05],
+    ['size', 'Scale', 0.7, 1.6, 0.05],
     ['edge', 'Bevel', 0, 3, 0.1],
   ];
-  const SWATCHES = [['primary', 'Armor'], ['secondary', 'Trim'], ['metal', 'Frame'], ['accent', 'Glow'], ['glass', 'Glass'], ['outline', 'Line'], ['bg', 'Backdrop'], ['floor', 'Floor']];
+  const SWATCHES_MECH = [['primary', 'Armor'], ['secondary', 'Trim'], ['tertiary', 'Accent 2'], ['metal', 'Frame'], ['accent', 'Glow'], ['glass', 'Glass'], ['outline', 'Line'], ['bg', 'Backdrop'], ['floor', 'Floor']];
+  const SWATCHES_HUMAN = [['primary', 'Armor'], ['secondary', 'Cloth'], ['tertiary', 'Sash'], ['leather', 'Leather'], ['metal', 'Steel'], ['skin', 'Skin'], ['hair', 'Hair'], ['accent', 'Glow'], ['glass', 'Lens'], ['outline', 'Line'], ['bg', 'Backdrop'], ['floor', 'Floor']];
+  const swatchesFor = (bp) => (G.lineOf(bp).group === 'Humans' ? SWATCHES_HUMAN : SWATCHES_MECH);
+  const DEFAULT_COLORS = { tertiary: '#b8323c', skin: '#d99a6c', hair: '#3b2a26', leather: '#6e4a33' };
   const DICE = '<svg viewBox="0 0 14 14" aria-hidden="true"><rect x="1" y="1" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="4.5" cy="4.5" r="1.2" fill="currentColor"/><circle cx="9.5" cy="9.5" r="1.2" fill="currentColor"/><circle cx="7" cy="7" r="1.2" fill="currentColor"/></svg>';
+  let slotsLine = null, swatchSet = null;
 
-  function buildEditor() {
+  function slotRow(key, label, optionsHtml) {
+    const row = document.createElement('div');
+    row.className = 'slot';
+    row.innerHTML = `<label class="slot-label" for="sl-${key}">${label}</label>
+      <select class="select" id="sl-${key}">${optionsHtml}</select>
+      <button class="dice" id="dice-${key}" title="Reroll ${label.toLowerCase()}" aria-label="Reroll ${label.toLowerCase()}">${DICE}</button>
+      <label class="lock" title="Lock ${label.toLowerCase()}"><input type="checkbox" id="lock-${key}" aria-label="Lock ${label.toLowerCase()}"><span></span></label>`;
+    const lk = row.querySelector('input[type=checkbox]');
+    lk.checked = !!S.locks[key];
+    lk.addEventListener('change', () => { S.locks[key] = lk.checked; store.set('locks', S.locks); });
+    row.querySelector('.dice').addEventListener('click', () => rerollSlot(key));
+    return row;
+  }
+
+  // Parts panel: the Line picker, then the active line's own slots.
+  function buildSlots(bp) {
     const slots = $('slots');
-    for (const [key, label, opts, labels] of SLOT_DEFS) {
-      const row = document.createElement('div');
-      row.className = 'slot';
-      row.innerHTML = `<label class="slot-label" for="sl-${key}">${label}</label>
-        <select class="select" id="sl-${key}">${opts.map((o) => `<option value="${o}">${labels[o]}</option>`).join('')}</select>
-        <button class="dice" id="dice-${key}" title="Reroll ${label.toLowerCase()}" aria-label="Reroll ${label.toLowerCase()}">${DICE}</button>
-        <label class="lock" title="Lock ${label.toLowerCase()}"><input type="checkbox" id="lock-${key}" aria-label="Lock ${label.toLowerCase()}"><span></span></label>`;
+    slots.innerHTML = '';
+    const groups = {};
+    for (const id in G.LINES) (groups[G.LINES[id].group] = groups[G.LINES[id].group] || []).push(G.LINES[id]);
+    const lineOpts = Object.keys(groups).map((g) => `<optgroup label="${g}">${groups[g].map((d) => `<option value="${d.id}">${d.label}</option>`).join('')}</optgroup>`).join('');
+    const lineRow = slotRow('line', 'Line', lineOpts);
+    lineRow.classList.add('slot-line');
+    slots.appendChild(lineRow);
+    const lsel = lineRow.querySelector('select');
+    lsel.addEventListener('change', () => { switchLine(lsel.value); lsel.blur(); });
+    for (const d of slotDefs(bp)) {
+      const row = slotRow(d.key, d.label, d.options.map((o) => `<option value="${o}">${(d.labels && d.labels[o]) || o}</option>`).join(''));
       slots.appendChild(row);
       const sel = row.querySelector('select');
-      sel.addEventListener('change', () => { editActive((bp) => { bp[key] = sel.value; }); sel.blur(); });
-      row.querySelector('.dice').addEventListener('click', () => rerollSlot(key));
-      const lk = row.querySelector('input[type=checkbox]');
-      lk.checked = !!S.locks[key];
-      lk.addEventListener('change', () => { S.locks[key] = lk.checked; store.set('locks', S.locks); });
+      sel.addEventListener('change', () => { editActive((b) => { b[d.key] = sel.value; }); sel.blur(); });
     }
+    slotsLine = G.lineOf(bp).id;
+  }
+
+  function buildSwatches(bp) {
+    const set = swatchesFor(bp);
+    if (swatchSet === set) return;
+    swatchSet = set;
+    const sw = $('swatches');
+    sw.innerHTML = '';
+    for (const [key, label] of set) {
+      const d = document.createElement('label');
+      d.className = 'swatch';
+      d.innerHTML = `<span>${label}</span><input type="color" id="sw-${key}" aria-label="${label} colour">`;
+      sw.appendChild(d);
+      const inp = d.querySelector('input');
+      inp.addEventListener('input', () => editActive((b) => { b.colors[key] = inp.value; b.palette = 'custom'; }, true));
+      inp.addEventListener('change', () => pushHistory());
+    }
+  }
+
+  // switching line keeps paint only when it suits the new group
+  function switchLine(id) {
+    const u = active();
+    if (!u) return;
+    const locks = { bulk: 1, legLen: 1, tall: 1, armLen: 1, edge: 1, number: 1 };
+    const sameGroup = G.LINES[id].group === G.lineOf(u.bp).group;
+    if (sameGroup) locks.palette = 1;
+    const nb = G.randomBlueprint(MF.randomSeed(), locks, u.bp, { line: id });
+    u.bp = sanitize(nb); rebuild(u);
+    pushHistory(); syncEditor(); refreshRoster(); saveHangar();
+  }
+
+  function buildEditor() {
     const sliders = $('sliders');
     for (const [key, label, min, max, step] of SLIDERS) {
       const row = document.createElement('div');
@@ -351,25 +396,14 @@
       inp.addEventListener('change', () => { pushHistory(); inp.blur(); });
     }
     const pre = $('palPreset');
-    pre.innerHTML = Object.keys(MF.PALETTES).map((k) => `<option value="${k}">${k}</option>`).join('') + '<option value="custom">Custom</option>';
     pre.addEventListener('change', () => {
-      if (pre.value !== 'custom') editActive((bp) => { bp.palette = pre.value; bp.colors = { ...MF.PALETTES[pre.value] }; });
+      if (pre.value !== 'custom') editActive((bp) => { bp.palette = pre.value; bp.colors = { ...DEFAULT_COLORS, ...MF.PALETTES[pre.value] }; });
       pre.blur();
     });
-    $('palShuffle').addEventListener('click', () => editActive((bp) => { bp.colors = randomColors(MF.randomSeed()); bp.palette = 'custom'; }));
+    $('palShuffle').addEventListener('click', () => editActive((bp) => { bp.colors = randomColors(MF.randomSeed(), G.lineOf(bp).group === 'Humans'); bp.palette = 'custom'; }));
     const lp = $('lock-palette');
     lp.checked = !!S.locks.palette;
     lp.addEventListener('change', () => { S.locks.palette = lp.checked; store.set('locks', S.locks); });
-    const sw = $('swatches');
-    for (const [key, label] of SWATCHES) {
-      const d = document.createElement('label');
-      d.className = 'swatch';
-      d.innerHTML = `<span>${label}</span><input type="color" id="sw-${key}" aria-label="${label} colour">`;
-      sw.appendChild(d);
-      const inp = d.querySelector('input');
-      inp.addEventListener('input', () => editActive((bp) => { bp.colors[key] = inp.value; bp.palette = 'custom'; }, true));
-      inp.addEventListener('change', () => pushHistory());
-    }
     $('mName').addEventListener('input', (e) => editActive((bp) => { bp.name = e.target.value || 'Unnamed'; }, true, true));
     $('mNumber').addEventListener('input', (e) => {
       const v = e.target.value.replace(/[^0-9-]/g, '').slice(0, 3);
@@ -381,16 +415,29 @@
     const u = active();
     if (!u) return;
     const bp = u.bp;
-    for (const [key] of SLOT_DEFS) $('sl-' + key).value = bp[key];
-    for (const [key] of SLIDERS) { $('sd-' + key).value = bp[key]; $('so-' + key).textContent = (+bp[key]).toFixed(2); }
-    $('palPreset').value = MF.PALETTES[bp.palette] ? bp.palette : 'custom';
-    for (const [key] of SWATCHES) $('sw-' + key).value = bp.colors[key];
+    const def = G.lineOf(bp);
+    if (slotsLine !== def.id) buildSlots(bp);
+    buildSwatches(bp);
+    $('sl-line').value = def.id;
+    for (const d of def.slots) $('sl-' + d.key).value = bp[d.key];
+    for (const [key] of SLIDERS) { $('sd-' + key).value = bp[key] == null ? 1 : bp[key]; $('so-' + key).textContent = (+(bp[key] == null ? 1 : bp[key])).toFixed(2); }
+    const human = def.group === 'Humans';
+    const pre = $('palPreset');
+    const names = Object.keys(MF.PALETTES).filter((k) => !!MF.PALETTES[k].human === human);
+    const want = names.join('|');
+    if (pre.dataset.set !== want) {
+      pre.dataset.set = want;
+      pre.innerHTML = names.map((k) => `<option value="${k}">${k}</option>`).join('') + '<option value="custom">Custom</option>';
+    }
+    pre.value = names.includes(bp.palette) ? bp.palette : 'custom';
+    for (const [key] of swatchSet) $('sw-' + key).value = bp.colors[key] || DEFAULT_COLORS[key] || '#888888';
     if (document.activeElement !== $('mName')) $('mName').value = bp.name;
     if (document.activeElement !== $('mNumber')) $('mNumber').value = bp.number;
-    $('mSpec').textContent = `seed ${bp.seed}\n${Math.round(u.rig.height + (u.rig.hover || 0))}px tall · ${G.LABELS.frame[bp.frame]}`;
+    const main = def.slots[0];
+    $('mSpec').textContent = `seed ${bp.seed}\n${Math.round(u.rig.height + (u.rig.hover || 0))}px tall · ${def.label}${main ? ' · ' + ((main.labels && main.labels[bp[main.key]]) || bp[main.key]) : ''}`;
     const ramps = $('ramps');
     ramps.innerHTML = '';
-    for (const k of ['primary', 'secondary', 'metal', 'accent', 'glass']) {
+    for (const k of human ? ['primary', 'secondary', 'tertiary', 'leather', 'skin', 'hair', 'metal', 'accent'] : ['primary', 'secondary', 'tertiary', 'metal', 'accent', 'glass']) {
       const r = document.createElement('div');
       r.className = 'ramp';
       r.innerHTML = u.pal.ramps[k].map((c) => `<i style="background:${MF.color.rgbToHex(c)}"></i>`).join('');
@@ -431,15 +478,18 @@
   function rerollSlot(key) {
     editActive((bp) => {
       const seed = MF.randomSeed();
-      const locks = {};
-      for (const [k] of SLOT_DEFS) locks[k] = k !== key;
-      for (const k of ['bulk', 'legLen', 'tall', 'armLen', 'edge', 'palette', 'number', 'name']) locks[k] = true;
+      if (key === 'line') { const ids = Object.keys(G.LINES).filter((id) => id !== G.lineOf(bp).id); bp.__switch = ids[Math.floor(Math.random() * ids.length)]; return; }
+      const locks = { line: 1 };
+      for (const d of slotDefs(bp)) locks[d.key] = d.key !== key;
+      for (const k of ['bulk', 'legLen', 'tall', 'armLen', 'edge', 'size', 'palette', 'number', 'name']) locks[k] = true;
       const fresh = G.randomBlueprint(seed, locks, bp);
       let tries = 0;
       let val = fresh[key];
       while (val === bp[key] && tries++ < 8) val = G.randomBlueprint(MF.randomSeed(), locks, bp)[key];
       bp[key] = val;
     });
+    const u = active();
+    if (u && u.bp.__switch) { const id = u.bp.__switch; delete u.bp.__switch; switchLine(id); }
   }
 
   function randomizeActive() {
@@ -453,17 +503,17 @@
   function mutateActive() {
     const u = active();
     if (!u) return;
-    const free = SLOT_DEFS.map((d) => d[0]).filter((k) => !S.locks[k]);
+    const free = slotDefs(u.bp).map((d) => d.key).filter((k) => !S.locks[k]);
     const n = 1 + (Math.random() < 0.4 ? 1 : 0);
     editActive((bp) => {
       for (let i = 0; i < n && free.length; i++) {
         const key = free.splice(Math.floor(Math.random() * free.length), 1)[0];
-        const locks = {};
-        for (const [k] of SLOT_DEFS) locks[k] = k !== key;
-        Object.assign(locks, { bulk: 1, legLen: 1, tall: 1, armLen: 1, edge: 1, palette: 1, number: 1, name: 1 });
+        const locks = { line: 1 };
+        for (const d of slotDefs(bp)) locks[d.key] = d.key !== key;
+        Object.assign(locks, { bulk: 1, legLen: 1, tall: 1, armLen: 1, edge: 1, size: 1, palette: 1, number: 1, name: 1 });
         bp[key] = G.randomBlueprint(MF.randomSeed(), locks, bp)[key];
       }
-      for (const [k, , min, max] of SLIDERS) if (!S.locks[k] && Math.random() < 0.5) bp[k] = +Math.min(max, Math.max(min, bp[k] + (Math.random() - 0.5) * 0.25)).toFixed(2);
+      for (const [k, , min, max] of SLIDERS) if (k !== 'size' && !S.locks[k] && Math.random() < 0.5) bp[k] = +Math.min(max, Math.max(min, bp[k] + (Math.random() - 0.5) * 0.25)).toFixed(2);
     });
   }
 
@@ -503,7 +553,7 @@
   }
 
   // random harmonious colours
-  function randomColors(seed) {
+  function randomColors(seed, human) {
     const r = new MF.RNG(seed);
     const { hslToRgb, rgbToHex } = MF.color;
     const h = r.range(0, 360);
@@ -523,31 +573,37 @@
       outline: hex(r.range(240, 290), 0.3, 0.08),
       bg: hex(bgH, r.range(0.1, 0.35), bgL),
       floor: hex(bgH, r.range(0.1, 0.3), bgL * 0.9),
+      tertiary: hex(h2 + r.pick([150, 200, 30]), r.range(0.5, 0.8), r.range(0.4, 0.55)),
+      skin: human ? r.pick(['#f0c8a0', '#e0ac85', '#c98d64', '#a8704c', '#7a4e34', '#5a3a28', '#8fb04a', '#8a9aa8']) : '#d99a6c',
+      hair: r.pick(['#2a2020', '#3b2a26', '#6a4428', '#c46a2a', '#e6d7a8', '#d8d8d8', '#3a2a4a']),
+      leather: hex(r.range(15, 35), r.range(0.3, 0.5), r.range(0.22, 0.35)),
     };
   }
 
   // ------------------------------------------------------------ production line
-  const TR = new MF.Renderer(84, 84);
+  const TR = new MF.Renderer(84, 84), TRs = new MF.Renderer(60, 60);
   function rollLine() {
     const g = $('gallery');
     g.innerHTML = '';
     const base = active() ? active().bp : null;
     for (let i = 0; i < 10; i++) {
-      const bp = sanitize(G.randomBlueprint(MF.randomSeed(), S.locks, base));
+      const bp = sanitize(G.randomBlueprint(MF.randomSeed(), S.locks, base, { group: S.lineFilter || undefined }));
       const btn = document.createElement('button');
       btn.className = 'thumb';
       btn.title = bp.name;
-      const c = document.createElement('canvas');
-      c.width = 84; c.height = 84;
       const tmp = makeUnit(bp, 0, 0, 0.62);
       const h = tmp.rig.height + (tmp.rig.hover || 0);
+      const small = h < 56, TRx = small ? TRs : TR, cs = small ? 60 : 84;
+      const c = document.createElement('canvas');
+      c.width = cs; c.height = cs;
       const scale = Math.min(1, 62 / h);
-      TR.render({
+      const oy = small ? Math.round(30 + h * 0.42 + 2) : Math.round(42 + h * 0.45 * scale + 4);
+      TRx.render({
         units: [{ prims: posedPrims(tmp, 0, 0, 0.62), pal: tmp.pal, x: 0, z: 0, radius: tmp.rig.radius, height: h }],
-        cam: { x: 0, z: 0, pitch: S.settings.pitch, ox: 42, oy: Math.round(42 + h * 0.45 * scale + 4) },
+        cam: { x: 0, z: 0, pitch: S.settings.pitch, ox: cs / 2, oy },
         floor: 'plain', bg: tmp.pal.bg, floorRamp: tmp.pal.floor, shadows: S.settings.shadows, light: lightVec(), time: 0,
       });
-      c.getContext('2d').putImageData(TR.image, 0, 0);
+      c.getContext('2d').putImageData(TRx.image, 0, 0);
       const label = document.createElement('span');
       label.textContent = bp.name;
       btn.append(c, label);
@@ -563,11 +619,11 @@
   }
 
   // ------------------------------------------------------------ export
-  function renderFrame(u, R2, yaw, phase, move, t, opts) {
-    const sp = u.phase, sm = u.move, st = u.t;
-    u.phase = phase; u.move = move; u.t = t;
+  function renderFrame(u, R2, yaw, phase, move, t, opts, fire = 0) {
+    const sp = u.phase, sm = u.move, st = u.t, sf = u.fire, sn = u.fireN;
+    u.phase = phase; u.move = move; u.t = t; u.fire = fire; u.fireN = 1;
     const prims = posedPrims(u, 0, 0, yaw);
-    u.phase = sp; u.move = sm; u.t = st;
+    u.phase = sp; u.move = sm; u.t = st; u.fire = sf; u.fireN = sn;
     R2.render({
       units: [{ prims, pal: u.pal, x: 0, z: 0, radius: u.rig.radius, height: u.rig.height + (u.rig.hover || 0) }],
       cam: { x: 0, z: 0, pitch: S.settings.pitch, ox: R2.w / 2, oy: Math.round(R2.h * 0.72) },
@@ -577,18 +633,22 @@
     return new Uint32Array(R2.image.data.buffer.slice(0));
   }
 
+  // Columns: [idle] + walk frames + attack frames; rows: 8 directions.
+  // cell 'auto' crops tight; a number gives fixed game cells with the feet at a constant anchor.
   function buildSheet(u, opts) {
-    const R2 = new MF.Renderer(220, 220);
+    const R2 = new MF.Renderer(240, 240);
+    const footX = R2.w / 2, footY = Math.round(R2.h * 0.72);
+    const colDefs = [];
+    if (opts.idle) colDefs.push({ name: 'idle', phase: 0, move: 0, t: 0, fire: 0 });
+    for (let i = 0; i < opts.frames; i++) colDefs.push({ name: 'walk' + i, phase: (i / opts.frames) * TAU, move: 1, t: i * 0.1, fire: 0 });
+    for (let i = 0; i < opts.attack; i++) colDefs.push({ name: 'attack' + i, phase: 0, move: 0, t: 0.2 + i * 0.04, fire: 1 - i / opts.attack });
     const frames = [];
     let minX = 1e9, minY = 1e9, maxX = -1, maxY = -1;
     for (let d = 0; d < 8; d++) {
       const yaw = (d * TAU) / 8;
       const row = [];
-      const cols = (opts.idle ? 1 : 0) + opts.frames;
-      for (let f = 0; f < cols; f++) {
-        const isIdle = opts.idle && f === 0;
-        const fi = opts.idle ? f - 1 : f;
-        const px = renderFrame(u, R2, yaw, isIdle ? 0 : (fi / opts.frames) * TAU, isIdle ? 0 : 1, isIdle ? 0 : fi * 0.1, opts);
+      for (const c of colDefs) {
+        const px = renderFrame(u, R2, yaw, c.phase, c.move, c.t, opts, c.fire);
         for (let y = 0; y < R2.h; y++) for (let x = 0; x < R2.w; x++) if (px[y * R2.w + x] >>> 24) {
           if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
         }
@@ -596,9 +656,18 @@
       }
       frames.push(row);
     }
-    const pad = 1;
-    const cw = maxX - minX + 1 + pad * 2, ch = maxY - minY + 1 + pad * 2;
-    const cols = frames[0].length;
+    let cw, ch, ox, oy, clipped = false;
+    if (opts.cell === 'auto') {
+      const pad = 1;
+      cw = maxX - minX + 1 + pad * 2; ch = maxY - minY + 1 + pad * 2;
+      ox = minX - pad; oy = minY - pad;
+    } else {
+      cw = ch = +opts.cell;
+      const footInCell = ch - Math.max(3, Math.round(ch * 0.08));
+      ox = footX - cw / 2; oy = footY - footInCell;
+      clipped = minX < ox || minY < oy || maxX >= ox + cw || maxY >= oy + ch;
+    }
+    const cols = colDefs.length;
     const sheet = document.createElement('canvas');
     sheet.width = cw * cols; sheet.height = ch * 8;
     const sctx = sheet.getContext('2d');
@@ -606,7 +675,14 @@
     const c32 = new Uint32Array(cell.data.buffer);
     frames.forEach((row, d) => row.forEach((px, f) => {
       c32.fill(0);
-      for (let y = 0; y < ch - pad * 2; y++) for (let x = 0; x < cw - pad * 2; x++) c32[(y + pad) * cw + x + pad] = px[(y + minY) * R2.w + x + minX];
+      for (let y = 0; y < ch; y++) {
+        const sy = y + oy;
+        if (sy < 0 || sy >= R2.h) continue;
+        for (let x = 0; x < cw; x++) {
+          const sx = x + ox;
+          if (sx >= 0 && sx < R2.w) c32[y * cw + x] = px[sy * R2.w + sx];
+        }
+      }
       sctx.putImageData(cell, f * cw, d * ch);
     }));
     let out = sheet;
@@ -619,14 +695,20 @@
     }
     const meta = {
       name: u.bp.name, cellWidth: cw * opts.scale, cellHeight: ch * opts.scale, scale: opts.scale,
-      rows: DIR_NAMES, columns: (opts.idle ? ['idle'] : []).concat(Array.from({ length: opts.frames }, (_, i) => 'walk' + i)),
-      anchor: { x: (R2.w / 2 - minX + pad) * opts.scale, y: (Math.round(R2.h * 0.72) - minY + pad) * opts.scale },
+      rows: DIR_NAMES, columns: colDefs.map((c) => c.name),
+      animations: {
+        idle: opts.idle ? { from: 0, count: 1 } : null,
+        walk: { from: opts.idle ? 1 : 0, count: opts.frames, loop: true },
+        attack: opts.attack ? { from: (opts.idle ? 1 : 0) + opts.frames, count: opts.attack, loop: false } : null,
+      },
+      anchor: { x: (footX - ox) * opts.scale, y: (footY - oy) * opts.scale },
+      clipped,
       blueprint: u.bp,
     };
     return { canvas: out, meta };
   }
 
-  const exportOpts = Object.assign({ frames: 8, scale: 1, idle: true, shadow: true }, store.get('exportOpts', {}));
+  const exportOpts = Object.assign({ frames: 8, attack: 4, cell: 'auto', scale: 1, idle: true, shadow: true }, store.get('exportOpts', {}));
   function openExport() {
     const u = active();
     if (!u) return;
@@ -635,6 +717,8 @@
     body.innerHTML = `
       <div class="opt-row">
         <label>Walk frames <select class="select select-sm" id="exFrames">${[4, 6, 8, 12].map((n) => `<option ${n === exportOpts.frames ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+        <label>Attack frames <select class="select select-sm" id="exAttack">${[0, 3, 4, 6].map((n) => `<option ${n === exportOpts.attack ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+        <label>Cell <select class="select select-sm" id="exCell">${['auto', '64', '96', '128'].map((n) => `<option value="${n}" ${String(exportOpts.cell) === n ? 'selected' : ''}>${n === 'auto' ? 'Tight crop' : n + '×' + n}</option>`).join('')}</select></label>
         <label>Scale <select class="select select-sm" id="exScale">${[1, 2, 3, 4].map((n) => `<option value="${n}" ${n === exportOpts.scale ? 'selected' : ''}>${n}×</option>`).join('')}</select></label>
         <label><input type="checkbox" id="exIdle" ${exportOpts.idle ? 'checked' : ''}> Idle column</label>
         <label><input type="checkbox" id="exShadow" ${exportOpts.shadow ? 'checked' : ''}> Drop shadow</label>
@@ -643,10 +727,11 @@
       </div>
       <div class="sheet-view" id="sheetView"></div>
       <pre class="meta" id="exMeta"></pre>
-      <p class="hint">Rows run S, SE, E, NE, N, NW, W, SW. If your browser blocks the download, right-click the sheet and choose “Save image as”.</p>`;
+      <p class="hint">Rows run S, SE, E, NE, N, NW, W, SW. Columns: idle, walk loop, then the attack. Fixed cells keep the feet at the same anchor in every frame, ready for a game engine. If your browser blocks the download, right-click the sheet and choose “Save image as”.</p>`;
     let current = null;
     const redraw = () => {
       exportOpts.frames = +$('exFrames').value; exportOpts.scale = +$('exScale').value;
+      exportOpts.attack = +$('exAttack').value; exportOpts.cell = $('exCell').value;
       exportOpts.idle = $('exIdle').checked; exportOpts.shadow = $('exShadow').checked;
       store.set('exportOpts', exportOpts);
       current = buildSheet(u, exportOpts);
@@ -657,9 +742,9 @@
       img.style.width = current.canvas.width * disp + 'px';
       $('sheetView').innerHTML = '';
       $('sheetView').appendChild(img);
-      $('exMeta').textContent = `${current.canvas.width}×${current.canvas.height}px · cell ${current.meta.cellWidth}×${current.meta.cellHeight} · ${current.meta.columns.length} columns × 8 directions · feet anchor (${current.meta.anchor.x}, ${current.meta.anchor.y})`;
+      $('exMeta').textContent = `${current.canvas.width}×${current.canvas.height}px · cell ${current.meta.cellWidth}×${current.meta.cellHeight} · ${current.meta.columns.length} columns × 8 directions · feet anchor (${current.meta.anchor.x}, ${current.meta.anchor.y})${current.meta.clipped ? ' · this unit is bigger than the cell, so parts are clipped: pick a larger cell' : ''}`;
     };
-    ['exFrames', 'exScale', 'exIdle', 'exShadow'].forEach((id) => $(id).addEventListener('change', redraw));
+    ['exFrames', 'exAttack', 'exCell', 'exScale', 'exIdle', 'exShadow'].forEach((id) => $(id).addEventListener('change', redraw));
     const slug = u.bp.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     $('exPng').addEventListener('click', () => download(current.canvas.toDataURL('image/png'), slug + '-sheet.png'));
     $('exJson').addEventListener('click', () => download('data:application/json,' + encodeURIComponent(JSON.stringify(current.meta, null, 2)), slug + '-sheet.json'));
@@ -816,6 +901,12 @@
     $('btnExport').addEventListener('click', openExport);
     $('btnCode').addEventListener('click', openCode);
     $('btnLine').addEventListener('click', rollLine);
+    S.lineFilter = store.get('lineFilter', '');
+    document.querySelectorAll('#lineFilter .chip').forEach((b) => {
+      const paint = () => document.querySelectorAll('#lineFilter .chip').forEach((x) => { const on = x.dataset.group === S.lineFilter; x.classList.toggle('is-on', on); x.setAttribute('aria-pressed', on); });
+      paint();
+      b.addEventListener('click', () => { S.lineFilter = b.dataset.group; store.set('lineFilter', S.lineFilter); paint(); rollLine(); b.blur(); });
+    });
     $('btnSnap').addEventListener('click', openSnapshot);
   }
   let lineTimer = 0;
