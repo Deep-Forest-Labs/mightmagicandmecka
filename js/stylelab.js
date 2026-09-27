@@ -16,25 +16,25 @@
       units: [
         human('rogue', 'grim', { head: 'hood', extra: 'cape', weaponR: 'dagger', weaponL: 'dagger' }, 'Night Watch'),
         human('soldier', 'grim', { era: 'scifi', head: 'helm', shoulders: 'pauldrons', weaponR: 'mg' }, 'Ashen'),
-        human('berserker', 'grim', { head: 'horned', shoulders: 'fur', weaponR: 'greatsword' }, 'Oxblood'),
+        human('berserker', 'grim', { weaponR: 'greatsword' }, 'Oxblood'),
       ],
-      mech: { line: 'sd', fixed: { sdType: 'knight' }, palette: 'Black Knight' },
+      mech: { line: 'sd', fixed: { sdType: 'knight', sdStyle: 'heroic' }, palette: 'Black Knight' },
     },
     {
       id: 'dark', letter: 'B', name: 'Dark stylized', refs: 'World of Warcraft · Darkest Dungeon', look: 'dusk',
       stage: { bg: '#1c1a22', floor: '#27242e' },
       rules: [
         '<b>~4 heads tall.</b> Oversized hands, forearms, shoulders and weapons.',
-        '<b>V-taper</b>: big chest, narrow waist, hunched, menacing postures.',
+        '<b>V-taper</b>: big chest, narrow waist, upright and confident.',
         '<b>Heavy brows</b>, small eyes in shadow, and slit lenses for sci-fi.',
         '<b>Muted base</b> with one saturated accent colour.',
       ],
       units: [
         human('rogue', 'dark', { head: 'hood', extra: 'cape', weaponR: 'dagger', weaponL: 'dagger' }, 'Night Watch'),
         human('soldier', 'dark', { era: 'scifi', head: 'helm', shoulders: 'pauldrons', weaponR: 'mg' }, 'Ashen'),
-        human('berserker', 'dark', { head: 'horned', shoulders: 'fur', weaponR: 'greatsword' }, 'Oxblood'),
+        human('berserker', 'dark', { weaponR: 'greatsword' }, 'Oxblood'),
       ],
-      mech: { line: 'sd', fixed: { sdType: 'commander' }, palette: 'Ghost Camo' },
+      mech: { line: 'sd', fixed: { sdType: 'commander', sdStyle: 'heroic' }, palette: 'Ghost Camo' },
     },
     {
       id: 'real', letter: 'C', name: 'Gritty realistic', refs: 'Blasphemous · Kingdom Come · Diablo I', look: 'dusk',
@@ -48,9 +48,9 @@
       units: [
         human('rogue', 'real', { head: 'hood', extra: 'cape', weaponR: 'dagger', weaponL: 'dagger' }, 'Night Watch'),
         human('soldier', 'real', { era: 'scifi', head: 'helm', shoulders: 'pauldrons', weaponR: 'mg' }, 'Ashen'),
-        human('berserker', 'real', { head: 'horned', shoulders: 'fur', weaponR: 'greatsword' }, 'Oxblood'),
+        human('berserker', 'real', { weaponR: 'greatsword' }, 'Oxblood'),
       ],
-      mech: { line: 'sd', fixed: { sdType: 'sniper' }, palette: 'Titans Navy' },
+      mech: { line: 'sd', fixed: { sdType: 'hero', sdStyle: 'heroic' }, palette: 'Titans Navy' },
     },
     {
       id: 'sd', letter: 'Current', name: 'Heroic SD (for comparison)', refs: 'what you saw last round', look: 'bright', current: true,
@@ -84,7 +84,7 @@
     return { bp, rig, pal: MF.buildPalette(bp.colors), fire: 0, fireN: 0 };
   }
 
-  const W = 300, H = 118;
+  const W = 320, H = 150;
   const rows = [];
   const host = document.getElementById('rows');
 
