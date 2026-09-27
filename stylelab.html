@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mecha Factory Style Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Chakra+Petch:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="css/stylelab.css">
+</head>
+<body>
+<main class="lab">
+  <header class="lab-head">
+    <p class="eyebrow">Mecha Factory · style lab</p>
+    <h1>Pick a direction</h1>
+    <p class="lede">The same three test units in each direction: a rogue with two daggers, a soldier with a machine gun and a berserker with a greatsword, plus a mech for scale. Everything here is live and uses the real generator, so whatever you pick becomes the rulebook for every unit.</p>
+    <div class="controls" role="group" aria-label="Animation">
+      <button class="chip is-on" data-mode="idle">Idle</button>
+      <button class="chip" data-mode="walk">Walk</button>
+      <button class="chip" data-mode="attack">Attack</button>
+      <button class="chip" data-mode="turn">Turn around</button>
+      <span class="sep" aria-hidden="true"></span>
+      <label class="dir">Facing <select id="facing" class="select">
+        <option value="0.785">Front ¾ (SE)</option><option value="0">Front (S)</option><option value="1.571">Side (E)</option><option value="2.356">Back ¾ (NE)</option><option value="-0.785">Front ¾ (SW)</option>
+      </select></label>
+    </div>
+  </header>
+  <div id="rows" class="rows"></div>
+  <footer class="lab-foot">
+    <p>Tell Claude the letter you want, or mix: for example "A's proportions with B's faces". The chosen direction gets written into <code>docs/STYLE.md</code> and applied to every human and mech line.</p>
+  </footer>
+</main>
+<script src="js/core.js"></script>
+<script src="js/render.js"></script>
+<script src="js/mechgen.js"></script>
+<script src="js/sdmechs.js"></script>
+<script src="js/humans.js"></script>
+<script src="js/stylelab.js"></script>
+</body>
+</html>

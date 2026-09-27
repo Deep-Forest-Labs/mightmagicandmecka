@@ -10,6 +10,11 @@
     '9': ['111', '101', '111', '001', '111'], '-': ['000', '000', '111', '000', '000'],
   };
 
+  const LOOKS = {
+    bright: { t3: 0.62, t2: 0.08, shadowMin: 1 },
+    dusk: { t3: 0.72, t2: 0.28, shadowMin: 0, rim: { x: 0.62, y: 0.3, z: -0.72, min: -0.25, top: false }, rimTint: MF.color.packRGBA(170, 200, 255), rimMix: 0.35 },
+  };
+
   class Renderer {
     constructor(w, h) { this.resize(w, h); }
     resize(w, h) {
@@ -106,6 +111,18 @@
       this._raster(prims, P, ex, ey, d, ts, W, H, sm.depth, sm.prim, null, null, true);
     }
 
+    // Rim light: silhouette pixels on the side facing the back light (screen right/top), on surfaces turned toward it.
+    _rimEdge(ix, X, Y, W, H, prims, planeIx, rim) {
+      const primIx = this.primIx;
+      const right = X === W - 1 || primIx[ix + 1] < 0;
+      const up = Y === 0 || primIx[ix - W] < 0;
+      if (!right && !(up && rim.top)) return false;
+      const p = prims[primIx[ix]], m = p.world, pl = p.planes, pe = planeIx[ix];
+      const nx = pl[pe * 4], ny = pl[pe * 4 + 1], nz = pl[pe * 4 + 2];
+      const wx = m[0] * nx + m[1] * ny + m[2] * nz, wy = m[3] * nx + m[4] * ny + m[5] * nz, wz = m[6] * nx + m[7] * ny + m[8] * nz;
+      return wx * rim.x + wy * rim.y + wz * rim.z > rim.min;
+    }
+
     // Is world point q in shadow? self = prim index of the surface (convex prims never shadow themselves).
     _inShadow(qx, qy, qz, self, bias) {
       const sm = this.sm;
@@ -132,6 +149,9 @@
       const Ll = Math.hypot(Lraw[0], Lraw[1], Lraw[2]);
       const Lx = Lraw[0] / Ll, Ly = Lraw[1] / Ll, Lz = Lraw[2] / Ll;
       const shadowOn = scene.shadows !== false;
+      // lighting look: 'bright' (default) or 'dusk' (low key, deeper shadows, cool rim light from behind)
+      const look = LOOKS[scene.look] || LOOKS.bright;
+      const T3 = look.t3, T2 = look.t2, shadowMin = look.shadowMin;
 
       const prims = [];
       const units = scene.units;
@@ -226,7 +246,7 @@
             color[ix] = (pal.pack.accent)[e];
             continue;
           }
-          let idx = lum >= 0.62 ? 3 : lum >= 0.08 ? 2 : 1;
+          let idx = lum >= T3 ? 3 : lum >= T2 ? 2 : 1;
           if (matName === 'glass') idx = Math.min(4, idx + (((X + Y) & 3) === 0 && lum > 0 ? 1 : 0));
           // rim highlight: near an edge shared with a brighter visible face
           let best = EW, bj = -1;
@@ -246,7 +266,7 @@
             const wx = m[0] * lx + m[1] * ly + m[2] * lz + m[9];
             const wy = m[3] * lx + m[4] * ly + m[5] * lz + m[10];
             const wz = m[6] * lx + m[7] * ly + m[8] * lz + m[11];
-            if (this._inShadow(wx, wy, wz, pi, 1.3)) idx = Math.max(1, idx - 1);
+            if (this._inShadow(wx, wy, wz, pi, 1.3)) idx = Math.max(shadowMin, idx - 1);
           }
           // surface details
           let rampUse = ramp;
@@ -290,6 +310,10 @@
             const p = prims[pi];
             const pal = units[p._unit].pal;
             out[ix] = far || unitIx[ix] !== unitIx[ix - 1] ? pal.outline : mix(pal.outline, (pal.pack[p.mat] || pal.pack.primary)[0], 0.5);
+          } else if (look.rim && this._rimEdge(ix, X, Y, W, H, prims, planeIx, look.rim)) {
+            const p = prims[pi];
+            const ramp = units[p._unit].pal.pack[p.mat] || units[p._unit].pal.pack.primary;
+            out[ix] = mix(ramp[p.mat === 'accent' ? 4 : 3], look.rimTint, look.rimMix);
           } else out[ix] = color[ix];
         }
       }
@@ -359,16 +383,23 @@
           if (Math.abs(v - (d.at || 0)) < (d.h || 0.9) && Math.abs(u) < (d.w || hu - 1)) res = 200 + 4;
           break;
         }
+        case 'slit': { // helm openings: rects [[u, v, halfW, halfH], ...] cut dark (or glowing thin lenses)
+          for (const q of d.rects || []) if (Math.abs(u - q[0]) < q[2] && Math.abs(v - q[1]) < q[3]) res = d.glow ? 200 + (d.dim ? 3 : 4) : (d.dark != null ? d.dark : 0);
+          break;
+        }
         case 'face': { // tiny face: eye blocks (dark or glowing), optional angry brows (mat2), mouth, beard below `band` (mat2)
           const pts = d.pts || [[-2, 0], [2, 0]];
           const ew = d.size || 0.6, eh = d.h || ew;
+          // fill: whole face in shadow (hooded); shade: darken everything above v (brow / helm shadow)
+          if (d.fill != null) res = d.fill;
+          else if (d.shade != null && v > d.shade) res = Math.max(0, cur - 2);
           if (d.band != null && v < d.band) res = 100 + cur;
           for (const q of pts) {
             const du = Math.abs(u - q[0]), dv = v - q[1];
-            if (du < ew && Math.abs(dv) < eh) res = d.glow ? 204 : (d.dark != null ? d.dark : 0);
+            if (du < ew && Math.abs(dv) < eh) res = d.glint != null ? d.glint : d.glow ? 204 : (d.dark != null ? d.dark : 0);
             else if (d.brow) {
               const by = q[1] + eh + 0.7 + (d.angry ? (Math.abs(u) - Math.abs(q[0])) * 0.45 : 0);
-              if (du < ew + 0.7 && Math.abs(v - by) < 0.55) res = 100 + Math.max(0, Math.min(1, cur - 2));
+              if (du < ew + 0.7 + (d.browW || 0) && Math.abs(v - by) < (d.browT || 0.55)) res = 100 + Math.max(0, Math.min(1, cur - 2));
             }
           }
           if (d.v != null && Math.abs(v - d.v) < 0.5 && Math.abs(u) < (d.mw || 1.2)) res = d.band != null && d.v < d.band ? 100 : 0;

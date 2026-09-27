@@ -13,7 +13,7 @@ const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
 const R = new MF.Renderer(CW, CH);
 const tmp = document.createElement('canvas'); tmp.width=CW; tmp.height=CH;
 seeds.forEach((seed, row) => {
-  const skip = new Set(['seeds','dirs','zoom','phase','move','frame','walk','line','cw','ch','fire','pal']);
+  const skip = new Set(['seeds','dirs','zoom','phase','move','frame','walk','line','cw','ch','fire','pal','look']);
   // slot overrides are passed as locks so the remaining slots roll to match them
   const prev = { line: q.get('line') || 'modular' }, locks = {};
   for (const [k, v] of q.entries()) if (!skip.has(k)) { prev[k] = isNaN(+v) ? v : +v; locks[k] = 1; }
@@ -27,7 +27,7 @@ seeds.forEach((seed, row) => {
     const fire = q.get('fire'); rig.animate({phase: q.get('walk') ? d*Math.PI*2/dirs : phase, move: q.get('walk') ? 1 : move, t: 0, fire: fire ? 1 - d/dirs : 0, fireN: 1});
     const w = MF.matFromEuler(MF.mat(), 0, rig.hover||0, 0, 0, yaw, 0);
     const prims = MF.updateRig(rig.root, w, []);
-    R.render({units:[{prims, pal, x:0, z:0, radius: rig.radius, height: rig.height, selected:false}], cam:{x:0,z:0,pitch:0.55,ox:CW/2,oy:CH-12}, floor:'plain', bg: pal.bg, floorRamp: pal.floor, time:0});
+    R.render({units:[{prims, pal, x:0, z:0, radius: rig.radius, height: rig.height, selected:false}], cam:{x:0,z:0,pitch:0.55,ox:CW/2,oy:CH-12}, floor:'plain', look: q.get('look') || 'bright', bg: pal.bg, floorRamp: pal.floor, time:0});
     tmp.getContext('2d').putImageData(R.image,0,0);
     ctx.drawImage(tmp, d*CW*zoom, row*CH*zoom, CW*zoom, CH*zoom);
   }
