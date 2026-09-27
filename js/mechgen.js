@@ -27,13 +27,47 @@
   const NAMES = ['Bulwark', 'Scorpion', 'Mantis', 'Warden', 'Hornet', 'Goliath', 'Talon', 'Jackal', 'Rook', 'Cinder', 'Paladin', 'Vulture', 'Basilisk', 'Kodiak', 'Stinger', 'Harrier', 'Anvil', 'Wraith', 'Ironclad', 'Tarantula', 'Sabre', 'Colossus', 'Marauder', 'Bastion', 'Onager', 'Kestrel', 'Behemoth', 'Scarab', 'Tempest', 'Grendel', 'Halberd', 'Mule', 'Nomad', 'Specter', 'Hammerhead', 'Locust', 'Raptor', 'Titan', 'Viper', 'Yeti'];
   const PREFIX = ['MK', 'RX', 'VT', 'GX', 'AR', 'TX', 'ZR', 'KV', 'HX', 'M'];
 
+  // ------------------------------------------------------------- product lines
+  // A line is a family of units with its own part slots, random rules and builder.
+  // def: { label, group, slots:[{key,label,options,labels}], weight, random(r, keep, bp), build(ctx),
+  //        palettes?:[names], sizeRange?:[a,b], name?(r, bp), sliders?:[keys] }
+  const LINES = {};
+  function registerLine(id, def) { LINES[id] = Object.assign({ id, weight: 1, group: 'Mechs' }, def); }
+  const lineOf = (bp) => LINES[(bp && bp.line) || 'modular'] || LINES.modular;
+
   // ------------------------------------------------------------- random blueprint
-  function randomBlueprint(seed, locks = {}, prev = null) {
+  // opts.line forces a line (used by the gallery filter); locks keep slot values from prev.
+  function randomBlueprint(seed, locks = {}, prev = null, opts = {}) {
     const r = new RNG(seed);
     const keep = (k, gen) => (locks[k] && prev && prev[k] !== undefined ? prev[k] : gen());
+    const weights = {};
+    for (const id in LINES) if (!opts.group || LINES[id].group === opts.group) weights[id] = LINES[id].weight;
+    let line = keep('line', () => opts.line || r.weighted(weights));
+    if (!LINES[line]) line = 'modular';
+    const def = LINES[line];
+    const bp = { v: 2, seed, line };
+    // a locked slot from another line would be meaningless here
+    const keepL = (k, gen) => (locks[k] && prev && (prev.line || 'modular') === line && prev[k] !== undefined ? prev[k] : gen());
+    def.random(r, keepL, bp);
+    bp.bulk = keep('bulk', () => +r.range(0.8, 1.35).toFixed(2));
+    bp.legLen = keep('legLen', () => +r.range(0.75, 1.3).toFixed(2));
+    bp.tall = keep('tall', () => +r.range(0.8, 1.3).toFixed(2));
+    bp.armLen = keep('armLen', () => +r.range(0.8, 1.25).toFixed(2));
+    bp.edge = keep('edge', () => +r.range(0.8, 2.4).toFixed(1));
+    const sr = def.sizeRange || [1.0, 1.3];
+    bp.size = keepL('size', () => +r.range(sr[0], sr[1]).toFixed(2));
+    const pals = def.palettes || Object.keys(MF.PALETTES).filter((k) => !MF.PALETTES[k].human);
+    bp.palette = keep('palette', () => r.pick(pals));
+    bp.colors = locks.palette && prev && prev.colors ? { ...prev.colors } : { ...MF.PALETTES[bp.palette] };
+    bp.number = keep('number', () => String(r.int(100, 999)));
+    bp.name = keep('name', () => (def.name ? def.name(r, bp) : `${r.pick(PREFIX)}-${bp.number} ${r.pick(NAMES)}`));
+    return bp;
+  }
+
+  function randomModular(r, keep, bp) {
     const frame = keep('frame', () => r.weighted({ biped: 5, strider: 3, spider: 3, crawler: 2, quadruped: 3, tank: 2, hover: 2 }));
     const legged = frame === 'biped' || frame === 'strider';
-    const bp = { v: 1, seed, frame };
+    bp.frame = frame;
     bp.torso = keep('torso', () => {
       if (frame === 'spider' || frame === 'crawler') return r.weighted({ core: 5, block: 2, barrel: 2, wedge: 1, cockpit: 2 });
       if (frame === 'quadruped') return r.weighted({ core: 3, block: 2, cockpit: 3, wedge: 2, barrel: 1 });
@@ -53,17 +87,6 @@
     bp.shoulders = keep('shoulders', () => r.weighted({ pauldron: 4, round: 2, launcher: 2, spiked: 1, shield: 2, none: 2 }));
     bp.back = keep('back', () => r.weighted({ missiles: 3, exhaust: 2, antenna: 2, tank: 2, radar: 1, artillery: 2, wings: 1, jetpack: 2, saw: 1, sensor: 2, none: 2 }));
     bp.scheme = keep('scheme', () => r.weighted({ mono: 2, split: 3, inverse: 1 }));
-    bp.bulk = keep('bulk', () => +r.range(0.8, 1.35).toFixed(2));
-    bp.legLen = keep('legLen', () => +r.range(0.75, 1.3).toFixed(2));
-    bp.tall = keep('tall', () => +r.range(0.8, 1.3).toFixed(2));
-    bp.armLen = keep('armLen', () => +r.range(0.8, 1.25).toFixed(2));
-    bp.edge = keep('edge', () => +r.range(0.8, 2.4).toFixed(1));
-    bp.size = keep('size', () => +r.range(1.0, 1.3).toFixed(2));
-    bp.palette = keep('palette', () => r.pick(Object.keys(MF.PALETTES)));
-    bp.colors = locks.palette && prev && prev.colors ? { ...prev.colors } : { ...MF.PALETTES[bp.palette] };
-    bp.number = keep('number', () => String(r.int(100, 999)));
-    bp.name = keep('name', () => `${r.pick(PREFIX)}-${bp.number} ${r.pick(NAMES)}`);
-    return bp;
   }
 
   // ------------------------------------------------------------- build
@@ -74,15 +97,10 @@
     const e = bp.edge == null ? 1.5 : bp.edge;
     const mats = { mono: ['primary', 'primary', 'secondary'], split: ['primary', 'secondary', 'secondary'], inverse: ['secondary', 'secondary', 'primary'] }[bp.scheme || 'split'];
     const k = bp.size || 1;
-    const ctx = { bp, r, root, bulk, tall, legLen, armLen, e, k, A: mats[0], B: mats[1], T: mats[2], M: 'metal', anims: [], stride: 30, hover: 0 };
+    const ctx = { bp, r, root, bulk, tall, legLen, armLen, e, k, A: mats[0], B: mats[1], T: mats[2], M: 'metal', anims: [], stride: 30, hover: 0, fireDecay: 5 };
     MF.setBuildScale(k);
     try {
-      const hub = buildFrame(ctx);           // returns node the torso sits on
-      const tor = buildTorso(ctx, hub);       // returns anchors
-      buildHead(ctx, tor);
-      buildArm(ctx, tor, -1, bp.armL);
-      buildArm(ctx, tor, 1, bp.armR);
-      buildBack(ctx, tor);
+      lineOf(bp).build(ctx);
     } finally {
       MF.setBuildScale(1);
     }
@@ -98,7 +116,7 @@
     }
     const nodes = MF.findNodes(root);
     return {
-      root, nodes, height: maxY, radius: Math.max(14, rad), stride: ctx.stride, hover: ctx.hover,
+      root, nodes, height: maxY, radius: Math.max(10, rad), stride: ctx.stride, hover: ctx.hover, fireDecay: ctx.fireDecay,
       animate(st) {
         root.reset();
         for (const a of ctx.anims) a(st, nodes);
@@ -862,5 +880,27 @@
     }
   }
 
-  MF.Gen = { OPTIONS, LABELS, randomBlueprint, build, NAMES, PREFIX };
+  function buildModular(ctx) {
+    const { bp } = ctx;
+    const hub = buildFrame(ctx);           // returns node the torso sits on
+    const tor = buildTorso(ctx, hub);       // returns anchors
+    buildHead(ctx, tor);
+    buildArm(ctx, tor, -1, bp.armL);
+    buildArm(ctx, tor, 1, bp.armR);
+    buildBack(ctx, tor);
+  }
+
+  const slot = (key, label, opt) => ({ key, label, options: OPTIONS[opt || key], labels: LABELS[opt || key] });
+  registerLine('modular', {
+    label: 'Modular frame', group: 'Mechs', weight: 4,
+    slots: [slot('frame', 'Chassis'), slot('torso', 'Torso'), slot('head', 'Head'), slot('armL', 'Left arm', 'arm'), slot('armR', 'Right arm', 'arm'), slot('shoulders', 'Shoulders'), slot('back', 'Backpack'), slot('scheme', 'Paint split')],
+    random: randomModular,
+    build: buildModular,
+  });
+
+  MF.Gen = {
+    OPTIONS, LABELS, randomBlueprint, build, NAMES, PREFIX, LINES, registerLine, lineOf,
+    // building blocks other lines can reuse
+    parts: { buildFrame, frameBiped, buildTorso, greebleTorso, buildHead, buildArm, buildShoulderArmor, buildBack, muzzleFlash },
+  };
 })();

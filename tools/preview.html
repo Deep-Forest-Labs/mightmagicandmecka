@@ -1,33 +1,35 @@
 <!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;background:#222}canvas{image-rendering:pixelated;display:block}</style></head><body>
 <canvas id="c"></canvas>
-<script src="../js/core.js"></script><script src="../js/render.js"></script><script src="../js/mechgen.js"></script>
+<script src="../js/core.js"></script><script src="../js/render.js"></script><script src="../js/mechgen.js"></script><script src="../js/sdmechs.js"></script><script src="../js/humans.js"></script>
 <script>
 const q = new URLSearchParams(location.search);
 const seeds = (q.get('seeds')||'1,2,3,4').split(',').map(Number);
 const dirs = +(q.get('dirs')||8), zoom = +(q.get('zoom')||3), phase = +(q.get('phase')||0), move = +(q.get('move')||0);
 const frame = q.get('frame');
-const CW = 96, CH = 100;
+const CW = +(q.get('cw')||96), CH = +(q.get('ch')||100);
 const cv = document.getElementById('c');
 cv.width = CW*dirs*zoom; cv.height = CH*seeds.length*zoom;
 const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
 const R = new MF.Renderer(CW, CH);
 const tmp = document.createElement('canvas'); tmp.width=CW; tmp.height=CH;
 seeds.forEach((seed, row) => {
-  const bp = MF.Gen.randomBlueprint(seed);
+  const bp = MF.Gen.randomBlueprint(seed, {}, null, { line: q.get('line') || undefined });
   if (frame) bp.frame = frame;
-  for (const k of ['torso','head','armL','armR','back','shoulders']) if (q.get(k)) bp[k]=q.get(k);
+  const skip = new Set(['seeds','dirs','zoom','phase','move','frame','walk','line','cw','ch','fire','pal']);
+  for (const [k, v] of q.entries()) if (!skip.has(k)) bp[k] = isNaN(+v) ? v : +v;
+  if (q.get('pal')) bp.colors = { ...MF.PALETTES[q.get('pal')] };
   const rig = MF.Gen.build(bp);
   const pal = MF.buildPalette(bp.colors);
   for (let d=0; d<dirs; d++) {
-    const walk = q.get('walk'); const yaw = walk ? +walk : d*Math.PI*2/dirs;
-    rig.animate({phase: walk ? d*Math.PI*2/dirs : phase, move: walk ? 1 : move, t: 0});
+    const walk = q.get('walk') || q.get('fire'); const yaw = walk ? +walk : d*Math.PI*2/dirs;
+    const fire = q.get('fire'); rig.animate({phase: q.get('walk') ? d*Math.PI*2/dirs : phase, move: q.get('walk') ? 1 : move, t: 0, fire: fire ? 1 - d/dirs : 0, fireN: 1});
     const w = MF.matFromEuler(MF.mat(), 0, rig.hover||0, 0, 0, yaw, 0);
     const prims = MF.updateRig(rig.root, w, []);
     R.render({units:[{prims, pal, x:0, z:0, radius: rig.radius, height: rig.height, selected:false}], cam:{x:0,z:0,pitch:0.55,ox:CW/2,oy:CH-12}, floor:'plain', bg: pal.bg, floorRamp: pal.floor, time:0});
     tmp.getContext('2d').putImageData(R.image,0,0);
     ctx.drawImage(tmp, d*CW*zoom, row*CH*zoom, CW*zoom, CH*zoom);
   }
-  ctx.fillStyle='#fff'; ctx.font='12px monospace'; ctx.fillText(bp.name+' '+bp.frame+'/'+bp.torso+'/'+bp.head+'/'+bp.armL+'/'+bp.armR+'/'+bp.back, 4, row*CH*zoom+14);
+  ctx.fillStyle='#fff'; ctx.font='12px monospace'; const def = MF.Gen.lineOf(bp); ctx.fillText(bp.name+' ['+def.id+'] '+def.slots.map(s=>bp[s.key]).join('/')+' '+Math.round(rig.height)+'px', 4, row*CH*zoom+14);
 });
 document.title='done';
 </script></body></html>

@@ -136,6 +136,15 @@
     'Crimson Ronin':{ primary: '#b3242f', secondary: '#2c2733', metal: '#4b4655', accent: '#ffe066', glass: '#ff9f8a', outline: '#150f15', bg: '#1f1b24', floor: '#1a1720' },
     'Midnight':     { primary: '#3c4066', secondary: '#8b5dd8', metal: '#262638', accent: '#ff4fd8', glass: '#6ff7ff', outline: '#0d0c16', bg: '#17151f', floor: '#13111a' },
     'Olive Drab':   { primary: '#6b7443', secondary: '#c9b98b', metal: '#383932', accent: '#ffb347', glass: '#a8e0ff', outline: '#16170f', bg: '#8c8a78', floor: '#7d7b69' },
+    'Tricolor':     { primary: '#e8ebf1', secondary: '#2d5ccc', metal: '#394057', accent: '#ffd23f', glass: '#5ef0a0', tertiary: '#cf2f3a', outline: '#121626', bg: '#2a3350', floor: '#232b44' },
+    'Red Comet':    { primary: '#cf3a44', secondary: '#7d1f2b', metal: '#3b3040', accent: '#ffd23f', glass: '#ff7fb0', tertiary: '#e6dccb', outline: '#1a0e14', bg: '#2a2230', floor: '#231c29' },
+    // human palettes carry skin / hair / leather and a third cloth colour
+    'Field Company':{ human: true, primary: '#5d6d4b', secondary: '#c9b27a', metal: '#3c3e46', accent: '#ffb02e', glass: '#8ee6ff', skin: '#c98d64', hair: '#2e2320', leather: '#5e4632', tertiary: '#9c2f2f', outline: '#15130e', bg: '#8d8878', floor: '#7d786a' },
+    'Night Blade':  { human: true, primary: '#3b3452', secondary: '#9a2f42', metal: '#a3abbb', accent: '#7cf0c0', glass: '#9cf4ff', skin: '#e0ac85', hair: '#1f1a26', leather: '#4a3326', tertiary: '#c9a45a', outline: '#120f18', bg: '#5b5b63', floor: '#4f4f57' },
+    'Blood Oath':   { human: true, primary: '#7d2b23', secondary: '#cbb28a', metal: '#6c717c', accent: '#ff7a2a', glass: '#ffc38a', skin: '#d9a07a', hair: '#c46a2a', leather: '#5a3a26', tertiary: '#302a2a', outline: '#170d0b', bg: '#7c7c7c', floor: '#6e6e6e' },
+    'Ultramarine':  { human: true, primary: '#2f56aa', secondary: '#e0b84a', metal: '#3b3e4b', accent: '#ff4040', glass: '#ff5a5a', skin: '#c28a6a', hair: '#3a2a22', leather: '#4c3a2e', tertiary: '#e9e4d8', outline: '#0f1220', bg: '#3c3f4a', floor: '#343742' },
+    'Goblin Warband':{ human: true, primary: '#5c4b31', secondary: '#8f3232', metal: '#8f949c', accent: '#ffcf3a', glass: '#ffe28a', skin: '#8fb04a', hair: '#2a2438', leather: '#6a4028', tertiary: '#3c5a8a', outline: '#14120c', bg: '#808080', floor: '#747474' },
+    'Arctic Ranger':{ human: true, primary: '#d6dce5', secondary: '#4a6a8a', metal: '#565b67', accent: '#6ff0ff', glass: '#a8f4ff', skin: '#e8b894', hair: '#e6e0cf', leather: '#7a5a44', tertiary: '#b8323c', outline: '#141822', bg: '#4b5566', floor: '#414a5a' },
   };
 
   // Build render-ready palette: RGB ramps per material + packed outline/floor colours.
@@ -146,6 +155,10 @@
       metal: makeRamp(base.metal, { shift: 6 }),
       accent: makeRamp(base.accent, { shift: 4 }),
       glass: makeRamp(base.glass, { shift: 4 }),
+      skin: makeRamp(base.skin || '#d99a6c', { shift: 7 }),
+      hair: makeRamp(base.hair || '#3b2a26', { shift: 6 }),
+      leather: makeRamp(base.leather || '#6e4a33', { shift: 7 }),
+      tertiary: makeRamp(base.tertiary || '#b8323c', { shift: 7 }),
     };
     const pack = {};
     for (const k in ramps) pack[k] = ramps[k].map((c) => packRGBA(c[0], c[1], c[2]));
@@ -218,7 +231,13 @@
     ends: [[0,1,1],[0,-1,1],[0,1,-1],[0,-1,-1]], // z-ends (tank treads)
     xends: [[1,1,0],[1,-1,0],[-1,1,0],[-1,-1,0]],
   };
+  EDGES.corners = [[1,1,1],[1,1,-1],[1,-1,1],[1,-1,-1],[-1,1,1],[-1,1,-1],[-1,-1,1],[-1,-1,-1]];
   function chamfer(set, c, list = []) {
+    if (set === 'round') { // pebble: all edges plus deeper corner cuts
+      chamfer('all', c, list);
+      for (const e of EDGES.corners) list.push([e[0], e[1], e[2], c * 1.9]);
+      return list;
+    }
     for (const e of EDGES[set]) list.push([e[0], e[1], e[2], c]);
     return list;
   }
