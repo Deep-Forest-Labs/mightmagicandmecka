@@ -581,7 +581,8 @@
   function randomSD(r, keep, bp) {
     const type = keep('sdType', () => r.weighted({ hero: 5, commander: 4, heavy: 3, knight: 3, sniper: 3, brawler: 3, ace: 3, corsair: 2 }));
     bp.sdType = type;
-    bp.sdStyle = keep('sdStyle', () => 'sd'); // heroic / frame only when locked or set explicitly (no RNG draw)
+    // art direction: Military frame is the default for new units (no RNG draw, so seeds keep their other rolls)
+    bp.sdStyle = keep('sdStyle', () => 'frame');
     const L0 = LOADOUT[type] || LOADOUT.hero, F = bp.sdStyle === 'frame' ? FRAME_LOADOUT[type] || {} : {};
     const L = {};
     for (const k in L0) L[k] = F[k] ? Object.assign({}, L0[k], F[k]) : L0[k];
@@ -1138,7 +1139,7 @@
   // ------------------------------------------------------------------ register
   const opt = (key, label, labels) => ({ key, label, options: Object.keys(labels), labels });
   G.registerLine('sd', {
-    label: 'Heroic frame (SD)', group: 'Mechs', weight: 4,
+    label: 'Mech frame', group: 'Mechs', weight: 5,
     slots: [
       opt('sdType', 'Archetype', TYPES),
       opt('sdStyle', 'Proportions', STYLES),
@@ -1151,7 +1152,8 @@
     ],
     random: randomSD,
     build: buildSD,
-    palettes: SD_PALETTES,
+    // the military palettes lead; the bright Gundam sets stay available in the paint menu
+    palettes: ['Sand Frame', 'Field Olive', 'Navy Anchor', 'Bone White', 'Corsair', 'Titans Navy', 'Ghost Camo', 'Black Knight', 'Zaku Green'],
     sizeRange: [0.95, 1.2],
     name(r, bp) {
       const t = NAME_WORDS[bp.sdType] ? bp.sdType : 'hero';
