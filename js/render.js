@@ -420,7 +420,7 @@
           const text = String(d.text || '318');
           const sc = d.scale || 1;
           const tw = text.length * 4 - 1;
-          const bu = Math.floor((u - (d.u || 0)) / sc + tw / 2), bv = Math.floor(((d.v || 0) - v) / sc + 2.5);
+          const bu = Math.floor(-(u - (d.u || 0)) / sc + tw / 2), bv = Math.floor(((d.v || 0) - v) / sc + 2.5);
           if (bv >= 0 && bv < 5 && bu >= 0 && bu < tw) {
             const ci = Math.floor(bu / 4), col = bu % 4;
             const g = DIGITS[text[ci]];

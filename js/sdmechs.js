@@ -352,7 +352,7 @@
     },
 
     armCannon: {
-      label: 'Heavy cannon', hand: true, pose: 'aim', attack: 'heavy',
+      label: 'Heavy cannon', hand: true, pose: 'aim', attack: 'heavy', lowReady: true,
       build(ctx, g, s, o) { // big cannon with a cluster of missile tubes under the barrel
         const id = o.id;
         const body = g.child(id + 'slide', [0, 2, 0]);
@@ -720,7 +720,7 @@
       const support = (s === Lf && twoR) || (s === R && twoL);
       const pk = support ? 'support' : W.pose || 'fist';
       const pose = POSES[pk];
-      const rest = relaxed ? POSES_H[W.twoHand && pk === 'aim' ? 'aimLow' : pk] : pose;
+      const rest = relaxed ? POSES_H[(W.twoHand || W.lowReady) && pk === 'aim' ? 'aimLow' : pk] : pose;
       const pad = torso.child('pad' + s, [s * shX, shY, 0]);
       buildPad(ctx, pad, s, A.pad, A.padS * (0.9 + 0.1 * bulk), bev);
       if (frame && pad.prims[0]) pad.prims[0].detail = { type: 'band', face: 'side', dir: 'h', at: 0, size: 0.9, mat2: MK }; // hazard stripe
