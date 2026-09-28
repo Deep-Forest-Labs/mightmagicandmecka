@@ -875,7 +875,7 @@
   let saveTimer = 0;
   function saveHangar() {
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => store.set('hangar.v2', S.units.map((u) => ({ bp: u.bp, x: Math.round(u.x), z: Math.round(u.z), yaw: u.yaw }))), 300);
+    saveTimer = setTimeout(() => store.set('hangar.v3', S.units.map((u) => ({ bp: u.bp, x: Math.round(u.x), z: Math.round(u.z), yaw: u.yaw }))), 300);
   }
 
   // ------------------------------------------------------------ hud controls
@@ -935,13 +935,13 @@
       return Object.assign(G.randomBlueprint(seed, locks, prev, { line }), extra);
     };
     return [
-      mkLine(12, 'sd', { sdType: 'hero' }, 'Tricolor', { name: 'RX-078 Paragon', number: '078' }),
-      mkLine(21, 'sd', { sdType: 'commander' }, 'Zaku Green', { name: 'MS-06 Warlord', number: '006' }),
-      mkLine(33, 'sd', { sdType: 'knight' }, 'Red Comet', { name: 'XM-07 Ronin', number: '007' }),
-      mkLine(2, 'human', { role: 'rogue', era: 'fantasy', head: 'hood', weaponR: 'dagger', weaponL: 'dagger' }, 'Night Blade', { name: 'Vex Nightstep' }),
-      mkLine(6, 'human', { role: 'soldier', era: 'scifi', head: 'helm', shoulders: 'pauldrons', weaponR: 'mg' }, 'Ultramarine', { name: 'Sgt. Harlan "Lucky"' }),
-      mkLine(3, 'human', { role: 'berserker', era: 'fantasy', head: 'horned', shoulders: 'fur', weaponR: 'greatsword' }, 'Blood Oath', { name: 'Ulfgar Oathbreaker' }),
-      mk(318, { frame: 'spider', torso: 'core', head: 'none', armL: 'none', armR: 'none', shoulders: 'none', back: 'missiles', scheme: 'split', bulk: 1.2, legLen: 1.05, tall: 1.05, edge: 2.2, size: 1.15, palette: 'Rust Crab', colors: { ...MF.PALETTES['Rust Crab'] }, number: '318', name: 'TX-318 Tarantula' }),
+      mkLine(12, 'sd', { sdType: 'hero', sdStyle: 'frame' }, 'Sand Frame', { name: 'RX-783 Valor', number: '783' }),
+      mkLine(21, 'sd', { sdType: 'heavy', sdStyle: 'frame' }, 'Navy Anchor', { name: 'RX-406 Bulwark', number: '406' }),
+      mkLine(33, 'sd', { sdType: 'corsair', sdStyle: 'frame' }, 'Corsair', { name: 'CX-624 Buccaneer', number: '624' }),
+      mkLine(2, 'human', { role: 'rogue', style: 'blend', era: 'fantasy', head: 'hood', extra: 'cape', weaponR: 'dagger', weaponL: 'dagger' }, 'Night Watch', { name: 'Kestrel Ashveil' }),
+      mkLine(6, 'human', { role: 'soldier', style: 'blend', era: 'scifi', head: 'helm', shoulders: 'pauldrons', weaponR: 'mg' }, 'Ashen', { name: 'Cpl. Voss "Lucky"' }),
+      mkLine(3, 'human', { role: 'berserker', style: 'blend', era: 'fantasy', weaponR: 'greatsword' }, 'Oxblood', { name: 'Ulfgar Skullsplitter' }),
+      mkLine(9, 'sd', { sdType: 'sniper', sdStyle: 'frame' }, 'Field Olive', { name: 'RGM-156 Specter', number: '156' }),
     ];
   }
 
@@ -949,10 +949,10 @@
     buildEditor();
     bindHud();
     resizeHangar();
-    const saved = store.get('hangar.v2', null);
+    const saved = store.get('hangar.v3', null);
     const starter = () => {
       // humans in front, mechs behind
-      const xs = [-80, 0, 80, -54, -8, 42, 150], zs = [-26, -26, -26, 30, 30, 30, 0];
+      const xs = [-130, -10, 110, -55, -10, 40, 210], zs = [-36, -36, -36, 34, 34, 34, -12];
       return starterBlueprints().map((bp, i) => ({ bp, x: xs[i], z: zs[i], yaw: 0 }));
     };
     const list = Array.isArray(saved) && saved.length ? saved : starter();

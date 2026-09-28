@@ -5,6 +5,22 @@
   const human = (role, style, fixed, palette) => ({ line: 'human', fixed: Object.assign({ role, style, era: 'fantasy' }, fixed), palette });
   const STYLES = [
     {
+      id: 'blend', letter: 'A+B', name: 'Dark heroic (your pick)', refs: 'A grim heroic × B dark stylized', look: 'dusk', picked: true,
+      stage: { bg: '#1c1a20', floor: '#28252d' },
+      rules: [
+        '<b>~4.5 heads tall</b>, upright and confident, with the head level.',
+        "<b>B's mass</b>: oversized hands, forearms and shoulders, and a V-taper.",
+        "<b>A's armour</b>: angular plate and hidden faces behind hoods and slit helms.",
+        '<b>Two clear legs</b>: splayed, staggered stance with a gap from crotch to feet.',
+      ],
+      units: [
+        human('rogue', 'blend', { head: 'hood', extra: 'cape', weaponR: 'dagger', weaponL: 'dagger' }, 'Night Watch'),
+        human('soldier', 'blend', { era: 'scifi', head: 'helm', shoulders: 'pauldrons', weaponR: 'mg' }, 'Ashen'),
+        human('berserker', 'blend', { weaponR: 'greatsword' }, 'Oxblood'),
+      ],
+      mech: { line: 'sd', fixed: { sdType: 'heavy', sdStyle: 'frame' }, palette: 'Navy Anchor' },
+    },
+    {
       id: 'grim', letter: 'A', name: 'Grim heroic', refs: 'Warhammer Fantasy · Diablo II', look: 'dusk',
       stage: { bg: '#1d1b20', floor: '#29262c' },
       rules: [
@@ -119,7 +135,7 @@
     const stagePal = MF.buildPalette(Object.assign({}, MF.PALETTES['Snowcat'], { bg: st.stage.bg, floor: st.stage.floor }));
 
     const row = document.createElement('section');
-    row.className = 'row' + (st.current ? ' is-current' : '');
+    row.className = 'row' + (st.current ? ' is-current' : '') + (st.picked ? ' is-picked' : '');
     row.setAttribute('aria-label', `${st.letter}: ${st.name}`);
     row.innerHTML = `
       <div class="row-text">

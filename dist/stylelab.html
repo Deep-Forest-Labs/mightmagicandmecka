@@ -40,6 +40,8 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
 .rows { display: grid; gap: 20px; }
 .row { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 20px; padding: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; }
 .row.is-current { opacity: .78; }
+.row.is-picked { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+.row.is-picked .row-letter { font-size: 34px; }
 .row-text { display: grid; align-content: start; gap: 8px; }
 .row-letter { font: 700 44px/1 var(--f-display); color: var(--gold); }
 .row.is-current .row-letter { color: var(--faint); font-size: 22px; letter-spacing: .06em; }
@@ -67,8 +69,8 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
 <main class="lab">
   <header class="lab-head">
     <p class="eyebrow">Mecha Factory · style lab</p>
-    <h1>Pick a direction</h1>
-    <p class="lede">The same three test units in each direction: a rogue with two daggers, a soldier with a machine gun and an armoured berserker with a greatsword, next to a military-frame mech for scale. Row M shows the new mech direction built from your references. Everything here is live and uses the real generator, so whatever you pick becomes the rulebook for every unit.</p>
+    <h1>Direction: dark heroic</h1>
+    <p class="lede">The same three test units in each direction: a rogue with two daggers, a soldier with a machine gun and an armoured berserker with a greatsword, next to a military-frame mech for scale. The top row is your pick, a blend of A and B. Row M is the military-frame mech direction built from your references. The other rows stay for comparison. Everything here is live and uses the real generator, so whatever you pick becomes the rulebook for every unit.</p>
     <div class="controls" role="group" aria-label="Animation">
       <button class="chip is-on" data-mode="idle">Idle</button>
       <button class="chip" data-mode="walk">Walk</button>
@@ -1769,7 +1771,7 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
 
   const slot = (key, label, opt) => ({ key, label, options: OPTIONS[opt || key], labels: LABELS[opt || key] });
   registerLine('modular', {
-    label: 'Modular frame', group: 'Mechs', weight: 4,
+    label: 'Modular frame', group: 'Mechs', weight: 2,
     slots: [slot('frame', 'Chassis'), slot('torso', 'Torso'), slot('head', 'Head'), slot('armL', 'Left arm', 'arm'), slot('armR', 'Right arm', 'arm'), slot('shoulders', 'Shoulders'), slot('back', 'Backpack'), slot('scheme', 'Paint split')],
     random: randomModular,
     build: buildModular,
@@ -2366,7 +2368,8 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
   function randomSD(r, keep, bp) {
     const type = keep('sdType', () => r.weighted({ hero: 5, commander: 4, heavy: 3, knight: 3, sniper: 3, brawler: 3, ace: 3, corsair: 2 }));
     bp.sdType = type;
-    bp.sdStyle = keep('sdStyle', () => 'sd'); // heroic / frame only when locked or set explicitly (no RNG draw)
+    // art direction: Military frame is the default for new units (no RNG draw, so seeds keep their other rolls)
+    bp.sdStyle = keep('sdStyle', () => 'frame');
     const L0 = LOADOUT[type] || LOADOUT.hero, F = bp.sdStyle === 'frame' ? FRAME_LOADOUT[type] || {} : {};
     const L = {};
     for (const k in L0) L[k] = F[k] ? Object.assign({}, L0[k], F[k]) : L0[k];
@@ -2923,7 +2926,7 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
   // ------------------------------------------------------------------ register
   const opt = (key, label, labels) => ({ key, label, options: Object.keys(labels), labels });
   G.registerLine('sd', {
-    label: 'Heroic frame (SD)', group: 'Mechs', weight: 4,
+    label: 'Mech frame', group: 'Mechs', weight: 5,
     slots: [
       opt('sdType', 'Archetype', TYPES),
       opt('sdStyle', 'Proportions', STYLES),
@@ -2936,7 +2939,8 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
     ],
     random: randomSD,
     build: buildSD,
-    palettes: SD_PALETTES,
+    // the military palettes lead; the bright Gundam sets stay available in the paint menu
+    palettes: ['Sand Frame', 'Field Olive', 'Navy Anchor', 'Bone White', 'Corsair', 'Titans Navy', 'Ghost Camo', 'Black Knight', 'Zaku Green'],
     sizeRange: [0.95, 1.2],
     name(r, bp) {
       const t = NAME_WORDS[bp.sdType] ? bp.sdType : 'hero';
@@ -2988,6 +2992,12 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
   // head/limbs/chest: shape multipliers; U,F arms; pads pauldron scale; ws weapon scale; blade greatsword length;
   // lean/headZ posture; crouch knee bend; bob/armSwing/lift/swing motion damping; bevel armour chamfer scale.
   const STYLES = {
+    // A+B blend (the art director's pick): B's oversized hands, forearms, shoulders, V-taper and chunky weapons on
+    // A's taller heroic frame (~4.5 heads), with A's angular armour and hidden faces; upright and confident.
+    blend: { label: 'Dark heroic (A+B)', head: 0.76, legs: 1.4, torso: 1.1, legW: 0.84, boot: 0.95, chestW: 1.28, chestD: 1.05, waist: 0.6, taper: 2.1, shX: 1.1,
+      U: 0.96, F: 0.94, aw: 1.0, fore: 1.5, fist: 1.38, pads: 1.05, ws: 1.2, blade: 0.95, headZ: 0.2, neck: 1.5,
+      bob: 0.35, armSwing: 0.55, lift: 0.75, swing: 0.85, bevel: 0.4,
+      H: { rogue: 46, soldier: 49, berserker: 57, sniper: 50, knight: 51, heavy: 53 } },
     grim: { label: 'Grim heroic', head: 0.66, legs: 1.6, torso: 1.0, legW: 0.95, boot: 0.92, chestW: 1.08, chestD: 1.0, waist: 0.9, taper: 1.3, shX: 1.0,
       U: 0.78, F: 0.76, aw: 0.95, fore: 1.1, fist: 0.9, pads: 0.95, ws: 1.12, blade: 1.0, headZ: 0.2, neck: 1.6,
       bob: 0.35, armSwing: 0.55, lift: 0.75, swing: 0.85, bevel: 0.4,
@@ -3100,7 +3110,7 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
   // ------------------------------------------------------------- slots
   const OPT = {
     role: ['rogue', 'soldier', 'berserker', 'sniper', 'knight', 'heavy'],
-    style: ['sd', 'grim', 'dark', 'real'],
+    style: ['sd', 'blend', 'grim', 'dark', 'real'],
     era: ['fantasy', 'scifi'],
     head: ['hood', 'helm', 'horned', 'visor', 'bare'],
     shoulders: ['pauldrons', 'fur', 'spiked', 'light', 'none'],
@@ -3109,7 +3119,7 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
   const LBL = {
     role: { rogue: 'Rogue', soldier: 'Soldier', berserker: 'Berserker', sniper: 'Sniper', knight: 'Knight', heavy: 'Heavy flamer' },
     era: { fantasy: 'High fantasy', scifi: 'Grimdark sci-fi' },
-    style: { sd: 'Heroic SD (chibi)', grim: 'Grim heroic', dark: 'Dark stylized', real: 'Gritty realistic' },
+    style: { sd: 'Heroic SD (chibi)', blend: 'Dark heroic (A+B)', grim: 'Grim heroic', dark: 'Dark stylized', real: 'Gritty realistic' },
     head: { hood: 'Hood', helm: 'Helmet', horned: 'Horned / crested war helm', visor: 'Visored helm', bare: 'Bare head' },
     shoulders: { pauldrons: 'Big pauldrons', fur: 'Fur mantle', spiked: 'Spiked plates', light: 'Leather caps', none: 'None' },
     extra: { scarf: 'Scarf', cape: 'Cape', backpack: 'Backpack', tanks: 'Fuel tanks', banner: 'Back banner', none: 'None' },
@@ -3161,13 +3171,17 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
   function buildLegsStyled(ctx, H) {
     const { P, M, sci } = H;
     const [a1, a2] = P.crouch;
-    const hipY = P.aY + P.thigh * Math.cos(a1) + P.shin * Math.cos(a1 + a2);
+    // A-frame: each leg hangs from a splay joint so the feet land ~1.5x the hip width apart
+    P.splay = Math.asin(clamp((0.6 * P.hipX) / (P.thigh + P.shin), 0, 0.3));
+    const hipY = P.aY + (P.thigh * Math.cos(a1) + P.shin * Math.cos(a1 + a2)) * Math.cos(P.splay);
     const pelvis = ctx.root.child('pelvis', [0, hipY, 0]);
     P.hipY = hipY;
     const lw = P.legW, [bw, bh, bl] = P.boot, plate = !!M.greave, brute = H.body === 'brute';
+    H.hips = {};
     for (const s of [-1, 1]) {
-      const hip = pelvis.child('hip' + s, [s * P.hipX, 0, 0], [a1, 0, 0]);
-      hip.cone('y', lw * 0.34, lw * 0.52, P.thigh + 1.6, { at: [0, -P.thigh / 2 + 0.4, 0], mat: M.thigh, sides: 8, twist: PI / 8 });
+      const sp = pelvis.child('splay' + s, [s * P.hipX, 0, 0], [0, 0, s * P.splay]);
+      const hip = H.hips[s] = sp.child('hip' + s, [0, 0, 0], [a1, 0, 0]);
+      hip.cone('y', lw * 0.3, lw * 0.44, P.thigh + 1.6, { at: [s * 0.25, -P.thigh / 2 + 0.4, 0], mat: M.thigh, sides: 8, twist: PI / 8 }); // slim at the crotch
       if (plate) hip.box(lw * 0.9, P.thigh * 0.55, lw * 0.5, { at: [0, -P.thigh * 0.55, lw * 0.3], mat: M.greave, cuts: [[1, 0, 1, lw * 0.2], [-1, 0, 1, lw * 0.2], [0, -1, 1, lw * 0.15]] }); // cuisse
       const knee = hip.child('knee' + s, [0, -P.thigh, 0], [a2, 0, 0]);
       knee.cone('y', lw * 0.3, lw * 0.44, P.shin * 0.5, { at: [0, -P.shin * 0.28, -0.3], mat: M.shin, sides: 8, twist: PI / 8 }); // calf
@@ -3231,7 +3245,7 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
     const { P, role, sci } = H;
     const [W, Ht, D] = P.chest;
     const chest = pelvis.child('chest', [0, 1.5, 0], [P.lean, 0, 0]);
-    const hw = P.hipX * 2 + P.legW;
+    const hw = H.sd ? P.hipX * 2 + P.legW : P.hipX * 2 + P.legW * 0.55; // styled: narrow waist block, notch at the crotch
     if (!H.sd && H.body === 'brute') {
       bruteArmor(ctx, H, pelvis, chest);
     } else if (H.body === 'lean') {
@@ -3290,7 +3304,7 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
         chest.box(2.4, 3.2, 1.6, { at: [0, Ht * 0.68, D / 2 + 0.6], mat: 'secondary', bevel: 0.5 });
         chest.box(W * 0.55, 2.6, D * 0.72, { at: [0, Ht + 0.3, -0.4], mat: 'metal', bevel: 0.8 });
       } else {
-        pelvis.box(W * 0.42, 8, 1.2, { at: [0, -3.2, P.legW / 2 + 2.4], mat: 'primary', cuts: [[1, -1, 0, 1], [-1, -1, 0, 1]], detail: { type: 'band', face: '+z', dir: 'v', at: 0, size: 0.8, mat2: 'tertiary' } });
+        pelvis.box(W * (H.sd ? 0.42 : 0.3), H.sd ? 8 : 4.5, 1.2, { at: [0, H.sd ? -3.2 : -1.6, P.legW / 2 + 2.4], mat: 'primary', cuts: [[1, -1, 0, 1], [-1, -1, 0, 1]], detail: { type: 'band', face: '+z', dir: 'v', at: 0, size: 0.8, mat2: 'tertiary' } });
         chest.box(W * 0.8 * P.waist, 5, D * 0.8, { at: [0, 2, 0], mat: 'primary', bevel: 1 });
         if (!H.sd) for (let i = 0; i < 2; i++) chest.box(W * (0.86 + i * 0.06), 2.4, D * (0.9 + i * 0.05), { at: [0, 1.6 - i * 2.2, 0.1], mat: 'metal', bevel: 0.3, detail: { type: 'band', face: 'notTop', at: -0.6, size: 0.4, mat2: 'secondary' } });
         chest.box(W * 0.94, Ht * 0.7, D, { at: [0, Ht * 0.6, 0], mat: 'metal', bevel: H.sd ? 2 : 0.9, cuts: [[1, -1, 0, 3 * P.taper], [-1, -1, 0, 3 * P.taper]], detail: { type: 'panel', face: '+z', at: 0, dir: 'v' } });
@@ -3315,15 +3329,15 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
     const { P, sci } = H;
     const [W, Ht, D] = P.chest;
     const A = sci ? 'primary' : 'metal', T = sci ? 'secondary' : 'primary', cloth = sci ? 'metal' : 'primary';
-    const hw = P.hipX * 2 + P.legW;
-    pelvis.box(hw + 2, 3.6, P.legW + 4.5, { at: [0, 0.8, 0.2], mat: A, bevel: 0.4, detail: { type: 'band', face: 'notTop', at: 0, size: 0.5, mat2: T } });
+    const hw = P.hipX * 2 + P.legW * 0.55;
+    pelvis.box(hw + 1.4, 3.6, P.legW + 4.5, { at: [0, 0.8, 0.2], mat: A, bevel: 0.4, detail: { type: 'band', face: 'notTop', at: 0, size: 0.5, mat2: T } });
     pelvis.box(4, 4, 1.4, { at: [0, 0.8, P.legW / 2 + 2.6], mat: T, cuts: [[1, -1, 0, 1.2], [-1, -1, 0, 1.2]], detail: { type: 'light', face: '+z', pts: [[0, 0.3]], size: 0.5 } });
-    pelvis.box(3.4, P.thigh * 0.7, 0.9, { at: [0, -P.thigh * 0.32, P.legW / 2 + 2.2], rot: [-0.05, 0, 0], mat: cloth, cuts: [[1, -1, 0, 1], [-1, -1, 0, 1]], detail: sci ? { type: 'vent', face: '+z', pitch: 1.6, inset: 0.5 } : { type: 'band', face: '+z', at: -P.thigh * 0.2, size: 0.5, mat2: 'metal' } });
-    pelvis.box(5, P.thigh * 0.8, 0.9, { at: [0, -P.thigh * 0.35, -P.legW / 2 - 2.2], rot: [0.06, 0, 0], mat: cloth, cuts: [[1, -1, 0, 1.5], [-1, -1, 0, 1.5]] });
+    pelvis.box(2.6, P.thigh * 0.42, 0.9, { at: [0, -P.thigh * 0.2, P.legW / 2 + 2.2], rot: [-0.05, 0, 0], mat: cloth, cuts: [[1, -1, 0, 1], [-1, -1, 0, 1]], detail: sci ? { type: 'vent', face: '+z', pitch: 1.6, inset: 0.5 } : { type: 'band', face: '+z', at: -P.thigh * 0.2, size: 0.5, mat2: 'metal' } });
+    pelvis.box(3, P.thigh * 0.45, 0.9, { at: [0, -P.thigh * 0.2, -P.legW / 2 - 2.2], rot: [0.06, 0, 0], mat: cloth, cuts: [[1, -1, 0, 1], [-1, -1, 0, 1]] });
     for (const s of [-1, 1]) { // tassets ride on the thighs
-      const hip = pelvis.children.find((c) => c.name === 'hip' + s);
-      hip.box(P.legW + 1.6, P.thigh * 0.42, P.legW * 0.9 + 1.6, { at: [s * 0.9, -P.thigh * 0.12, 0.3], rot: [0, 0, s * 0.18], mat: A, cuts: [[0, -1, 1, 1.2], [s, -1, 0, 1.5]], detail: { type: 'band', face: 'notTop', at: -P.thigh * 0.12, size: 0.5, mat2: T } });
-      hip.box(P.legW + 1.2, P.thigh * 0.3, P.legW * 0.8 + 1.2, { at: [s * 1.2, -P.thigh * 0.42, 0.5], rot: [0, 0, s * 0.22], mat: A, cuts: [[0, -1, 1, 1], [s, -1, 0, 1.2]] });
+      const hip = H.hips[s];
+      hip.box(P.legW + 1.2, P.thigh * 0.42, P.legW * 0.9 + 1.6, { at: [s * 1.5, -P.thigh * 0.12, 0.3], rot: [0, 0, s * 0.22], mat: A, cuts: [[0, -1, 1, 1.2], [s, -1, 0, 1.5]], detail: { type: 'band', face: 'notTop', at: -P.thigh * 0.12, size: 0.5, mat2: T } });
+      hip.box(P.legW + 0.8, P.thigh * 0.3, P.legW * 0.8 + 1.2, { at: [s * 1.8, -P.thigh * 0.42, 0.5], rot: [0, 0, s * 0.26], mat: A, cuts: [[0, -1, 1, 1], [s, -1, 0, 1.2]] });
     }
     chest.box(W * 0.64 * P.waist, 5, D * 0.78, { at: [0, 2.2, 0], mat: A, bevel: 0.4, detail: { type: 'band', face: 'notTop', at: 0.6, size: 0.5, mat2: T } });
     chest.box(W * 0.72 * P.waist, 2.2, D * 0.84, { at: [0, 4.8, 0.1], mat: A });
@@ -3644,7 +3658,7 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
       c1.box(W * 0.95, len * 0.55, 1.2, { at: [0, -len * 0.27, 0], mat: H.sd ? 'secondary' : 'primary', cuts: [[1, 1, 0, 1.5], [-1, 1, 0, 1.5]] });
       const c2 = c1.child('cape2', [0, -len * 0.54, 0], [0.05, 0, 0]);
       if (!H.sd) { // torn hem: three ragged strips of different lengths
-        for (const [x, l] of [[-0.34, 0.5], [0, 0.36], [0.34, 0.46]]) c2.box(W * 0.36, len * l, 1.1, { at: [W * x, -len * l / 2, 0], mat: 'primary', cuts: [[1, -1, 0, 1.2], [-1, -1, 0, 0.6]] });
+        for (const [x, l] of [[-0.33, 0.5], [0.33, 0.44]]) c2.box(W * 0.34, len * l, 1.1, { at: [W * x, -len * l / 2, 0], mat: 'primary', cuts: [[1, -1, 0, 1.2], [-1, -1, 0, 0.6]] }); // split, ragged
       } else
       c2.box(W * 1.05, len * 0.5, 1.2, { at: [0, -len * 0.24, 0], mat: 'secondary', cuts: [[1, -1, 0, 1], [-1, -1, 0, 1]], detail: { type: 'band', face: '-z', at: -len * 0.2, size: 0.8, mat2: 'tertiary' } });
       H.flow.push({ n: 'cape1', base: 0.1, amp: 0.04, walk: 0.35, ph: 0, lean: true }, { n: 'cape2', base: 0.05, amp: 0.06, walk: 0.25, ph: 0.9 });
@@ -4101,6 +4115,10 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
             // rest: grip in front of the chest, blade over the shoulder (angle th: 0 = forward, PI/2 = up, PI = back)
             // th is the blade's pitch in world terms (0 forward, PI/2 up, PI back); chest pitch is added below
             let rest = { p: [shs[0] * 0.55, P.chest[1] * 0.45 + Math.sin(st.phase * 2) * 0.5 * m, P.chest[2] * 0.5 + 2.5], th: 2.42, lat: s * 0.3, roll: -s * 1.2 };
+            if (!H.sd && GREATSWORD_REST === 'shoulder') { // over the shoulder, laid back just enough to fit a 64px cell
+              const gy = P.hipY + 1.5 + rest.p[1], reach = (P.fist * 0.5 + (5.2 + L) * ws) / Math.hypot(1, rest.lat);
+              rest.th = Math.max(2.42, PI - Math.asin(clamp((61 - gy) / reach, 0, 1)));
+            }
             if (!H.sd && GREATSWORD_REST === 'low') { // held low in both hands, point resting just above the ground ahead
               const p = [shs[0] * 0.3, -P.chest[1] * 0.02 + Math.sin(st.phase * 2) * 0.3 * m, P.chest[2] * 0.5 + 2.5];
               const L0 = P.lean + P.walkLean * m;
@@ -4111,6 +4129,10 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
             }
             const wind = { p: [shs[0] * 0.15, shs[1] + P.U * 0.6, -1], th: 2.95, lat: s * 0.1, roll: -s * 1.4 };
             const hit = { p: [-shs[0] * 0.05, -P.chest[1] * 0.1, P.chest[2] * 0.5 + P.F + 2], th: -0.3, lat: -s * 0.05, roll: -s * 1.5 };
+            if (!H.sd) { // styled: stop the slam with the point just above the ground (the crouch lowers the grip a little)
+              const gy = P.hipY - 3 + 1.5 + hit.p[1], reach = P.fist * 0.5 + (5.2 + L) * ws;
+              hit.th = Math.max(-0.3, -Math.asin(clamp((gy - 2) / reach, 0, 1)));
+            }
             let k = rest;
             if (f > 0) {
               const u = 1 - f;
@@ -4147,7 +4169,7 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
     const P = Object.assign({}, b);
     P.head = b.head * S.head; P.headDrop = b.headDrop * S.head - S.neck; P.headZ = b.headZ * S.headZ;
     P.thigh = b.thigh * S.legs; P.shin = b.shin * S.legs; P.legW = b.legW * S.legW;
-    P.hipX = Math.max(b.hipX * S.legW, P.legW * 0.52 + 1.25); // a real gap between the thighs
+    P.hipX = Math.max(b.hipX * S.legW, P.legW * 0.46 + 1.8); // wide hip joints: a clear gap between the thighs
     P.boot = b.boot.map((v) => v * S.boot); P.aY = b.aY * Math.max(0.85, S.boot);
     const bw0 = b.body === 'brute' ? S.bruteW || 1 : 1;
     P.chest = [b.chest[0] * S.chestW * bw0, b.chest[1] * S.torso, b.chest[2] * S.chestD * bw0];
@@ -4180,7 +4202,7 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
       thigh: base.thigh * lw, shin: base.shin * lw, legW: base.legW * bw, hipX: base.hipX * bw,
       chest: [base.chest[0] * bw, base.chest[1] * tw, base.chest[2] * bw], shX: base.shX * bw, U: base.U * aw, F: base.F * aw, aw: base.aw * bw,
     });
-    const H = { hangP: {}, k: ctx.k, relax: S ? (ctx.r.chance(0.5) ? 1 : -1) : 1, P, M: S ? matsStyled(role, sci) : matsFor(role, sci ? 'scifi' : 'fantasy'), role, body: base.body, sci, era: sci ? 'scifi' : 'fantasy', bp, sh: {}, tgt: {}, fx: {}, flow: [], weapons: [], style, sd: !S, S: S || {} };
+    const H = { hangP: {}, k: ctx.k, relax: 1 /* styled: left leg (+x) eased forward, opening the gap in the default SE view */, P, M: S ? matsStyled(role, sci) : matsFor(role, sci ? 'scifi' : 'fantasy'), role, body: base.body, sci, era: sci ? 'scifi' : 'fantasy', bp, sh: {}, tgt: {}, fx: {}, flow: [], weapons: [], style, sd: !S, S: S || {} };
     const [W, Ht, D] = P.chest;
     for (const s of [-1, 1]) H.sh[s] = [s * P.shX, Ht - P.shDrop, S ? -0.6 : 0]; // styled: shoulders back
     const pelvis = buildLegs(ctx, H);
@@ -4301,23 +4323,38 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
     const act = fire > 0 ? ease(seg(u, 0, 0.15)) * (1 - ease(seg(u, 0.8, 1))) : 0;
     const cp = idle * (1 - act) * P.contra, rs = H.relax;
     const c = fx.crouch + P.walkCrouch * m1;
-    const V = {};
+    const sp = P.splay || 0;
+    const L = {};
     for (const s of [-1, 1]) {
       const p = s < 0 ? ph : ph + PI;
       let dh = -P.swing * Math.sin(p) * m;
       let dk = Math.max(0, Math.cos(p)) * P.lift * m;
-      let kb = a2;
-      if (s === rs) { dk += 0.42 * cp; dh -= 0.1 * cp; } else kb = a2 * (1 - 0.5 * cp);
+      let kb = a2, hy = 0;
+      // staggered contrapposto: the relaxed leg steps forward with the knee eased and turned out, the stance leg
+      // sits a little back
+      if (s === rs) { dk += 0.42 * cp; dh -= 0.2 * cp; hy = s * 0.35 * cp; } else { kb = a2 * (1 - 0.5 * cp); dh += 0.12 * cp; }
       const h = a1 + dh - c, kn = kb + dk + 2 * c;
-      n['hip' + s].rot[0] = h;
+      const hip = n['hip' + s].rot; hip[0] = h; hip[1] = hy;
       n['knee' + s].rot[0] = kn;
-      n['ankle' + s].rot[0] = -(h + kn) + dk * 0.3 * m1;
-      V[s] = P.thigh * Math.cos(h) + P.shin * Math.cos(h + kn);
+      // ankle in the pelvis frame: hip pitch/knee, hip yaw, then the A-frame splay about the hip joint
+      const y0 = -P.thigh * Math.cos(h) - P.shin * Math.cos(h + kn), z0 = -P.thigh * Math.sin(h) - P.shin * Math.sin(h + kn);
+      const x1 = z0 * Math.sin(hy), cs = Math.cos(s * sp), ss = Math.sin(s * sp);
+      L[s] = { x: s * P.hipX + x1 * cs - y0 * ss, y: x1 * ss + y0 * cs, h, kn, hy, toe: dk * 0.3 * m1 };
     }
-    const drop = Math.max(0, V[-rs] - V[rs]);
-    const roll = -rs * Math.atan(drop / (2 * P.hipX)) * (cp > 0 ? 1 : 0) + Math.sin(ph) * P.sway * m1;
+    // pelvis tilt: at rest exactly the angle that puts both soles on the ground; while walking, a stride sway
+    const st0 = -rs;
+    const dX = L[st0].x - L[rs].x, dY = L[st0].y - L[rs].y;
+    const roll = (cp > 0 ? Math.atan(-dY / dX) : 0) + Math.sin(ph) * P.sway * m1;
     let top = -1e9;
-    for (const s of [-1, 1]) { top = Math.max(top, V[s] * Math.cos(roll) - s * P.hipX * Math.sin(roll)); n['ankle' + s].rot[2] = -roll; }
+    const Rr = eulerM([0, 0, roll]);
+    for (const s of [-1, 1]) {
+      const l = L[s];
+      top = Math.max(top, -(l.x * Math.sin(roll) + l.y * Math.cos(roll)));
+      // ankle: undo the whole chain so the sole stays flat, then turn the foot with the knee (and toe-off pitch)
+      const chain = mul(mul(mul(Rr, eulerM([0, 0, s * sp])), eulerM([0, l.hy, 0])), eulerM([l.h + l.kn, 0, 0]));
+      const e = toEuler(mulT(chain, eulerM([l.toe, l.hy, 0])));
+      const a = n['ankle' + s].rot; a[0] = e[0]; a[1] = e[1]; a[2] = e[2];
+    }
     n.pelvis.pos[1] = (P.aY + top) * k;
     n.pelvis.rot[1] = Math.sin(ph) * 0.08 * m1;
     n.pelvis.rot[2] = roll;
@@ -4335,8 +4372,8 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
   // ------------------------------------------------------------- random + registration
   const ERA_DEFAULT = { rogue: 'fantasy', soldier: 'scifi', berserker: null, sniper: 'scifi', knight: 'fantasy', heavy: 'scifi' };
   let lastStyle = 'sd';
-  // unlocked random style: SD only until the art director picks a direction (e.g. { sd: 2, grim: 1, dark: 1, real: 1 })
-  const STYLE_WEIGHTS = { sd: 1 };
+  // unlocked random style: the art director's pick (Dark heroic). Rolled from its own RNG, so other slots never shift.
+  const STYLE_WEIGHTS = { blend: 1 };
   function randomHuman(r, keep, bp) {
     bp.role = keep('role', () => r.weighted({ rogue: 3, soldier: 3, berserker: 3, sniper: 2, knight: 2, heavy: 2 }));
     const role = bp.role;
@@ -4433,6 +4470,22 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
 
   const human = (role, style, fixed, palette) => ({ line: 'human', fixed: Object.assign({ role, style, era: 'fantasy' }, fixed), palette });
   const STYLES = [
+    {
+      id: 'blend', letter: 'A+B', name: 'Dark heroic (your pick)', refs: 'A grim heroic × B dark stylized', look: 'dusk', picked: true,
+      stage: { bg: '#1c1a20', floor: '#28252d' },
+      rules: [
+        '<b>~4.5 heads tall</b>, upright and confident, with the head level.',
+        "<b>B's mass</b>: oversized hands, forearms and shoulders, and a V-taper.",
+        "<b>A's armour</b>: angular plate and hidden faces behind hoods and slit helms.",
+        '<b>Two clear legs</b>: splayed, staggered stance with a gap from crotch to feet.',
+      ],
+      units: [
+        human('rogue', 'blend', { head: 'hood', extra: 'cape', weaponR: 'dagger', weaponL: 'dagger' }, 'Night Watch'),
+        human('soldier', 'blend', { era: 'scifi', head: 'helm', shoulders: 'pauldrons', weaponR: 'mg' }, 'Ashen'),
+        human('berserker', 'blend', { weaponR: 'greatsword' }, 'Oxblood'),
+      ],
+      mech: { line: 'sd', fixed: { sdType: 'heavy', sdStyle: 'frame' }, palette: 'Navy Anchor' },
+    },
     {
       id: 'grim', letter: 'A', name: 'Grim heroic', refs: 'Warhammer Fantasy · Diablo II', look: 'dusk',
       stage: { bg: '#1d1b20', floor: '#29262c' },
@@ -4548,7 +4601,7 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
     const stagePal = MF.buildPalette(Object.assign({}, MF.PALETTES['Snowcat'], { bg: st.stage.bg, floor: st.stage.floor }));
 
     const row = document.createElement('section');
-    row.className = 'row' + (st.current ? ' is-current' : '');
+    row.className = 'row' + (st.current ? ' is-current' : '') + (st.picked ? ' is-picked' : '');
     row.setAttribute('aria-label', `${st.letter}: ${st.name}`);
     row.innerHTML = `
       <div class="row-text">
