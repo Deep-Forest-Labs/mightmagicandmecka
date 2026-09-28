@@ -24,7 +24,14 @@
     'Black Knight':  { primary: '#3a3a47', secondary: '#bd922e', metal: '#62646f', accent: '#ffd24a', glass: '#ff4a4a', tertiary: '#a3212f', outline: '#0d0c11', bg: '#a39d90', floor: '#948e81' },
     'Ghost Camo':    { primary: '#808964', secondary: '#4c5741', metal: '#3c3f40', accent: '#ffb347', glass: '#7fffd4', tertiary: '#bdb28b', outline: '#131610', bg: '#5d6470', floor: '#525965' },
   });
-  const SD_PALETTES = ['Tricolor', 'Red Comet', 'Zaku Green', 'Titans Navy', 'Gold Frame', 'Hazard Orange', 'Black Knight', 'Ghost Camo'];
+  Object.assign(MF.PALETTES, {
+    'Sand Frame':  { primary: '#c8b287', secondary: '#ebe4d2', metal: '#34343b', accent: '#ff8a2a', glass: '#7ff0ff', tertiary: '#e0712c', outline: '#17130f', bg: '#6d6a63', floor: '#5f5c55' },
+    'Field Olive': { primary: '#6e7449', secondary: '#dcd4b2', metal: '#33353a', accent: '#ff9430', glass: '#a6ecff', tertiary: '#df6d2e', outline: '#12140e', bg: '#5b5f58', floor: '#50544d' },
+    'Navy Anchor': { primary: '#2d3b62', secondary: '#e3e7ee', metal: '#24252c', accent: '#ffc23a', glass: '#7fe4ff', tertiary: '#7d8698', outline: '#0b0d16', bg: '#5b6170', floor: '#50566a' },
+    'Bone White':  { primary: '#e6e1d4', secondary: '#9a9fa8', metal: '#7c6a4f', accent: '#ff8f2e', glass: '#6fe8ff', tertiary: '#d9672b', outline: '#18140f', bg: '#4c4f57', floor: '#42454d' },
+    'Corsair':     { primary: '#c42f7c', secondary: '#25212b', metal: '#3b3441', accent: '#ffd34a', glass: '#ff5d6c', tertiary: '#d8aa3c', outline: '#110b12', bg: '#3d3444', floor: '#342c3b' },
+  });
+  const SD_PALETTES = ['Tricolor', 'Red Comet', 'Zaku Green', 'Titans Navy', 'Gold Frame', 'Hazard Orange', 'Black Knight', 'Ghost Camo', 'Sand Frame', 'Field Olive', 'Navy Anchor', 'Bone White', 'Corsair'];
 
   // ------------------------------------------------------------------ helpers
   const smooth = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
@@ -301,6 +308,70 @@
       },
     },
 
+    plateShield: {
+      label: 'Plate shield', hand: true, pose: 'shield', attack: 'bash', shield: true,
+      build(ctx, g, s, o) { // 4 stacked rectangular plates with rivets (Frame Arms style)
+        const aw = o.armW || 6;
+        const sh = g.child(o.id + 'plate', [s * (aw / 2 + 1.6), 1, -2], [0, -s * 0.5, 0]);
+        sh.box(1.5, 4, 5, { at: [-s * 1.3, 0, 0], mat: 'metal' });
+        for (let i = 0; i < 4; i++) {
+          sh.box(2, 7, 15 - i * 0.8, { at: [s * (0.3 + (i % 2) * 0.5), 8.5 - i * 5.6, -i * 0.25], rot: [-0.1, 0, 0], mat: 'primary', bevel: 0.4, cuts: [[0, -1, 1, 0.8], [0, -1, -1, 0.8]],
+            detail: i === 1 ? { type: 'band', face: 'side', dir: 'v', at: -3, size: 1, mat2: 'secondary' } : i === 2 ? { type: 'light', face: 'side', pts: [[4.5, 1.5]], size: 0.6 } : { type: 'bolts', face: 'side', inset: 1.3 } });
+        }
+      },
+    },
+
+    towerShield: {
+      label: 'Tower shield', hand: true, pose: 'shield', attack: 'bash', shield: true,
+      build(ctx, g, s, o) { // tall pointed shield with gold trim and a skull emblem
+        const aw = o.armW || 6;
+        const sh = g.child(o.id + 'plate', [s * (aw / 2 + 1.8), -2, -2], [0, -s * 0.45, 0]);
+        const cut = (e) => [[0, -1, 1, 9 + e], [0, -1, -1, 9 + e], [0, 1, 1, 2 + e], [0, 1, -1, 2 + e]];
+        sh.box(1.4, 37.6, 19.6, { mat: 'tertiary', cuts: cut(0.3) }); // gold rim
+        sh.box(2.6, 36, 18, { mat: 'primary', bevel: 0.5, cuts: cut(0), detail: { type: 'band', face: 'side', dir: 'v', at: 0, size: 0.8, mat2: 'tertiary' } });
+        sh.cyl('x', 3.6, 1.2, { at: [s * 1.6, 7, 0], mat: 'tertiary', sides: 8 }); // skull
+        sh.box(1.2, 2.2, 3.6, { at: [s * 1.8, 4, 0], mat: 'tertiary' });
+        for (const z of [-1.4, 1.4]) sh.box(0.8, 1.4, 1.4, { at: [s * 2.3, 7.5, z], mat: 'metal' });
+        sh.box(1.5, 3, 3, { at: [-s * 1.6, 0, 0], mat: 'metal' });
+      },
+    },
+
+    sabre: {
+      label: 'Sabre', hand: true, pose: 'blade', attack: 'slash', melee: true,
+      build(ctx, g, s, o) { // curved blade in three segments, gold basket guard
+        g.cyl('y', 0.9, 5, { at: [0, 0.5, 0], mat: 'secondary', sides: 6 });
+        g.box(1.2, 5, 5, { at: [0, 1.2, 1.2], mat: 'tertiary', bevel: 0.4, cuts: [[0, -1, -1, 1.6]] });
+        const b1 = g.child(o.id + 'blade', [0, 3.5, 0]);
+        b1.box(1, 9, 2.5, { at: [0, 4.5, 0], mat: 'metal' });
+        const b2 = b1.child(o.id + 'bl2', [0, 9, 0], [-0.14, 0, 0]);
+        b2.box(1, 8, 2.3, { at: [0, 4, -0.1], mat: 'metal' });
+        const b3 = b2.child(o.id + 'bl3', [0, 8, 0], [-0.2, 0, 0]);
+        b3.box(1, 7, 2.1, { at: [0, 3.2, -0.2], mat: 'metal', cuts: [[0, 1, 1, 1.8]] });
+        ctx.anims.push((st, n) => { if (o.joints) armMotion('slash', fireOf(st, o), n, o.joints, s, ctx.k); });
+      },
+    },
+
+    armCannon: {
+      label: 'Heavy cannon', hand: true, pose: 'aim', attack: 'heavy', lowReady: true,
+      build(ctx, g, s, o) { // big cannon with a cluster of missile tubes under the barrel
+        const id = o.id;
+        const body = g.child(id + 'slide', [0, 2, 0]);
+        body.box(5.5, 6, 15, { at: [0, 1.5, 3], mat: 'primary', bevel: 0.8, cuts: [[0, 1, 1, 2], [0, 1, -1, 1.5]], detail: [{ type: 'vent', face: 'side', pitch: 1.3, inset: 1.5 }, { type: 'band', face: '+y', dir: 'h', at: -2, size: 0.8 }] });
+        body.cyl('z', 2, 14, { at: [0, 2.5, 17], mat: 'metal', sides: 8, twist: PI / 8 });
+        body.box(4.4, 4.4, 3.6, { at: [0, 2.5, 24.5], mat: 'secondary', bevel: 0.6, detail: { type: 'vent', face: 'side', pitch: 1.1, inset: 0.6 } });
+        for (const [x, y] of [[-1.4, -3], [1.4, -3], [0, -5.2]]) body.cyl('z', 1.2, 10, { at: [x, y, 6.5], mat: 'secondary', sides: 6 });
+        flash(body, id + 'mz', [0, 2.5, 26.5], 'flash');
+        flash(body, id + 'mz2', [0, -3.8, 12.2], 'puff');
+        ctx.anims.push((st, n) => {
+          const f = fireOf(st, o);
+          n[id + 'mz'].hidden = !(f > 0.55);
+          n[id + 'mz2'].hidden = !(f > 0.25 && f < 0.7);
+          n[id + 'slide'].pos[2] -= f * 2.5 * ctx.k;
+          if (o.joints) armMotion('heavy', f, n, o.joints, s, ctx.k);
+        });
+      },
+    },
+
     // ---------------------------------------------------------- shoulder / back mounts
     cannon: {
       label: 'Shoulder cannon', mount: true, attack: 'heavy',
@@ -428,10 +499,10 @@
   // ------------------------------------------------------------------ archetypes
   const TYPES = {
     hero: 'Hero (all-rounder)', commander: 'Commander (mono-eye)', heavy: 'Heavy artillery', knight: 'Knight / samurai',
-    sniper: 'Sniper', brawler: 'Brawler', ace: 'Ace (winged)',
+    sniper: 'Sniper', brawler: 'Brawler', ace: 'Ace (winged)', corsair: 'Corsair',
   };
-  const HEADS = { vfin: 'V-fin twin-eye', mono: 'Mono-eye', kabuto: 'Kabuto crest', goggle: 'Goggle visor', scope: 'Sniper scope', fang: 'Fanged brute' };
-  const BACKS = { binders: 'Wing binders', feathers: 'Feather wings', thrusters: 'Thruster pack', funnels: 'Fin funnels', cape: 'Cape', cloak: 'Camo cloak', none: 'Slim pack' };
+  const HEADS = { vfin: 'V-fin twin-eye', mono: 'Mono-eye', kabuto: 'Kabuto crest', goggle: 'Goggle visor', scope: 'Sniper scope', fang: 'Fanged brute', tricorn: 'Tricorn helm' };
+  const BACKS = { binders: 'Wing binders', feathers: 'Feather wings', thrusters: 'Thruster pack', funnels: 'Fin funnels', cape: 'Cape', cloak: 'Camo cloak', antenna: 'Antenna fin', container: 'Cargo container', none: 'Slim pack' };
 
   // Body proportions per archetype (world px at size 1).
   const ARCH = {
@@ -442,6 +513,7 @@
     sniper:    { head: 0.86, chestW: 14, chestH: 11, chestD: 11, pad: 'slim',  padS: 0.85, legW: 7,   shin: 14, thigh: 6, footL: 13, footW: 7.5,hipX: 4.5, arm: 1.2,  hand: 0.9,  hunch: 0.05, bend: 0.1,  splay: 0.03 },
     brawler:   { head: 0.76, chestW: 21, chestH: 16, chestD: 15, pad: 'dome',  padS: 1.0,  legW: 10,  shin: 10, thigh: 4, footL: 16, footW: 11, hipX: 6,   arm: 1.3,  hand: 1.5,  hunch: 0.5,  bend: 0.25, splay: 0.12 },
     ace:       { head: 1.0,  chestW: 16, chestH: 11, chestD: 11, pad: 'swept', padS: 0.95, legW: 8,   shin: 11, thigh: 4, footL: 14, footW: 8.5,hipX: 5,   arm: 1.0,  hand: 1.0,  hunch: 0,    bend: 0.1,  splay: 0.04 },
+    corsair:   { head: 0.95, chestW: 15, chestH: 11, chestD: 11, pad: 'corsair', padS: 0.95, legW: 7.5, shin: 12, thigh: 5, footL: 14, footW: 8, hipX: 5, arm: 1.05, hand: 1.0, hunch: 0, bend: 0.08, splay: 0.04 },
   };
 
   // 'heroic' proportions (Master Grade rather than SD): ~6-7 heads tall, long limbs, taller torso,
@@ -455,6 +527,20 @@
     sniper:    { head: 0.72, chestW: 18, chestH: 15, chestD: 13, padS: 1.15, legW: 8,   shin: 20, thigh: 15, footL: 17, footW: 9,    hipX: 6.5, arm: 1.1,  hand: 1.0 },
     brawler:   { head: 0.66, chestW: 26, chestH: 18, chestD: 18, padS: 1.3,  legW: 11,  shin: 14, thigh: 10, footL: 20, footW: 13,   hipX: 9,   arm: 1.25, hand: 1.6, hunch: 0.15, bend: 0.16 },
     ace:       { head: 0.8,  chestW: 21, chestH: 15, chestD: 13, padS: 1.25, legW: 9,   shin: 18, thigh: 13, footL: 18, footW: 10,   hipX: 7.5, arm: 1.0,  hand: 1.05 },
+    corsair:   { head: 0.78, chestW: 19, chestH: 15, chestD: 13, padS: 1.2,  legW: 8,   shin: 20, thigh: 14, footL: 18, footW: 9.5,  hipX: 7,   arm: 1.1,  hand: 1.0 },
+  };
+  // 'frame' (military kit look): tiny recessed sensor head, big faceted chest carapace, narrow waist,
+  // massive thighs over slim shins, bent knees, wide stance, long spurred feet. hood = brow plate over the head.
+  const FRAME_BASE = { hunch: 0.06, bend: 0.2, splay: 0.06, hood: false };
+  const FRAME = {
+    hero:      { head: 0.5,  chestW: 26, chestH: 18, chestD: 18, padS: 1.4,  legW: 8,   thighW: 14,   shin: 24, thigh: 19, footL: 24, footW: 10, hipX: 9.5,  arm: 1.0,  hand: 1.1,  hood: true },
+    commander: { head: 0.52, chestW: 27, chestH: 18, chestD: 19, padS: 1.4,  legW: 8.5, thighW: 15,   shin: 23, thigh: 19, footL: 24, footW: 11, hipX: 10,   arm: 1.0,  hand: 1.1 },
+    heavy:     { head: 0.45, chestW: 30, chestH: 19, chestD: 20, padS: 1.45, legW: 10,  thighW: 17,   shin: 22, thigh: 18, footL: 26, footW: 13, hipX: 11.5, arm: 1.0,  hand: 1.25 },
+    knight:    { head: 0.5,  chestW: 25, chestH: 18, chestD: 17, padS: 1.35, legW: 8,   thighW: 13.5, shin: 25, thigh: 19, footL: 23, footW: 10, hipX: 9,    arm: 1.05, hand: 1.1 },
+    sniper:    { head: 0.48, chestW: 22, chestH: 17, chestD: 16, padS: 1.2,  legW: 7,   thighW: 12,   shin: 27, thigh: 20, footL: 23, footW: 9,  hipX: 8,    arm: 1.1,  hand: 1.0,  hood: true },
+    brawler:   { head: 0.45, chestW: 30, chestH: 20, chestD: 21, padS: 1.4,  legW: 9.5, thighW: 16,   shin: 20, thigh: 16, footL: 24, footW: 12, hipX: 11,   arm: 1.25, hand: 1.7,  hunch: 0.14, bend: 0.26 },
+    ace:       { head: 0.5,  chestW: 24, chestH: 17, chestD: 16, padS: 1.3,  legW: 7.5, thighW: 13,   shin: 25, thigh: 19, footL: 23, footW: 9.5, hipX: 9,   arm: 1.0,  hand: 1.05, hood: true },
+    corsair:   { head: 0.55, chestW: 22, chestH: 17, chestD: 15, padS: 1.2,  legW: 7,   thighW: 11.5, shin: 27, thigh: 20, footL: 22, footW: 9,  hipX: 8,    arm: 1.1,  hand: 1.0,  bend: 0.14 },
   };
   // Heroic idle: weapons lowered (rifle down at the side, sword pointing down, shield resting, lance
   // upright); on attack the arm snaps up to the matching POSES entry. wr = wrist pitch.
@@ -463,11 +549,11 @@
     aimLow: { sh: -0.05, el: -1.0, rz: 0.08 }, // two-handed long guns: muzzle clear of the ground
     blade: { sh: 0.04, el: -0.3, rz: 0.12, wr: 0.8 },
     lance: { sh: 0.02, el: -1.15, rz: 0.1, wr: -0.85 },
-    shield: { sh: 0.05, el: -0.5, rz: 0.22 },
+    shield: { sh: 0.02, el: -0.95, rz: 0.2 },
     fist: { sh: 0.04, el: -0.3, rz: 0.1 },
     support: { sh: 0.04, el: -0.35, rz: 0.1 },
   };
-  const STYLES = { sd: 'Super-deformed', heroic: 'Heroic (MG)' };
+  const STYLES = { sd: 'Super-deformed', heroic: 'Heroic (MG)', frame: 'Military frame' };
 
   // Signature loadouts (weights) per archetype. Any weapon still fits any archetype via the slots.
   const LOADOUT = {
@@ -478,13 +564,28 @@
     sniper:    { head: { scope: 8, goggle: 2 }, R: { longRifle: 8, beamRifle: 1 }, L: { none: 6, shield: 1 }, back: { cloak: 7, thrusters: 2 }, mount: { radar: 4, none: 4, missilePod: 1 }, sym: 0 },
     brawler:   { head: { fang: 7, mono: 2 }, R: { knuckle: 5, claw: 4 }, L: { knuckle: 4, claw: 4, none: 1 }, back: { thrusters: 5, none: 3 }, mount: { none: 5, missilePod: 2, homing: 2 }, sym: 0.7 },
     ace:       { head: { vfin: 8, kabuto: 1 }, R: { twinSaber: 4, beamRifle: 3, beamSaber: 1 }, L: { shield: 3, beamSaber: 3, none: 2 }, back: { feathers: 8, binders: 2 }, mount: { none: 7, cannon: 2 }, sym: 0.9 },
+    corsair:   { head: { tricorn: 9, kabuto: 1 }, R: { sabre: 7, beamSaber: 1, machineGun: 1 }, L: { towerShield: 7, plateShield: 1, none: 1 }, back: { cape: 8, none: 1 }, mount: { none: 10, rocket: 1 }, sym: 0.5 },
+  };
+  // extra weights mixed in when the style is 'frame' (asymmetric kit loadouts)
+  const FRAME_LOADOUT = {
+    hero: { L: { plateShield: 7 }, back: { antenna: 4, container: 1 } },
+    commander: { R: { armCannon: 3 }, L: { plateShield: 3 }, back: { container: 4 } },
+    heavy: { R: { armCannon: 5 }, L: { plateShield: 3 }, back: { container: 5 } },
+    knight: { R: { sabre: 2 }, L: { towerShield: 2, plateShield: 3 } },
+    sniper: { back: { antenna: 5 } },
+    brawler: { back: { container: 3 } },
+    ace: { back: { antenna: 2 } },
+    corsair: {},
   };
 
   function randomSD(r, keep, bp) {
-    const type = keep('sdType', () => r.weighted({ hero: 5, commander: 4, heavy: 3, knight: 3, sniper: 3, brawler: 3, ace: 3 }));
-    const L = LOADOUT[type] || LOADOUT.hero;
+    const type = keep('sdType', () => r.weighted({ hero: 5, commander: 4, heavy: 3, knight: 3, sniper: 3, brawler: 3, ace: 3, corsair: 2 }));
     bp.sdType = type;
-    bp.sdStyle = keep('sdStyle', () => 'sd'); // heroic only when locked / set explicitly
+    // art direction: Military frame is the default for new units (no RNG draw, so seeds keep their other rolls)
+    bp.sdStyle = keep('sdStyle', () => 'frame');
+    const L0 = LOADOUT[type] || LOADOUT.hero, F = bp.sdStyle === 'frame' ? FRAME_LOADOUT[type] || {} : {};
+    const L = {};
+    for (const k in L0) L[k] = F[k] ? Object.assign({}, L0[k], F[k]) : L0[k];
     bp.sdHead = keep('sdHead', () => r.weighted(L.head));
     bp.sdWeaponR = keep('sdWeaponR', () => r.weighted(L.R));
     bp.sdWeaponL = keep('sdWeaponL', () => {
@@ -506,16 +607,18 @@
     sniper: ['Hawkeye', 'Longshot', 'Specter', 'Deadeye', 'Whisper', 'Nightjar', 'Farsight'],
     brawler: ['Grizzly', 'Rampage', 'Brute', 'Ogre', 'Maul', 'Knuckles', 'Wrecker'],
     ace: ['Seraph', 'Zephyr', 'Halcyon', 'Archangel', 'Solaris', 'Skylord', 'Valkyrie'],
+    corsair: ['Buccaneer', 'Reaver', 'Privateer', 'Blackflag', 'Kraken', 'Cutlass', 'Marauder'],
   };
-  const NAME_PREFIX = { hero: 'RX', commander: 'MS', heavy: 'RX', knight: 'XM', sniper: 'RGM', brawler: 'MSM', ace: 'XXG' };
+  const NAME_PREFIX = { hero: 'RX', commander: 'MS', heavy: 'RX', knight: 'XM', sniper: 'RGM', brawler: 'MSM', ace: 'XXG', corsair: 'CX' };
 
   // ------------------------------------------------------------------ build
   function buildSD(ctx) {
     const { bp, r } = ctx;
     const type = ARCH[bp.sdType] ? bp.sdType : 'hero';
-    const heroic = bp.sdStyle === 'heroic';
-    const A = heroic ? Object.assign({}, ARCH[type], HEROIC_BASE, HEROIC[type]) : ARCH[type];
-    const WS = heroic ? 1.2 : 1; // weapons & backpacks scale up with the longer body
+    const heroic = bp.sdStyle === 'heroic', frame = bp.sdStyle === 'frame', relaxed = heroic || frame;
+    const A = frame ? Object.assign({}, ARCH[type], FRAME_BASE, FRAME[type]) : heroic ? Object.assign({}, ARCH[type], HEROIC_BASE, HEROIC[type]) : ARCH[type];
+    const WS = frame ? 1.3 : heroic ? 1.2 : 1; // weapons & backpacks scale up with the longer body
+    const MK = type === 'corsair' ? 'tertiary' : 'secondary'; // marking colour (white stripes / gold trim)
     const scaled = (f, fn) => { if (f === 1) return fn(); MF.setBuildScale(ctx.k * f); try { return fn(); } finally { MF.setBuildScale(ctx.k); } };
     const bulk = bp.bulk || 1, legLen = bp.legLen || 1, tall = bp.tall || 1, armLen = bp.armLen || 1;
     const e = bp.edge == null ? 1.5 : bp.edge;
@@ -530,6 +633,7 @@
     const wL = WEAPONS[bp.sdWeaponL] ? bp.sdWeaponL : 'none';
 
     // ---------------------------------------------------------------- legs & pelvis
+    const classicBody = () => {
     const legW = A.legW * wB, shin = Math.round(A.shin * lL), thigh = Math.round(A.thigh * lL);
     const footL = A.footL * (0.9 + 0.1 * bulk), footW = A.footW * wB, footH = heroic ? 5 : 4, ankY = heroic ? 6.5 : 5.5;
     const hipX = A.hipX * wB, b = A.bend, sp = A.splay;
@@ -581,13 +685,25 @@
     // collar
     torso.box(cW * 0.7, 3, cD * 0.75, { at: [0, topY + 0.6, -0.6], mat: 'primary', bevel: 0.8, cuts: [[0, 1, 1, 1.2]] });
     const shX = cW / 2 + 1.5, shY = topY - (heroic ? 5 : 3);
+    const sunk = type === 'brawler' && !heroic;
+    const neck = [sunk ? topY - 1 : heroic ? topY + 1.6 : topY - 0.2, sunk ? cD * 0.32 : type === 'brawler' ? cD * 0.12 : 0.5];
+    return { pelvis, torso, cW, cH, cD, chestY, topY, shX, shY, thigh, shin, b, ankY, hipX, legW, neck, frontZ: 5.5 };
+    };
+    const body = frame ? frameBody(ctx, A, type, { wB, lL, tT, bev, soles, MK }) : classicBody();
+    const { pelvis, torso, cW, cH, cD, chestY, topY, shX, shY, thigh, shin, b, ankY, hipX } = body;
+    if (type === 'corsair') { // belt and a long tabard hanging front and back
+      const tl = (thigh + shin) * 0.7, tw = hipX * 1.3;
+      torso.box(cW * (frame ? 0.42 : 0.55), 2.4, cD * 0.66, { at: [0, 1, 0.3], mat: 'tertiary', bevel: 0.5 });
+      for (const [nm, sg] of [['tabF', 1], ['tabB', -1]]) {
+        const tb = pelvis.child(nm, [0, 2, sg * body.frontZ]);
+        tb.box(tw, tl, 1.2, { at: [0, -tl / 2, 0], mat: 'secondary', cuts: [[1, -1, 0, tw * 0.4], [-1, -1, 0, tw * 0.4]], detail: { type: 'band', dir: 'v', face: sg > 0 ? '+z' : '-z', at: tw * 0.36, size: 0.7, mat2: 'tertiary' } });
+        tb.box(4.5, 4.5, 1, { at: [0, -tl * 0.32, sg * 0.8], rot: [0, 0, PI / 4], mat: 'tertiary' });
+      }
+    }
 
     // ---------------------------------------------------------------- head
     const hs = A.head * (0.95 + 0.05 * bulk);
-    const sunk = type === 'brawler' && !heroic;
-    const neckY = sunk ? topY - 1 : heroic ? topY + 1.6 : topY - 0.2;
-    const neckZ = sunk ? cD * 0.32 : type === 'brawler' ? cD * 0.12 : 0.5;
-    const neck = torso.child('neck', [0, neckY, neckZ], [heroic ? -A.hunch : -A.hunch * 0.85, 0, 0]);
+    const neck = torso.child('neck', [0, body.neck[0], body.neck[1]], [relaxed ? -A.hunch : -A.hunch * 0.85, 0, 0]);
     neck.cyl('y', 2.2, 4, { at: [0, 0.5, 0], mat: 'metal', sides: 6 });
     const head = neck.child('head', [0, 0.8, 0]);
     buildHead(ctx, head, bp.sdHead || 'vfin', hs, type);
@@ -605,18 +721,20 @@
       const support = (s === Lf && twoR) || (s === R && twoL);
       const pk = support ? 'support' : W.pose || 'fist';
       const pose = POSES[pk];
-      const rest = heroic ? POSES_H[W.twoHand && pk === 'aim' ? 'aimLow' : pk] : pose;
+      const rest = relaxed ? POSES_H[(W.twoHand || W.lowReady) && pk === 'aim' ? 'aimLow' : pk] : pose;
       const pad = torso.child('pad' + s, [s * shX, shY, 0]);
       buildPad(ctx, pad, s, A.pad, A.padS * (0.9 + 0.1 * bulk), bev);
-      const lean = support || type !== 'brawler' ? 0 : heroic ? -0.15 : -A.hunch - 0.25; // gorilla arms hang forward of the hunched chest
+      if (frame && pad.prims[0]) pad.prims[0].detail = { type: 'band', face: 'side', dir: 'h', at: 0, size: 0.9, mat2: MK }; // hazard stripe
+      const lean = support || type !== 'brawler' ? 0 : relaxed ? -0.15 : -A.hunch - 0.25; // gorilla arms hang forward of the hunched chest
       const sh = torso.child('sh' + s, [s * shX, shY, 0], [rest.sh + lean, (rest.ry || 0) * s, s * rest.rz]);
-      const upL = (heroic ? 9 : 5) * aL * A.arm, foL = (heroic ? 12 : 8) * aL * A.arm;
+      const upL = (frame ? 10 : heroic ? 9 : 5) * aL * A.arm, foL = (frame ? 14 : heroic ? 12 : 8) * aL * A.arm;
       const up = sh.child('up' + s, [s * 2, -2, 0]);
       up.box(armW * 0.7, upL + 2, armW * 0.7, { at: [0, -upL / 2, 0], mat: 'metal', bevel: 0.6 });
       const el = up.child('el' + s, [0, -upL, 0], [rest.el, 0, 0]);
       el.cyl('x', 2.2, armW * 0.8, { mat: 'metal', sides: 8 });
-      el.box(armW, foL, armW, { at: [0, -foL / 2 - 0.5, 0], mat: 'primary', bevel: bev * 0.8, bevelSet: 'vert', cuts: [[0, 1, -1, 1.6]], detail: heroic ? [{ type: 'panel', face: 'side', at: -foL * 0.15, dir: 'h' }, { type: 'panel', face: '+z', at: foL * 0.1, dir: 'h' }] : { type: 'panel', face: 'side', at: -foL * 0.15, dir: 'h' } });
-      if (heroic) up.box(armW * 0.85, upL * 0.45, armW * 0.85, { at: [0, -upL * 0.62, 0], mat: 'primary', bevel: 0.6, detail: { type: 'panel', face: 'side', at: 0, dir: 'h' } }); // upper-arm armour
+      el.box(armW, foL, armW, { at: [0, -foL / 2 - 0.5, 0], mat: 'primary', bevel: bev * 0.8, bevelSet: 'vert', cuts: [[0, 1, -1, 1.6]], detail: frame ? { type: 'band', dir: 'h', at: foL * 0.18, size: 0.9, mat2: MK } : heroic ? [{ type: 'panel', face: 'side', at: -foL * 0.15, dir: 'h' }, { type: 'panel', face: '+z', at: foL * 0.1, dir: 'h' }] : { type: 'panel', face: 'side', at: -foL * 0.15, dir: 'h' } });
+      if (frame) el.box(1.4, foL * 0.8, 4, { at: [s * (armW / 2 + 0.6), -foL * 0.45, -1], mat: 'metal', cuts: [[0, -1, -1, 2.5], [0, 1, -1, 1]] }); // forearm blade
+      if (relaxed) up.box(armW * 0.85, upL * 0.45, armW * 0.85, { at: [0, -upL * 0.62, 0], mat: 'primary', bevel: 0.6, detail: { type: 'panel', face: 'side', at: 0, dir: 'h' } }); // upper-arm armour
       el.box(armW + 0.8, 2, armW + 0.8, { at: [0, -foL + 0.4, 0], mat: type === 'knight' ? 'secondary' : 'tertiary', bevel: 0.5 }); // cuff
       const wr = el.child('wr' + s, [0, -foL - 0.5, 0], [rest.wr || 0, 0, 0]);
       const hsz = 4.6 * A.hand * wB;
@@ -643,7 +761,7 @@
 
     // ---------------------------------------------------------------- backpack & mounts
     const back = torso.child('pack', [0, chestY + 1, -cD / 2 - 1.5]);
-    scaled(WS, () => buildBack(ctx, back, bp.sdBack || 'none', { cW: cW / WS, cD: cD / WS, cH: cH / WS, topY: topY / WS, chestY: chestY / WS, bev, type, dr: heroic ? 1.35 : 1 }));
+    scaled(WS, () => buildBack(ctx, back, bp.sdBack || 'none', { cW: cW / WS, cD: cD / WS, cH: cH / WS, topY: topY / WS, chestY: chestY / WS, bev, type, dr: frame ? 1.5 : heroic ? 1.35 : 1, number: bp.number }));
     const padTop = shY + 7 * A.padS;
     for (const s of [R, Lf]) {
       const wt = s === R ? bp.sdBackR : bp.sdBackL;
@@ -659,7 +777,7 @@
     pelvis.pos[1] -= minY; pelvis.base.pos[1] -= minY;
 
     // ---------------------------------------------------------------- walk / idle
-    const Lleg = (thigh + shin) * Math.cos(b) + ankY * 0.3, Aw = 0.44;
+    const Lleg = (thigh + shin) * Math.cos(b) + ankY * 0.3, Aw = frame ? 0.4 : 0.44;
     ctx.stride = 4 * Lleg * Math.sin(Aw);
     ctx.gait = 'biped';
     ctx.anims.push((st, n) => {
@@ -669,6 +787,7 @@
       const breathe = Math.sin(t * 2.2) * 0.35 * (1 - m);
       n.pelvis.pos[1] -= (drop + stomp + breathe) * k;
       n.pelvis.rot[1] += Math.sin(ph) * 0.08 * m;
+      let hmin = 0, hmax = 0;
       for (const s of [-1, 1]) {
         const p = s < 0 ? ph : ph + PI;
         const hip = -Aw * Math.sin(p) * m;
@@ -677,19 +796,81 @@
         n['knee' + s].rot[0] += knee;
         n['ankle' + s].rot[0] += -(hip + knee) * 0.92;
         n['skF' + s].rot[0] += Math.min(0, hip - knee * 0.4) * 0.8;
+        hmin = Math.min(hmin, hip - knee * 0.35); hmax = Math.max(hmax, hip);
         const sw = -s * Math.sin(ph) * arms[s].swing * m;
         n['sh' + s].rot[0] += sw;
         n['sh' + s].rot[2] += s * (Math.sin(t * 2.2) * 0.025 * (1 - m) + stomp * 0.04);
         n['pad' + s].rot[0] += sw * 0.4;
         n['pad' + s].rot[2] -= s * stomp * 0.05;
       }
+      if (n.tabF) { n.tabF.rot[0] += hmin * 0.9 + Math.sin(t * 1.9) * 0.02; n.tabB.rot[0] += hmax * 0.6 + 0.12 * m + Math.sin(t * 1.9 + 1) * 0.03; }
       n.torso.rot[1] += -Math.sin(ph) * 0.18 * m;
-      n.torso.rot[0] += (heroic ? 0.03 : 0.07) * m + stomp * 0.03;
+      n.torso.rot[0] += (relaxed ? 0.03 : 0.07) * m + stomp * 0.03;
       n.torso.rot[2] += Math.sin(ph) * 0.035 * m;
       n.torso.pos[1] += Math.sin(t * 2.2 + 0.6) * 0.25 * (1 - m) * k;
-      n.head.rot[1] += Math.sin(t * 0.7) * (heroic ? 0.22 : 0.32) * (1 - m) + Math.sin(ph) * 0.12 * m;
-      if (!heroic) n.head.rot[0] += Math.sin(t * 0.45) * 0.05 * (1 - m) - stomp * 0.05; // heroic heads stay level
+      n.head.rot[1] += Math.sin(t * 0.7) * (relaxed ? 0.22 : 0.32) * (1 - m) + Math.sin(ph) * 0.12 * m;
+      if (!relaxed) n.head.rot[0] += Math.sin(t * 0.45) * 0.05 * (1 - m) - stomp * 0.05; // heroic heads stay level
     });
+  }
+
+  // ------------------------------------------------------------------ 'frame' body
+  function frameBody(ctx, A, type, o) {
+    const { wB, lL, tT, soles, MK } = o;
+    const bp = ctx.bp, cors = type === 'corsair';
+    const legW = A.legW * wB, thW = A.thighW * wB, shin = Math.round(A.shin * lL * 0.92), thigh = Math.round(A.thigh * lL * 0.95);
+    const footL = A.footL * (0.9 + 0.1 * (bp.bulk || 1)), footW = A.footW * wB, ankY = 7;
+    const hipX = A.hipX * wB, b = A.bend, sp = A.splay;
+    const hipY = ankY + (thigh + shin) * Math.cos(b);
+    const pelvis = ctx.root.child('pelvis', [0, hipY + 1, 0]);
+    // mechanical waist core, faceted crotch plate, big hip skirts
+    pelvis.box(hipX * 1.5, 5, 8 * wB, { at: [0, 1.5, 0], mat: 'metal', bevel: 1, detail: { type: 'vent', face: 'side', pitch: 1.2, inset: 1 } });
+    pelvis.box(6 * wB, 7, 6, { at: [0, -0.5, 3.2], mat: 'primary', bevel: 0.6, cuts: [[0, -1, 1, 3.5], [1, -1, 0, 2.2], [-1, -1, 0, 2.2], [0, 1, 1, 1.2]], detail: { type: 'panel', face: '+z', at: 0, dir: 'v' } });
+    pelvis.box(hipX * 1.6, 7, 2.4, { at: [0, -0.5, -4.8 * wB], rot: [-0.2, 0, 0], mat: 'primary', bevel: 0.6, cuts: [[1, -1, 0, 2], [-1, -1, 0, 2]] });
+    for (const s of [-1, 1]) {
+      const sk = pelvis.child('skF' + s, [s * (hipX * 0.5 + 1), 2.5, 4.6 * wB]);
+      sk.box(hipX * 0.75, 8, 2, { at: [0, -4, 0], rot: [-0.15, 0, 0], mat: 'primary', bevel: 0.5, cuts: [[s, -1, 0, 2.2], [-s, -1, 0, 0.8]], detail: { type: 'panel', face: '+z', at: -2, dir: 'h' } });
+      pelvis.box(2.6, 13, 13 * wB, { at: [s * (hipX + thW / 2 + 1.6), -2.5, 0], rot: [0, 0, s * 0.3], mat: 'primary', bevel: 0.6, cuts: [[0, -1, 1, 4], [0, -1, -1, 2.5], [0, 1, 1, 1.5]], detail: { type: 'band', face: 'side', dir: 'v', at: -2.5, size: 0.9, mat2: MK } });
+    }
+    for (const s of [-1, 1]) {
+      const hs = pelvis.child('hipS' + s, [s * hipX, -1, 0], [0, 0, s * sp]);
+      const hip = hs.child('hip' + s, [0, 0, 0], [-b, 0, 0]);
+      hip.cyl('x', 3, 5, { mat: 'metal', sides: 8 });
+      // massive faceted thigh (the widest part of the body) tapering to the knee
+      hip.box(thW, thigh + 3, thW * 1.05, { at: [s * 0.4, -thigh * 0.48, 0.3], mat: 'primary', bevel: 0.8,
+        cuts: [[1, 0, 1, 2.6], [-1, 0, 1, 2.6], [1, 0, -1, 2.2], [-1, 0, -1, 2.2], [1, -1, 0, thW * 0.3], [-1, -1, 0, thW * 0.3], [0, -1, 1, thW * 0.28], [0, -1, -1, thW * 0.22], [0, 1, 1, 1.8]],
+        detail: cors ? { type: 'band', dir: 'h', at: thigh * 0.3, size: 0.8, mat2: MK } : [{ type: 'vent', face: '+z', pitch: 1.5, inset: 3.6 }, { type: 'number', face: 'side', text: bp.number, v: thigh * 0.12 }, { type: 'band', face: 'side', dir: 'h', at: -thigh * 0.25, size: 0.8 }] });
+      const knee = hip.child('knee' + s, [0, -thigh, 0], [2 * b, 0, 0]);
+      knee.cyl('x', 2.6, legW * 0.9, { mat: 'metal', sides: 8 });
+      knee.box(legW * 1.15, 8, 4.5, { at: [0, 0.5, legW * 0.55 + 1], mat: cors ? 'tertiary' : 'secondary', bevel: 0.4, cuts: [[1, 0, 1, 2], [-1, 0, 1, 2], [0, 1, 1, 2.4], [0, -1, 1, 1.6]] });
+      knee.box(legW, shin, legW * 1.15, { at: [0, -shin / 2 - 0.5, 0], mat: 'primary', bevel: 0.6, cuts: [[1, 0, 1, 1.8], [-1, 0, 1, 1.8], [0, 1, -1, 2], [1, 0, -1, 1.2], [-1, 0, -1, 1.2]], detail: { type: 'band', dir: 'h', at: shin * 0.2, size: 1, mat2: MK } });
+      knee.cyl('y', 1, shin * 0.55, { at: [0, -shin * 0.45, -legW * 0.62], mat: 'metal', sides: 6 }); // calf piston
+      knee.box(legW * 1.25, 4.5, legW * 1.35, { at: [0, -shin + 1.8, 0.3], mat: 'primary', bevel: 0.6, cuts: [[0, 1, 1, 1.8], [1, 1, 0, 1.2], [-1, 1, 0, 1.2]], detail: { type: 'vent', face: '+z', pitch: 1.2, inset: 1.4 } });
+      const ank = knee.child('ankle' + s, [0, -shin, 0], [-b, 0, 0]);
+      const ft = ank.child('foot' + s, [0, 0, 0], [0, 0, -s * sp]);
+      const fz = footL * 0.14;
+      soles.push(ft.box(footW + 0.4, 1.6, footL, { at: [0, -ankY + 0.8, fz], mat: 'metal', cuts: [[1, 0, 1, footW * 0.3], [-1, 0, 1, footW * 0.3]] }));
+      ft.box(footW, 4, footL * 0.72, { at: [0, -ankY + 3.4, fz + 0.5], mat: 'primary', bevel: 0.5, cuts: [[1, 0, 1, footW * 0.35], [-1, 0, 1, footW * 0.35], [0, 1, 1, 2.6], [0, 1, -1, 1.4]] });
+      ft.box(footW * 0.6, 2.6, 4.5, { at: [0, -ankY + 2.9, fz + footL / 2 - 2.4], mat: 'tertiary', cuts: [[1, 0, 1, 1.6], [-1, 0, 1, 1.6], [0, 1, 1, 1.2]] }); // toe cap
+      ft.box(2.4, 2.4, 7, { at: [0, -ankY + 2.2, fz - footL / 2 - 1.8], rot: [-0.2, 0, 0], mat: 'metal', cuts: [[0, 1, -1, 1.6], [1, 0, -1, 0.8], [-1, 0, -1, 0.8]] }); // rear spur
+      if (cors) for (const x of [-1, 1]) ft.cone('z', 1.1, 0.1, 5, { at: [x * footW * 0.25, -ankY + 4.6, fz + footL * 0.18], rot: [-0.5, 0, 0], mat: 'tertiary', sides: 4 }); // spiked sabatons
+    }
+    // torso: narrow mechanical waist under a big sloped chest carapace
+    const cW = A.chestW * wB, cH = A.chestH * tT, cD = A.chestD * wB;
+    const torso = pelvis.child('torso', [0, 3, 0], [A.hunch, 0, 0]);
+    const abH = 7, chestB = abH - 0.5, chestY = chestB + cH / 2, topY = chestB + cH;
+    torso.box(cW * 0.34, abH, cD * 0.5, { at: [0, abH / 2, 0], mat: 'metal', bevel: 0.8, detail: [{ type: 'vent', face: '+z', pitch: 1.2, inset: 1 }, { type: 'vent', face: 'side', pitch: 1.2, inset: 1 }] });
+    torso.box(cW, cH, cD, { at: [0, chestY, 0], mat: 'primary', bevel: 0.8,
+      cuts: [[0, 1, 1, cH * 0.42], [0, -1, 1, cH * 0.28], [1, -1, 0, cW * 0.26], [-1, -1, 0, cW * 0.26], [1, 0, 1, 3.5], [-1, 0, 1, 3.5], [1, 1, 0, 2.5], [-1, 1, 0, 2.5], [0, -1, -1, cH * 0.2]],
+      detail: cors ? { type: 'panel', face: 'side', at: 0, dir: 'h' } : [{ type: 'panel', face: 'side', at: cH * 0.2, dir: 'h' }, { type: 'vent', face: '-z', pitch: 1.4, inset: 3 }, { type: 'number', face: 'side', text: bp.number, v: -cH * 0.12 }] });
+    // front armour plate with an emblem and a small orange mark
+    torso.box(cW * 0.52, cH * 0.36, 2, { at: [0, chestY - cH * 0.08, cD / 2 - 0.3], rot: [0.12, 0, 0], mat: 'secondary', bevel: 0.4, cuts: [[1, -1, 0, 2], [-1, -1, 0, 2]], detail: { type: 'panel', face: '+z', at: 0, dir: 'v' } });
+    if (cors) torso.cyl('z', 2.6, 1, { at: [0, chestY - cH * 0.06, cD / 2 + 1], mat: 'tertiary', sides: 8 });
+    else torso.box(4, 4, 1, { at: [cW * 0.12, chestY - cH * 0.06, cD / 2 + 1.1], rot: [0.12, 0, PI / 4], mat: 'tertiary' });
+    torso.box(1.6, 1.4, 1, { ...GLOW, at: [-cW * 0.16, chestY - cH * 0.14, cD / 2 + 1] });
+    torso.box(cW * 0.6, 3, cD * 0.55, { at: [0, topY - 0.8, -cD * 0.15], mat: 'metal', bevel: 0.6 }); // collar ring
+    const neck = A.hood ? [topY - 4.5, cD * 0.26] : cors ? [topY + 0.2, cD * 0.08] : [topY - 3.5, type === 'brawler' ? cD * 0.2 : cD * 0.1];
+    if (A.hood) torso.box(cW * 0.5, 3.2, cD * 0.5, { at: [0, topY + 4.2, cD * 0.24], rot: [0.3, 0, 0], mat: 'primary', bevel: 0.5, cuts: [[1, 0, 1, 2.5], [-1, 0, 1, 2.5], [0, -1, 1, 1.2]], detail: { type: 'panel', face: '+y', at: 0, dir: 'v' } });
+    return { pelvis, torso, cW, cH, cD, chestY, topY, shX: cW / 2 + 2, shY: topY - 4, thigh, shin, b, ankY, hipX, legW, neck, frontZ: thW * 0.55 + 1.6 };
   }
 
   // ------------------------------------------------------------------ heads
@@ -755,6 +936,17 @@
         for (const s of [-1, 1]) h.cone('y', 1.5 * hs + 0.3, 0.2, 8 * hs, { ...GLOW, shadow: true, at: [s * W * 0.52, H * 0.95, -1], rot: [-0.5, 0, -s * 0.9], sides: 5 });
         break;
       }
+      case 'tricorn': { // corsair: dark face under a three-cornered hat with a skull emblem
+        h.box(W * 0.62, H * 0.62, D * 0.7, { at: [0, H * 0.33, 0], mat: 'secondary', bevel: 1 * hs });
+        h.box(W * 0.42, 1.3 * Math.max(0.9, hs), 1, { at: [0, H * 0.4, D * 0.35 + 0.3], mat: 'glass', shadow: false });
+        h.box(W * 0.3, H * 0.18, 1.2, { at: [0, H * 0.16, D * 0.35 + 0.2], mat: 'tertiary', detail: { type: 'vent', face: '+z', pitch: 1, inset: 0.3 } });
+        const tri = (e) => [[1, 0, 1, W * 0.62 + e], [-1, 0, 1, W * 0.62 + e], [1, 0, -1, W * 0.2 + e], [-1, 0, -1, W * 0.2 + e]];
+        h.box(W * 1.65, 1.2, W * 1.45, { at: [0, H * 0.66, -0.4], mat: 'tertiary', cuts: tri(-0.4) }); // gold edge
+        h.box(W * 1.6, 1.8 * hs + 0.5, W * 1.4, { at: [0, H * 0.72, -0.4], mat: 'primary', cuts: tri(0) });
+        h.box(W * 0.72, H * 0.42, W * 0.62, { at: [0, H * 0.98, -0.6], mat: 'primary', bevel: 0.8 * hs, cuts: [[0, 1, 1, 1], [0, 1, -1, 1]] });
+        h.cyl('z', 1.5 * hs + 0.6, 1, { at: [0, H * 0.96, W * 0.31 - 0.1], mat: 'tertiary', sides: 6 }); // skull emblem
+        break;
+      }
       default: { // vfin: the Gundam face
         h.box(W, H, D, { at: [0, H / 2, -0.4], mat: 'primary', bevel: 2 * hs, cuts: [[0, 1, 1, 3.2 * hs], [1, -1, 1, 2 * hs], [-1, -1, 1, 2 * hs]] });
         h.box(W * 0.64, H * 0.56, 1.4, { at: [0, H * 0.42, fz - 0.35], mat: 'metal' }); // face recess
@@ -815,6 +1007,12 @@
         p.box(9 * S, 8 * S, 11 * S, { at: [s * 4 * S, 2 * S, 0], mat: 'primary', bevel: bev, cuts: [[s, 1, 0, 3], [0, -1, 1, 2]] });
         p.box(1.6, 10 * S, 6 * S, { at: [s * 7 * S, 8.5 * S, -2 * S], rot: [-0.45, 0, -s * 0.35], mat: 'secondary', cuts: [[0, 1, 1, 3], [0, 1, -1, 1]] });
         p.box(9.5 * S, 1.6, 11.5 * S, { at: [s * 4 * S, -1.4 * S, 0], mat: 'tertiary', bevel: 0.4 });
+        break;
+      }
+      case 'corsair': { // rounded pauldron with gold trim and a spike
+        p.box(8 * S, 7 * S, 10 * S, { at: [s * 3.5 * S, 2 * S, 0], mat: 'primary', bevel: 2 * S, bevelSet: 'round' });
+        p.box(8.6 * S, 1.6, 10.6 * S, { at: [s * 3.5 * S, -1 * S, 0], mat: 'tertiary', bevel: 0.4 });
+        p.cone('y', 1.3, 0.1, 4.5, { at: [s * 5.5 * S, 6.4 * S, 0], rot: [0, 0, -s * 0.45], mat: 'tertiary', sides: 5 });
         break;
       }
       default: { // block: Gundam box pads
@@ -882,11 +1080,14 @@
         break;
       }
       case 'cape': { // knight: two-piece cape that flows back when walking
+        const capeMat = t.type === 'corsair' ? 'secondary' : 'tertiary';
         const cp = pk.child('cape', [0, t.topY - t.chestY - 1.5, -0.5], [0.12, 0, 0]);
-        cp.box(cW * 0.95, 2.5, 3, { at: [0, 0, 0.5], mat: 'tertiary', bevel: 0.8 });
-        cp.box(cW * 0.95, 14 * t.dr, 1.4, { at: [0, -7.5 * t.dr, 0], mat: 'tertiary', bevel: 0.4, detail: { type: 'panel', face: '-z', at: 0, dir: 'v' } });
+        cp.box(cW * 0.95, 2.5, 3, { at: [0, 0, 0.5], mat: capeMat, bevel: 0.8 });
+        cp.box(cW * 0.95, 14 * t.dr, 1.4, { at: [0, -7.5 * t.dr, 0], mat: capeMat, bevel: 0.4, detail: { type: 'panel', face: '-z', at: 0, dir: 'v' } });
         const c2 = cp.child('cape2', [0, -14 * t.dr, 0], [0.06, 0, 0]);
-        c2.box(cW * 1.1, 13 * t.dr, 1.4, { at: [0, -6.5 * t.dr, 0], mat: 'tertiary', bevel: 0.4, cuts: [[1, -1, 0, 3], [-1, -1, 0, 3]], detail: { type: 'panel', face: '-z', at: 0, dir: 'v' } });
+        if (t.type === 'corsair') { // torn cape: ragged strips of different lengths
+          for (const [x, l, r2] of [[-0.36, 11, 0.06], [-0.1, 15, -0.03], [0.14, 9, 0.04], [0.37, 13, -0.05]]) c2.box(cW * 0.27, l * t.dr, 1.4, { at: [x * cW, -l * t.dr / 2, 0], rot: [0, 0, r2], mat: capeMat, cuts: [[1, -1, 0, 1.5], [-1, -1, 0, 0.8]] });
+        } else c2.box(cW * 1.1, 13 * t.dr, 1.4, { at: [0, -6.5 * t.dr, 0], mat: capeMat, bevel: 0.4, cuts: [[1, -1, 0, 3], [-1, -1, 0, 3]], detail: { type: 'panel', face: '-z', at: 0, dir: 'v' } });
         for (const s of [-1, 1]) cp.box(2.4, 2.4, 1.6, { mat: 'accent', at: [s * cW * 0.36, 0, 2.3] });
         ctx.anims.push((st, n) => {
           const m = st.move || 0, t2 = st.t || 0;
@@ -908,6 +1109,27 @@
         });
         break;
       }
+      case 'antenna': { // pack with a tall curved antenna fin rising from the back
+        pk.box(cW * 0.6, 10, 5, { at: [0, 0, -1.5], mat: 'primary', bevel: bev, cuts: [[1, 1, -1, 2], [-1, 1, -1, 2]], detail: { type: 'vent', face: '-z', pitch: 1.5, inset: 1.6 } });
+        for (const s of [-1, 1]) pk.cone('y', 1.8, 2.6, 4, { at: [s * cW * 0.16, -6.5, -2], mat: 'metal', sides: 8 });
+        let fn = pk.child('fin', [cW * 0.12, 4, -3], [-0.1, 0, -0.08]);
+        for (let i = 0; i < 3; i++) {
+          const L2 = 9 - i * 1.6;
+          fn.box(1.3, L2, 4.2 - i * 0.9, { at: [0, L2 / 2, 0], mat: i === 1 ? 'secondary' : 'primary', cuts: [[0, 1, 1, 1.2]] });
+          fn = fn.child('fin' + i, [0, L2, 0], [-0.28, 0, 0]);
+        }
+        fn.box(1.2, 2.2, 1.2, { ...GLOW, at: [0, 1, 0] });
+        ctx.anims.push((st, n) => { n.fin.rot[0] += Math.sin(st.t * 1.3) * 0.02 - st.move * 0.08; n.fin0.rot[0] -= st.move * 0.06; });
+        break;
+      }
+      case 'container': { // big rectangular container with white stripes and a stencil number
+        pk.box(cW * 0.85, 20, 10, { at: [0, 1, -4.5], mat: 'primary', bevel: 0.8, cuts: [[0, 1, -1, 2]], detail: [{ type: 'band', face: '-z', dir: 'h', at: 5, size: 1 }, { type: 'number', face: '-z', text: t.number, v: -3 }, { type: 'bolts', face: 'side', inset: 1.5 }, { type: 'panel', face: 'side', at: 0, dir: 'h' }] });
+        pk.box(cW * 0.9, 2, 11, { at: [0, 11.8, -4.5], mat: 'secondary', bevel: 0.4 });
+        for (const s of [-1, 1]) pk.box(2, 16, 2, { at: [s * (cW * 0.43 + 1), 1, -8.5], mat: 'metal' });
+        for (const s of [-1, 1]) pk.cone('y', 1.8, 2.6, 4, { at: [s * cW * 0.2, -11, -3], mat: 'metal', sides: 8 });
+        pk.box(1.4, 1.4, 1, { ...GLOW, at: [cW * 0.3, 8, -9.8] });
+        break;
+      }
       default: // slim pack
         pk.box(cW * 0.55, 8, 3.5, { at: [0, 0, -1], mat: 'primary', bevel: 1, detail: { type: 'vent', face: '-z', pitch: 1.5, inset: 1.2 } });
         for (const s of [-1, 1]) pk.cone('y', 1.6, 2.2, 3, { at: [s * cW * 0.14, -5.5, -1.2], mat: 'metal', sides: 8 });
@@ -917,7 +1139,7 @@
   // ------------------------------------------------------------------ register
   const opt = (key, label, labels) => ({ key, label, options: Object.keys(labels), labels });
   G.registerLine('sd', {
-    label: 'Heroic frame (SD)', group: 'Mechs', weight: 4,
+    label: 'Mech frame', group: 'Mechs', weight: 5,
     slots: [
       opt('sdType', 'Archetype', TYPES),
       opt('sdStyle', 'Proportions', STYLES),
@@ -930,7 +1152,8 @@
     ],
     random: randomSD,
     build: buildSD,
-    palettes: SD_PALETTES,
+    // the military palettes lead; the bright Gundam sets stay available in the paint menu
+    palettes: ['Sand Frame', 'Field Olive', 'Navy Anchor', 'Bone White', 'Corsair', 'Titans Navy', 'Ghost Camo', 'Black Knight', 'Zaku Green'],
     sizeRange: [0.95, 1.2],
     name(r, bp) {
       const t = NAME_WORDS[bp.sdType] ? bp.sdType : 'hero';

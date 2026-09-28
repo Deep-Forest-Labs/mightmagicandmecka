@@ -5,6 +5,22 @@
   const human = (role, style, fixed, palette) => ({ line: 'human', fixed: Object.assign({ role, style, era: 'fantasy' }, fixed), palette });
   const STYLES = [
     {
+      id: 'blend', letter: 'A+B', name: 'Dark heroic (your pick)', refs: 'A grim heroic × B dark stylized', look: 'dusk', picked: true,
+      stage: { bg: '#1c1a20', floor: '#28252d' },
+      rules: [
+        '<b>~4.5 heads tall</b>, upright and confident, with the head level.',
+        "<b>B's mass</b>: oversized hands, forearms and shoulders, and a V-taper.",
+        "<b>A's armour</b>: angular plate and hidden faces behind hoods and slit helms.",
+        '<b>Two clear legs</b>: splayed, staggered stance with a gap from crotch to feet.',
+      ],
+      units: [
+        human('rogue', 'blend', { head: 'hood', extra: 'cape', weaponR: 'dagger', weaponL: 'dagger' }, 'Night Watch'),
+        human('soldier', 'blend', { era: 'scifi', head: 'helm', shoulders: 'pauldrons', weaponR: 'mg' }, 'Ashen'),
+        human('berserker', 'blend', { weaponR: 'greatsword' }, 'Oxblood'),
+      ],
+      mech: { line: 'sd', fixed: { sdType: 'heavy', sdStyle: 'frame' }, palette: 'Navy Anchor' },
+    },
+    {
       id: 'grim', letter: 'A', name: 'Grim heroic', refs: 'Warhammer Fantasy · Diablo II', look: 'dusk',
       stage: { bg: '#1d1b20', floor: '#29262c' },
       rules: [
@@ -18,7 +34,7 @@
         human('soldier', 'grim', { era: 'scifi', head: 'helm', shoulders: 'pauldrons', weaponR: 'mg' }, 'Ashen'),
         human('berserker', 'grim', { weaponR: 'greatsword' }, 'Oxblood'),
       ],
-      mech: { line: 'sd', fixed: { sdType: 'knight', sdStyle: 'heroic' }, palette: 'Black Knight' },
+      mech: { line: 'sd', fixed: { sdType: 'knight', sdStyle: 'frame' }, palette: 'Bone White' },
     },
     {
       id: 'dark', letter: 'B', name: 'Dark stylized', refs: 'World of Warcraft · Darkest Dungeon', look: 'dusk',
@@ -34,7 +50,7 @@
         human('soldier', 'dark', { era: 'scifi', head: 'helm', shoulders: 'pauldrons', weaponR: 'mg' }, 'Ashen'),
         human('berserker', 'dark', { weaponR: 'greatsword' }, 'Oxblood'),
       ],
-      mech: { line: 'sd', fixed: { sdType: 'commander', sdStyle: 'heroic' }, palette: 'Ghost Camo' },
+      mech: { line: 'sd', fixed: { sdType: 'commander', sdStyle: 'frame' }, palette: 'Field Olive' },
     },
     {
       id: 'real', letter: 'C', name: 'Gritty realistic', refs: 'Blasphemous · Kingdom Come · Diablo I', look: 'dusk',
@@ -50,7 +66,24 @@
         human('soldier', 'real', { era: 'scifi', head: 'helm', shoulders: 'pauldrons', weaponR: 'mg' }, 'Ashen'),
         human('berserker', 'real', { weaponR: 'greatsword' }, 'Oxblood'),
       ],
-      mech: { line: 'sd', fixed: { sdType: 'hero', sdStyle: 'heroic' }, palette: 'Titans Navy' },
+      mech: { line: 'sd', fixed: { sdType: 'hero', sdStyle: 'frame' }, palette: 'Sand Frame' },
+    },
+    {
+      id: 'frame', letter: 'M', name: 'Military frame mechs', refs: 'your references: faceted sand mech · Frame Arms · navy anchor · corsair', look: 'dusk',
+      stage: { bg: '#1c1c20', floor: '#28282d' },
+      rules: [
+        '<b>Tiny recessed heads</b>: under a chest hood or sunk between the shoulders.',
+        '<b>Massive thighs</b> over slim shins, wide stance, long spurred feet.',
+        '<b>Faceted armour</b>, hazard stripes, stencils and emblems.',
+        '<b>Asymmetric kit</b>: plate shields, arm cannons, containers and antenna fins.',
+      ],
+      units: [
+        { line: 'sd', fixed: { sdType: 'hero', sdStyle: 'frame' }, palette: 'Sand Frame' },
+        { line: 'sd', fixed: { sdType: 'heavy', sdStyle: 'frame' }, palette: 'Navy Anchor' },
+        { line: 'sd', fixed: { sdType: 'sniper', sdStyle: 'frame' }, palette: 'Field Olive' },
+        { line: 'sd', fixed: { sdType: 'corsair', sdStyle: 'frame' }, palette: 'Corsair' },
+      ],
+      mech: null,
     },
     {
       id: 'sd', letter: 'Current', name: 'Heroic SD (for comparison)', refs: 'what you saw last round', look: 'bright', current: true,
@@ -89,17 +122,20 @@
   const host = document.getElementById('rows');
 
   STYLES.forEach((st, si) => {
-    const units = st.units.map((u, i) => makeUnit(u, 11 + i * 7 + si)).concat([makeUnit(st.mech, 5 + si)]);
+    const units = st.units.map((u, i) => makeUnit(u, 11 + i * 7 + si)).concat(st.mech ? [makeUnit(st.mech, 5 + si)] : []);
     // lay the units out left to right by footprint
     let total = 0;
     const widths = units.map((u) => Math.max(20, u.rig.radius * 1.35) + 6);
     for (const w of widths) total += w;
     let x = -total / 2;
     units.forEach((u, i) => { u.x = x + widths[i] / 2; x += widths[i]; });
+    // stage fits the lineup: at least the standard size, wider/taller for big mechs
+    const tallest = Math.max(...units.map((u) => u.rig.height + (u.rig.hover || 0)));
+    const RW = Math.max(W, Math.ceil(total + 24)), RH = Math.max(H, Math.ceil(tallest * 0.95 + 40));
     const stagePal = MF.buildPalette(Object.assign({}, MF.PALETTES['Snowcat'], { bg: st.stage.bg, floor: st.stage.floor }));
 
     const row = document.createElement('section');
-    row.className = 'row' + (st.current ? ' is-current' : '');
+    row.className = 'row' + (st.current ? ' is-current' : '') + (st.picked ? ' is-picked' : '');
     row.setAttribute('aria-label', `${st.letter}: ${st.name}`);
     row.innerHTML = `
       <div class="row-text">
@@ -109,12 +145,12 @@
         <ul class="row-rules">${st.rules.map((r) => `<li>${r}</li>`).join('')}</ul>
       </div>
       <div class="row-view">
-        <div class="stage"><canvas width="${W}" height="${H}" aria-label="${st.name} lineup"></canvas></div>
-        <div class="strip"><span class="strip-label">At game size, 1 pixel = 1 pixel:</span><canvas class="one" width="${W}" height="${H}"></canvas></div>
+        <div class="stage"><canvas width="${RW}" height="${RH}" aria-label="${st.name} lineup"></canvas></div>
+        <div class="strip"><span class="strip-label">At game size, 1 pixel = 1 pixel:</span><canvas class="one" width="${RW}" height="${RH}"></canvas></div>
         <div class="names">${units.map((u) => `<span><b>${escapeHtml(u.bp.name)}</b> ${Math.round(u.rig.height)}px</span>`).join('')}</div>
       </div>`;
     host.appendChild(row);
-    const R = new MF.Renderer(W, H);
+    const R = new MF.Renderer(RW, RH);
     rows.push({ st, units, stagePal, R, canvases: row.querySelectorAll('canvas') });
   });
 
@@ -147,7 +183,7 @@
         scene.push({ prims: MF.updateRig(u.rig.root, w, []), pal: u.pal, x: Math.round(u.x), z: 0, radius: u.rig.radius, height: u.rig.height + (u.rig.hover || 0) });
       }
       row.R.render({
-        units: scene, cam: { x: 0, z: 0, pitch: 0.55, ox: W / 2, oy: H - 16 },
+        units: scene, cam: { x: 0, z: 0, pitch: 0.55, ox: row.R.w / 2, oy: row.R.h - 16 },
         floor: 'tiles', tileSize: 24, bg: row.stagePal.bg, floorRamp: row.stagePal.floor, shadows: true, look: row.st.look, time: t,
       });
       for (const c of row.canvases) c.getContext('2d').putImageData(row.R.image, 0, 0);

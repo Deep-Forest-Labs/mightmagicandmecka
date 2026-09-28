@@ -30,6 +30,8 @@ h1 { margin: 10px 0 8px; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--f-display); 
 .rows { display: grid; gap: 20px; }
 .row { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 20px; padding: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; }
 .row.is-current { opacity: .78; }
+.row.is-picked { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+.row.is-picked .row-letter { font-size: 34px; }
 .row-text { display: grid; align-content: start; gap: 8px; }
 .row-letter { font: 700 44px/1 var(--f-display); color: var(--gold); }
 .row.is-current .row-letter { color: var(--faint); font-size: 22px; letter-spacing: .06em; }

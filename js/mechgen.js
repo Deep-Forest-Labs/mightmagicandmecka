@@ -892,7 +892,7 @@
 
   const slot = (key, label, opt) => ({ key, label, options: OPTIONS[opt || key], labels: LABELS[opt || key] });
   registerLine('modular', {
-    label: 'Modular frame', group: 'Mechs', weight: 4,
+    label: 'Modular frame', group: 'Mechs', weight: 2,
     slots: [slot('frame', 'Chassis'), slot('torso', 'Torso'), slot('head', 'Head'), slot('armL', 'Left arm', 'arm'), slot('armR', 'Right arm', 'arm'), slot('shoulders', 'Shoulders'), slot('back', 'Backpack'), slot('scheme', 'Paint split')],
     random: randomModular,
     build: buildModular,
