@@ -8,6 +8,11 @@ The user stopped the session for the night. Resume from here. Nothing is committ
 uncommitted work (see `git status`). Commit only when the user asks.
 
 ## Play it
+Online (GitHub Pages, redeploys on every push to main; the repo is public):
+https://deep-forest-labs.github.io/mightmagicandmecka/Game/?scenario=mission1
+Factory: https://deep-forest-labs.github.io/mightmagicandmecka/ · Progress page: https://deep-forest-labs.github.io/mightmagicandmecka/Game/progress/ (capture images are not in git, so the page shows text only).
+
+Locally:
 ```bash
 node tools/serve.js 8711
 ```
