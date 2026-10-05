@@ -1,0 +1,383 @@
+{
+  "id": "sniper",
+  "label": "SNIPER",
+  "role": "sniper",
+  "weapon": "sniper",
+  "name": "Kell \"Deadeye\"",
+  "cellWidth": 128,
+  "cellHeight": 128,
+  "scale": 1,
+  "rows": [
+    "S",
+    "SE",
+    "E",
+    "NE",
+    "N",
+    "NW",
+    "W",
+    "SW"
+  ],
+  "columns": [
+    "idle",
+    "walk0",
+    "walk1",
+    "walk2",
+    "walk3",
+    "walk4",
+    "walk5",
+    "walk6",
+    "walk7",
+    "attack0",
+    "attack1",
+    "attack2",
+    "attack3"
+  ],
+  "animations": {
+    "idle": {
+      "from": 0,
+      "count": 1
+    },
+    "walk": {
+      "from": 1,
+      "count": 8,
+      "loop": true
+    },
+    "attack": {
+      "from": 9,
+      "count": 4,
+      "loop": false
+    }
+  },
+  "anchor": {
+    "x": 64,
+    "y": 78
+  },
+  "clipped": false,
+  "blueprint": {
+    "v": 2,
+    "seed": 300,
+    "line": "human",
+    "role": "soldier",
+    "era": "scifi",
+    "style": "blend",
+    "head": "helm",
+    "shoulders": "light",
+    "weaponR": "rifle",
+    "weaponL": "none",
+    "extra": "backpack",
+    "bulk": 0.85,
+    "legLen": 1.25,
+    "tall": 0.94,
+    "armLen": 1.23,
+    "edge": 2,
+    "size": 1.22,
+    "palette": "Night Watch",
+    "colors": {
+      "human": true,
+      "styles": [
+        "grim",
+        "dark",
+        "real"
+      ],
+      "glass": "#8ff8ff",
+      "outline": "#07060f",
+      "primary": "#2a1a52",
+      "secondary": "#312460",
+      "tertiary": "#1c6f66",
+      "metal": "#4c5068",
+      "leather": "#241b3a",
+      "skin": "#a27e68",
+      "hair": "#19191f",
+      "accent": "#5ff0ff",
+      "bg": "#2a2e38",
+      "floor": "#242832"
+    },
+    "number": "638",
+    "name": "Kell \"Deadeye\"",
+    "stride": "topdown"
+  },
+  "anchorMode": "feet; global box centred in the cell",
+  "ringAt": "center",
+  "center": {
+    "x": 64,
+    "y": 65
+  },
+  "idleBox": {
+    "w": 68,
+    "h": 71
+  },
+  "bodyBoxS": {
+    "w": 38,
+    "h": 35
+  },
+  "attackReach": 56.3,
+  "tightBox": {
+    "w": 114,
+    "h": 109
+  },
+  "render": {
+    "supersample": 3,
+    "soften": 0.8,
+    "feather": 0.35,
+    "swayDeg": 3,
+    "swayPx": 1,
+    "filter": "box, premultiplied alpha",
+    "vfx": false
+  },
+  "cap": {
+    "color": "#1a9ab5",
+    "mats": [
+      "primary",
+      "leather"
+    ]
+  },
+  "marks": null,
+  "paints": [
+    {
+      "nodes": [
+        "pad-1",
+        "pad1"
+      ],
+      "mats": [
+        "secondary",
+        "leather"
+      ],
+      "color": "#14706a"
+    }
+  ],
+  "pose": {
+    "hold": 0.5,
+    "attack": [
+      0.8,
+      0.75,
+      0.68,
+      0.55
+    ],
+    "lean": 0.2,
+    "aim": "auto",
+    "twist": 0.25
+  },
+  "edges": null,
+  "gun": {
+    "color": "#2a2c3a",
+    "extend": 0,
+    "r": 1.3,
+    "dashes": [
+      [
+        2,
+        2.5
+      ],
+      [
+        6.5,
+        2.5
+      ]
+    ]
+  },
+  "carve": [
+    {
+      "ref": "chest",
+      "nodes": [
+        "chest",
+        "pad1",
+        "pad-1"
+      ],
+      "angle": 32,
+      "nose": 0.15,
+      "edge": {
+        "nodes": [
+          "chest"
+        ],
+        "w": 2.4,
+        "h": 0.8
+      }
+    },
+    {
+      "ref": "head",
+      "nodes": [
+        "head"
+      ],
+      "angle": 38,
+      "nose": 0.2
+    }
+  ],
+  "stats": {
+    "sIdle": {
+      "opaquePx": 861,
+      "vMedian": 0.427,
+      "vAbove08": 0.049,
+      "satMedian": 0.627,
+      "bboxW": 40,
+      "bboxH": 65
+    },
+    "idleAspect": [
+      {
+        "w": 41,
+        "h": 66,
+        "r": 1.61
+      },
+      {
+        "w": 53,
+        "h": 58,
+        "r": 1.09
+      },
+      {
+        "w": 68,
+        "h": 47,
+        "r": 1.45
+      },
+      {
+        "w": 61,
+        "h": 58,
+        "r": 1.05
+      },
+      {
+        "w": 41,
+        "h": 71,
+        "r": 1.73
+      },
+      {
+        "w": 53,
+        "h": 66,
+        "r": 1.25
+      },
+      {
+        "w": 68,
+        "h": 47,
+        "r": 1.45
+      },
+      {
+        "w": 61,
+        "h": 51,
+        "r": 1.2
+      }
+    ],
+    "barrelErr": [
+      0,
+      0.7,
+      3.7,
+      5,
+      -0.1,
+      -5.1,
+      -3.8,
+      -0.8
+    ],
+    "bodyAspect": [
+      {
+        "w": 41,
+        "h": 35,
+        "r": 1.17
+      },
+      {
+        "w": 35,
+        "h": 42,
+        "r": 1.2
+      },
+      {
+        "w": 35,
+        "h": 47,
+        "r": 1.34
+      },
+      {
+        "w": 33,
+        "h": 42,
+        "r": 1.27
+      },
+      {
+        "w": 41,
+        "h": 42,
+        "r": 1.02
+      },
+      {
+        "w": 35,
+        "h": 41,
+        "r": 1.17
+      },
+      {
+        "w": 35,
+        "h": 47,
+        "r": 1.34
+      },
+      {
+        "w": 33,
+        "h": 43,
+        "r": 1.3
+      }
+    ],
+    "edgeFrac": 0.021,
+    "capFrac": 0.124,
+    "legs": {
+      "S": {
+        "strideL": 18,
+        "strideR": 17.5,
+        "visFramesL": 7,
+        "visFramesR": 8,
+        "visL": [
+          41,
+          2,
+          1,
+          0,
+          23,
+          71,
+          81,
+          81
+        ],
+        "visR": [
+          32,
+          28,
+          20,
+          27,
+          41,
+          13,
+          1,
+          4
+        ]
+      },
+      "N": {
+        "strideL": 11.5,
+        "strideR": 11.5,
+        "visFramesL": 7,
+        "visFramesR": 7,
+        "visL": [
+          54,
+          88,
+          97,
+          92,
+          63,
+          13,
+          0,
+          8
+        ],
+        "visR": [
+          63,
+          15,
+          0,
+          6,
+          57,
+          87,
+          96,
+          91
+        ]
+      }
+    }
+  },
+  "pitch": 1.2,
+  "lightAng": -0.9,
+  "look": "dusk",
+  "modelHeight": 66.2,
+  "rosterVersion": 5,
+  "bakedBy": "tools/bake.js",
+  "gate": {
+    "limits": {
+      "sIdleWMax": 40,
+      "opaqueMin": 800,
+      "opaqueMax": 900,
+      "edgeFracMax": 0.06,
+      "vMedianMax": 0.5,
+      "vAbove08Max": 0.08,
+      "barrelErrMax": 8,
+      "bodyAspectSpreadMax": 0.35
+    },
+    "pass": true,
+    "fails": []
+  }
+}

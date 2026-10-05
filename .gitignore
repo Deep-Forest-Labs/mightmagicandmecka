@@ -1,3 +1,9 @@
 node_modules/
 dist/*.tmp
 .DS_Store
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
+
+# gauntlet captures: hundreds of MB of regenerable PNGs; the log.jsonl stays tracked
+Game/progress/shots/

@@ -1,0 +1,702 @@
+{
+ "version": 5,
+ "notes": [
+  "Five-marine squad + one military-frame mech for later. Bake: node tools/bake.js (writes Game/assets/sprites/<id>.png/.json).",
+  "supersample 2: each unit is rendered at 2x size and box-filtered 2:1 so edges are antialiased; soften 0.6 replaces the hard outline colour with 60% outline + 40% neighbouring body colour.",
+  "swayDeg/swayPx: a baked walk sway (rotate about the feet by sin(phase)*3 deg, shift sin(phase)*1 px perpendicular to the facing) so the walk reads from S/N where the legs hide under the body.",
+  "No death animation: the factory has none yet.",
+  "Round 3: sizes raised so the S idle body (px within 20 px of meta.center) is 38-40 px wide (rifles 0.97/1.0, medic 1.02, fusion 1.0, sniper 1.42).",
+  "vfx false: muzzle flashes / sniper beam / flame cone are not baked (MF.Gen.parts.muzzleFlash is a no-op in the bake page); the game's vfx piece draws tracers, streaks and fusion blobs. Attack frames are pose + recoil only.",
+  "Engine: draw the selection ring at meta.center (body centre), not at the feet anchor. The bar's ring (measured on ip_01 at 1305,557) is ~27 px outer radius, ~6 px pink band, teal disc when selected.",
+  "Sniper needs a 128 cell for its rifle (tightBox 102 px); everything else fits 96 except fusion (128).",
+  "Round 4 (critic r3 to-do): pitch 1.2 rad. Team re-darkened to the bar's register: primary #2a1a52, secondary #312460, leather #241b3a, metal #4c5068, tertiary #1c6f66, accent #5ff0ff (visor/edge lights only), glass #8ff8ff, outline #07060f. tools/bake.js applies team.colors (+ provenance.colorOverrides) to every squad unit at bake time; mech_frame has team:false.",
+  "team.paints: teal (#14706a) shoulder plates (pad nodes, secondary/leather) like the bar's teal shoulder edges; not identity, not counted in capFrac.",
+  "cap: repaints ONLY the 'head' node: rifles #b8245e, sniper #22b9d6, fusion #d9741c, medic white helm #e8e8e4. marks: the medic's red #c81e2a crosses on the helm crown and the backpack top. capFrac (cap+marks share of S idle opaque px) is printed by the bake: 0.07-0.13.",
+  "pose: idle/walk hold the weapon aimed along the facing (the weapon's own mid-attack pose, f=hold, no kick); attack columns are a kick sequence inside the aimed window. Printed barrelErr is the grip +z axis vs the row's facing on screen (max 16 deg, sniper).",
+  "blueprint.stride 'topdown' (opt-in; round 5: applied by tools/bake.js at load time, js/humans.js untouched): longer hip swing, less knee lift, wider A-frame while walking, so the feet clear the body from S/N. Every blueprint without the flag animates exactly as before (proof: Game/progress/shots/bake-r4-stride-proof-before/after.png, byte-identical, plus an identical rig hash over 300 random human blueprints).",
+  "Bake prints per unit: S idle vMedian / vAbove0.8 / satMedian / capFrac, idle aspect per facing, barrelErr per facing, and visible walk-foot travel (legs keyed magenta/green, occlusion included) for the S and N rows.",
+  "Round 5 (critic r4 to-do): silhouette = team.carve: two vertical planes swept back 32 deg from a nose at the chest front clip the chest and the shoulder plates into a forward-pointing wedge seen from above (head: 38 deg). Planes are added to the factory prims' own convex polytopes in the bake page; the factory source is untouched.",
+  "team.carve[0].edge: a flat #5ff0ff neon strip (2.4 design units wide, about 2 px at 1x) along each carved chest front edge = the leading-edge cyan V; printed as edgeFrac (<= 0.06).",
+  "team.gun: the weapon hand's grip subtree is repainted #2a2c3a (dark gun) and the barrel extended 10 design units past the muzzle with two #5ff0ff ticks; the sniper keeps its own long rifle (extend 0, its built-in cyan bands).",
+  "pose.lean 0.2 rad: forward lean on top of the factory pose. pose.aim 'auto': the bake searches a torso yaw (-0.6..0.6 rad) that minimises the worst on-screen barrel error over the 8 facings; the result is stored as pose.twist in each sheet's JSON.",
+  "Render: supersample 3, soften 0.8, feather 0.35 (the outermost 1x silhouette px keep 65% alpha) so edges sit in the bar's soft register.",
+  "Cells: every squad unit is 128 px now (the longer guns clip 96).",
+  "gate: tools/bake.js checks S idle bbox width (alpha>200) <= 40, opaque px 800-900, edgeFrac <= 0.06, vMedian <= 0.5, vAbove0.8 <= 0.15, barrel error <= 8 deg, plus per-unit reach (rifles >= 45, fusion >= 42), sniper body-aspect spread <= 0.35 and vAbove0.8 <= 0.08. A unit outside its gate is not written and the bake exits 1 (--nogate for exploration).",
+  "Top-down stride: blueprint.stride 'topdown' is spliced into js/humans.js as served to the bake page (tools/bake.js strideHumans()); js/humans.js on disk is back to its committed content."
+ ],
+ "pitch": 1.2,
+ "look": "dusk",
+ "lightAng": -0.9,
+ "frames": 8,
+ "attack": 4,
+ "team": {
+  "palette": "Night Watch",
+  "colors": {
+   "primary": "#2a1a52",
+   "secondary": "#312460",
+   "tertiary": "#1c6f66",
+   "metal": "#4c5068",
+   "leather": "#241b3a",
+   "accent": "#5ff0ff",
+   "glass": "#8ff8ff",
+   "skin": "#a27e68",
+   "hair": "#19191f",
+   "outline": "#07060f"
+  },
+  "paints": [
+   {
+    "nodes": [
+     "pad-1",
+     "pad1"
+    ],
+    "mats": [
+     "secondary",
+     "leather"
+    ],
+    "color": "#14706a"
+   }
+  ],
+  "gun": {
+   "color": "#2a2c3a",
+   "extend": 10,
+   "r": 1.3,
+   "dashes": [
+    [
+     2,
+     2.5
+    ],
+    [
+     6.5,
+     2.5
+    ]
+   ]
+  },
+  "carve": [
+   {
+    "ref": "chest",
+    "nodes": [
+     "chest",
+     "pad1",
+     "pad-1"
+    ],
+    "angle": 32,
+    "nose": 0.15,
+    "edge": {
+     "nodes": [
+      "chest"
+     ],
+     "w": 2.4,
+     "h": 0.8
+    }
+   },
+   {
+    "ref": "head",
+    "nodes": [
+     "head"
+    ],
+    "angle": 38,
+    "nose": 0.2
+   }
+  ]
+ },
+ "units": [
+  {
+   "id": "rifle_a",
+   "label": "RIFLE",
+   "role": "soldier",
+   "weapon": "rifle",
+   "group": "squad",
+   "cell": 128,
+   "provenance": {
+    "seed": 103,
+    "line": "human",
+    "locked": {
+     "role": "soldier",
+     "style": "blend",
+     "era": "scifi",
+     "size": 1.19,
+     "legLen": 1.25,
+     "bulk": 0.85,
+     "weaponR": "mg",
+     "weaponL": "none",
+     "head": "helm",
+     "shoulders": "light",
+     "extra": "none"
+    },
+    "colorOverrides": {},
+    "how": "tools/bake.js --explore --team candidates (MF.Gen.randomBlueprint with role/style/era/slots/legLen/bulk/size locked), picked by eye at pitch 1.4 on an ip_01 ground patch",
+    "round5": "was {'size': 0.97, 'shoulders': 'spiked', 'bulk': 1, 'role': 'soldier'}; shoulders light + bulk 0.85 (critic r4 to-do 1), size set so S idle opaque px lands in 800-900 with bbox <= 40 px; same seed, the factory's own parts (no new slots)"
+   },
+   "blueprint": {
+    "v": 2,
+    "seed": 103,
+    "line": "human",
+    "role": "soldier",
+    "era": "scifi",
+    "style": "blend",
+    "head": "helm",
+    "shoulders": "light",
+    "weaponR": "mg",
+    "weaponL": "none",
+    "extra": "none",
+    "bulk": 0.85,
+    "legLen": 1.25,
+    "tall": 0.94,
+    "armLen": 1.23,
+    "edge": 1,
+    "size": 1.19,
+    "palette": "Night Watch",
+    "colors": {
+     "human": true,
+     "styles": [
+      "grim",
+      "dark",
+      "real"
+     ],
+     "glass": "#b4fff0",
+     "outline": "#0b0a12",
+     "primary": "#6a56c8",
+     "secondary": "#e4dfcc",
+     "tertiary": "#1f8f7e",
+     "metal": "#868ca0",
+     "leather": "#574c6a",
+     "skin": "#a27e68",
+     "hair": "#19191f",
+     "accent": "#6ff5d2",
+     "bg": "#2a2e38",
+     "floor": "#242832"
+    },
+    "number": "895",
+    "name": "Pvt. Brandt \"Hammer\"",
+    "stride": "topdown"
+   },
+   "cap": {
+    "color": "#b8245e",
+    "mats": [
+     "primary",
+     "leather"
+    ]
+   },
+   "pose": {
+    "hold": 0.5,
+    "attack": [
+     0.85,
+     0.6,
+     0.85,
+     0.5
+    ],
+    "lean": 0.2,
+    "aim": "auto"
+   },
+   "gate": {
+    "reachMin": 45
+   }
+  },
+  {
+   "id": "rifle_b",
+   "label": "RIFLE",
+   "role": "soldier",
+   "weapon": "rifle",
+   "group": "squad",
+   "cell": 128,
+   "provenance": {
+    "seed": 200,
+    "line": "human",
+    "locked": {
+     "role": "soldier",
+     "style": "blend",
+     "era": "scifi",
+     "size": 1.145,
+     "legLen": 1.25,
+     "bulk": 0.85,
+     "weaponR": "mg",
+     "weaponL": "none",
+     "head": "visor",
+     "shoulders": "light",
+     "extra": "backpack",
+     "armLen": 1.23,
+     "tall": 0.94
+    },
+    "colorOverrides": {},
+    "how": "tools/bake.js --explore --team candidates (MF.Gen.randomBlueprint with role/style/era/slots/legLen/bulk/size locked), picked by eye at pitch 1.4 on an ip_01 ground patch",
+    "note": "round 3: armLen/tall locked to rifle_a; big pauldrons (vs rifle_a spiked) widen the S silhouette so the low-carried mg no longer makes it a tall stick; differs from rifle_a by head (visor), shoulders (pauldrons) and backpack",
+    "round5": "was {'size': 1.0, 'shoulders': 'pauldrons', 'bulk': 1, 'role': 'soldier'}; shoulders light + bulk 0.85 (critic r4 to-do 1), size set so S idle opaque px lands in 800-900 with bbox <= 40 px; same seed, the factory's own parts (no new slots)"
+   },
+   "blueprint": {
+    "v": 2,
+    "seed": 200,
+    "line": "human",
+    "role": "soldier",
+    "era": "scifi",
+    "style": "blend",
+    "head": "visor",
+    "shoulders": "light",
+    "weaponR": "mg",
+    "weaponL": "none",
+    "extra": "backpack",
+    "bulk": 0.85,
+    "legLen": 1.25,
+    "tall": 0.94,
+    "armLen": 1.23,
+    "edge": 1.6,
+    "size": 1.145,
+    "palette": "Night Watch",
+    "colors": {
+     "human": true,
+     "styles": [
+      "grim",
+      "dark",
+      "real"
+     ],
+     "glass": "#b4fff0",
+     "outline": "#0b0a12",
+     "primary": "#6a56c8",
+     "secondary": "#e4dfcc",
+     "tertiary": "#1f8f7e",
+     "metal": "#868ca0",
+     "leather": "#574c6a",
+     "skin": "#a27e68",
+     "hair": "#19191f",
+     "accent": "#6ff5d2",
+     "bg": "#2a2e38",
+     "floor": "#242832"
+    },
+    "number": "685",
+    "name": "Pvt. Muller \"Lucky\"",
+    "stride": "topdown"
+   },
+   "cap": {
+    "color": "#b8245e",
+    "mats": [
+     "primary",
+     "leather"
+    ]
+   },
+   "pose": {
+    "hold": 0.5,
+    "attack": [
+     0.85,
+     0.6,
+     0.85,
+     0.5
+    ],
+    "lean": 0.2,
+    "aim": "auto"
+   },
+   "gate": {
+    "reachMin": 45
+   }
+  },
+  {
+   "id": "sniper",
+   "label": "SNIPER",
+   "role": "sniper",
+   "weapon": "sniper",
+   "group": "squad",
+   "cell": 128,
+   "provenance": {
+    "seed": 300,
+    "line": "human",
+    "locked": {
+     "role": "soldier",
+     "style": "blend",
+     "era": "scifi",
+     "size": 1.22,
+     "legLen": 1.25,
+     "bulk": 0.85,
+     "weaponR": "rifle",
+     "weaponL": "none",
+     "head": "helm",
+     "shoulders": "light",
+     "extra": "backpack",
+     "tall": 0.94,
+     "armLen": 1.23
+    },
+    "colorOverrides": {},
+    "how": "tools/bake.js --explore --team candidates (MF.Gen.randomBlueprint with role/style/era/slots/legLen/bulk/size locked), picked by eye at pitch 1.4 on an ip_01 ground patch",
+    "round5": "was {'size': 1.42, 'shoulders': 'light', 'bulk': 1, 'role': 'sniper'}; shoulders light + bulk 0.85 (critic r4 to-do 1), size set so S idle opaque px lands in 800-900 with bbox <= 40 px; same seed, the factory's own parts (no new slots); sniper now wears the soldier body (role soldier, weaponR rifle = the sniper rifle) so it is the same armour family as the squad and rotates like the rifles; cap darkened #22b9d6 -> #1a9ab5"
+   },
+   "blueprint": {
+    "v": 2,
+    "seed": 300,
+    "line": "human",
+    "role": "soldier",
+    "era": "scifi",
+    "style": "blend",
+    "head": "helm",
+    "shoulders": "light",
+    "weaponR": "rifle",
+    "weaponL": "none",
+    "extra": "backpack",
+    "bulk": 0.85,
+    "legLen": 1.25,
+    "tall": 0.94,
+    "armLen": 1.23,
+    "edge": 2,
+    "size": 1.22,
+    "palette": "Night Watch",
+    "colors": {
+     "human": true,
+     "styles": [
+      "grim",
+      "dark",
+      "real"
+     ],
+     "glass": "#e6ffff",
+     "outline": "#0b0a12",
+     "primary": "#6a56c8",
+     "secondary": "#e4dfcc",
+     "tertiary": "#1f8f7e",
+     "metal": "#868ca0",
+     "leather": "#574c6a",
+     "skin": "#a27e68",
+     "hair": "#19191f",
+     "accent": "#8af6ff",
+     "bg": "#2a2e38",
+     "floor": "#242832"
+    },
+    "number": "638",
+    "name": "Kell \"Deadeye\"",
+    "stride": "topdown"
+   },
+   "cap": {
+    "color": "#1a9ab5",
+    "mats": [
+     "primary",
+     "leather"
+    ]
+   },
+   "pose": {
+    "hold": 0.5,
+    "attack": [
+     0.8,
+     0.75,
+     0.68,
+     0.55
+    ],
+    "lean": 0.2,
+    "aim": "auto"
+   },
+   "gun": {
+    "extend": 0
+   },
+   "gate": {
+    "bodyAspectSpreadMax": 0.35,
+    "vAbove08Max": 0.08
+   }
+  },
+  {
+   "id": "fusion",
+   "label": "FUSION",
+   "role": "heavy",
+   "weapon": "fusion",
+   "group": "squad",
+   "cell": 128,
+   "provenance": {
+    "seed": 400,
+    "line": "human",
+    "locked": {
+     "role": "heavy",
+     "style": "blend",
+     "era": "scifi",
+     "size": 1.02,
+     "legLen": 1.25,
+     "bulk": 0.85,
+     "weaponR": "flamer",
+     "weaponL": "none",
+     "head": "helm",
+     "shoulders": "light",
+     "extra": "tanks"
+    },
+    "colorOverrides": {},
+    "how": "tools/bake.js --explore --team candidates (MF.Gen.randomBlueprint with role/style/era/slots/legLen/bulk/size locked), picked by eye at pitch 1.4 on an ip_01 ground patch",
+    "round5": "was {'size': 1.0, 'shoulders': 'light', 'bulk': 1, 'role': 'heavy'}; shoulders light + bulk 0.85 (critic r4 to-do 1), size set so S idle opaque px lands in 800-900 with bbox <= 40 px; same seed, the factory's own parts (no new slots)"
+   },
+   "blueprint": {
+    "v": 2,
+    "seed": 400,
+    "line": "human",
+    "role": "heavy",
+    "era": "scifi",
+    "style": "blend",
+    "head": "helm",
+    "shoulders": "light",
+    "weaponR": "flamer",
+    "weaponL": "none",
+    "extra": "tanks",
+    "bulk": 0.85,
+    "legLen": 1.25,
+    "tall": 1.11,
+    "armLen": 1.02,
+    "edge": 0.9,
+    "size": 1.02,
+    "palette": "Night Watch",
+    "colors": {
+     "human": true,
+     "styles": [
+      "grim",
+      "dark",
+      "real"
+     ],
+     "glass": "#b4fff0",
+     "outline": "#0b0a12",
+     "primary": "#6a56c8",
+     "secondary": "#e4dfcc",
+     "tertiary": "#1f8f7e",
+     "metal": "#868ca0",
+     "leather": "#574c6a",
+     "skin": "#a27e68",
+     "hair": "#19191f",
+     "accent": "#6ff5d2",
+     "bg": "#2a2e38",
+     "floor": "#242832"
+    },
+    "number": "582",
+    "name": "Cpl. Magnus \"Furnace\"",
+    "stride": "topdown"
+   },
+   "swayDeg": 4,
+   "swayPx": 1.5,
+   "cap": {
+    "color": "#d9741c",
+    "mats": [
+     "primary",
+     "leather"
+    ]
+   },
+   "pose": {
+    "hold": 0.5,
+    "attack": [
+     0.86,
+     0.75,
+     0.62,
+     0.48
+    ],
+    "lean": 0.2,
+    "aim": "auto"
+   },
+   "gate": {
+    "reachMin": 42
+   }
+  },
+  {
+   "id": "medic",
+   "label": "MEDIC",
+   "role": "soldier",
+   "weapon": "medic",
+   "group": "squad",
+   "cell": 128,
+   "provenance": {
+    "seed": 500,
+    "line": "human",
+    "locked": {
+     "role": "soldier",
+     "style": "blend",
+     "era": "scifi",
+     "size": 1.17,
+     "legLen": 1.25,
+     "bulk": 0.85,
+     "weaponR": "pistol",
+     "weaponL": "none",
+     "head": "helm",
+     "shoulders": "light",
+     "extra": "backpack"
+    },
+    "colorOverrides": {},
+    "how": "tools/bake.js --explore --team candidates (MF.Gen.randomBlueprint with role/style/era/slots/legLen/bulk/size locked), picked by eye at pitch 1.4 on an ip_01 ground patch",
+    "note": "round 3: big pauldrons so the red medic pads read as a plate; white helm with red trim",
+    "round5": "was {'size': 1.06, 'shoulders': 'light', 'bulk': 1, 'role': 'soldier'}; shoulders light + bulk 0.85 (critic r4 to-do 1), size set so S idle opaque px lands in 800-900 with bbox <= 40 px; same seed, the factory's own parts (no new slots)"
+   },
+   "blueprint": {
+    "v": 2,
+    "seed": 500,
+    "line": "human",
+    "role": "soldier",
+    "era": "scifi",
+    "style": "blend",
+    "head": "helm",
+    "shoulders": "light",
+    "weaponR": "pistol",
+    "weaponL": "none",
+    "extra": "backpack",
+    "bulk": 0.85,
+    "legLen": 1.25,
+    "tall": 0.93,
+    "armLen": 1.13,
+    "edge": 1.4,
+    "size": 1.17,
+    "palette": "Night Watch",
+    "colors": {
+     "human": true,
+     "styles": [
+      "grim",
+      "dark",
+      "real"
+     ],
+     "glass": "#b4fff0",
+     "outline": "#0b0a12",
+     "primary": "#e4dfcc",
+     "secondary": "#6a56c8",
+     "tertiary": "#1f8f7e",
+     "metal": "#868ca0",
+     "leather": "#574c6a",
+     "skin": "#a27e68",
+     "hair": "#19191f",
+     "accent": "#ff5a64",
+     "bg": "#2a2e38",
+     "floor": "#242832"
+    },
+    "number": "884",
+    "name": "Sgt. Tamsin \"Grit\"",
+    "stride": "topdown"
+   },
+   "cap": {
+    "color": "#e8e8e4",
+    "mats": [
+     "primary",
+     "leather"
+    ]
+   },
+   "marks": [
+    {
+     "node": "pack",
+     "prim": 0,
+     "face": "top",
+     "color": "#c81e2a",
+     "boxes": [
+      [
+       8.5,
+       1.2,
+       2.8,
+       0,
+       0.9,
+       -0.4
+      ],
+      [
+       2.8,
+       1.2,
+       6.4,
+       0,
+       0.9,
+       -0.4
+      ]
+     ]
+    },
+    {
+     "node": "head",
+     "prim": "top",
+     "face": "top",
+     "color": "#c81e2a",
+     "boxes": [
+      [
+       4.6,
+       0.6,
+       1.5,
+       0,
+       0.1,
+       0
+      ],
+      [
+       1.5,
+       0.6,
+       4.6,
+       0,
+       0.1,
+       0
+      ]
+     ]
+    }
+   ],
+   "pose": {
+    "hold": 0.5,
+    "attack": [
+     0.8,
+     0.73,
+     0.67,
+     0.55
+    ],
+    "lean": 0.2,
+    "aim": "auto"
+   },
+   "gate": {
+    "barrelErrMax": 10
+   }
+  },
+  {
+   "id": "mech_frame",
+   "label": "MECH",
+   "role": "commander",
+   "weapon": "mg",
+   "group": "vehicle",
+   "cell": 128,
+   "blueprint": {
+    "v": 2,
+    "seed": 9,
+    "line": "sd",
+    "sdType": "commander",
+    "sdStyle": "frame",
+    "sdHead": "mono",
+    "sdWeaponR": "machineGun",
+    "sdWeaponL": "plateShield",
+    "sdBack": "container",
+    "sdBackL": "rocket",
+    "sdBackR": "missilePod",
+    "bulk": 0.87,
+    "legLen": 1.1,
+    "tall": 1.15,
+    "armLen": 1.06,
+    "edge": 1.3,
+    "size": 0.8,
+    "palette": "Night Watch",
+    "colors": {
+     "human": true,
+     "styles": [
+      "grim",
+      "dark",
+      "real"
+     ],
+     "glass": "#b4fff0",
+     "outline": "#0b0a12",
+     "primary": "#6a56c8",
+     "secondary": "#e4dfcc",
+     "tertiary": "#1f8f7e",
+     "metal": "#868ca0",
+     "leather": "#574c6a",
+     "skin": "#a27e68",
+     "hair": "#19191f",
+     "accent": "#6ff5d2",
+     "bg": "#2a2e38",
+     "floor": "#242832"
+    },
+    "number": "409",
+    "name": "RX-409 Warden"
+   },
+   "provenance": {
+    "seed": 9,
+    "line": "sd",
+    "locked": {
+     "sdStyle": "frame",
+     "size": 0.8
+    },
+    "slotOverrides": {},
+    "colorOverrides": {},
+    "how": "tools/bake.js --explore candidates (MF.Gen.randomBlueprint with locked slots), picked by eye at the roster pitch on olive ground"
+   },
+   "team": false
+  }
+ ],
+ "supersample": 3,
+ "soften": 0.8,
+ "swayDeg": 3,
+ "swayPx": 1,
+ "feather": 0.35,
+ "gate": {
+  "sIdleWMax": 40,
+  "opaqueMin": 800,
+  "opaqueMax": 900,
+  "edgeFracMax": 0.06,
+  "vMedianMax": 0.5,
+  "vAbove08Max": 0.15,
+  "barrelErrMax": 8
+ }
+}

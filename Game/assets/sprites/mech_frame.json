@@ -1,0 +1,197 @@
+{
+  "id": "mech_frame",
+  "label": "MECH",
+  "role": "commander",
+  "weapon": "mg",
+  "name": "RX-409 Warden",
+  "cellWidth": 128,
+  "cellHeight": 128,
+  "scale": 1,
+  "rows": [
+    "S",
+    "SE",
+    "E",
+    "NE",
+    "N",
+    "NW",
+    "W",
+    "SW"
+  ],
+  "columns": [
+    "idle",
+    "walk0",
+    "walk1",
+    "walk2",
+    "walk3",
+    "walk4",
+    "walk5",
+    "walk6",
+    "walk7",
+    "attack0",
+    "attack1",
+    "attack2",
+    "attack3"
+  ],
+  "animations": {
+    "idle": {
+      "from": 0,
+      "count": 1
+    },
+    "walk": {
+      "from": 1,
+      "count": 8,
+      "loop": true
+    },
+    "attack": {
+      "from": 9,
+      "count": 4,
+      "loop": false
+    }
+  },
+  "anchor": {
+    "x": 64,
+    "y": 76
+  },
+  "clipped": false,
+  "blueprint": {
+    "v": 2,
+    "seed": 9,
+    "line": "sd",
+    "sdType": "commander",
+    "sdStyle": "frame",
+    "sdHead": "mono",
+    "sdWeaponR": "machineGun",
+    "sdWeaponL": "plateShield",
+    "sdBack": "container",
+    "sdBackL": "rocket",
+    "sdBackR": "missilePod",
+    "bulk": 0.87,
+    "legLen": 1.1,
+    "tall": 1.15,
+    "armLen": 1.06,
+    "edge": 1.3,
+    "size": 0.8,
+    "palette": "Night Watch",
+    "colors": {
+      "human": true,
+      "styles": [
+        "grim",
+        "dark",
+        "real"
+      ],
+      "glass": "#b4fff0",
+      "outline": "#0b0a12",
+      "primary": "#6a56c8",
+      "secondary": "#e4dfcc",
+      "tertiary": "#1f8f7e",
+      "metal": "#868ca0",
+      "leather": "#574c6a",
+      "skin": "#a27e68",
+      "hair": "#19191f",
+      "accent": "#6ff5d2",
+      "bg": "#2a2e38",
+      "floor": "#242832"
+    },
+    "number": "409",
+    "name": "RX-409 Warden"
+  },
+  "anchorMode": "feet; global box centred in the cell",
+  "ringAt": "center",
+  "center": {
+    "x": 64,
+    "y": 60.9
+  },
+  "idleBox": {
+    "w": 54,
+    "h": 62
+  },
+  "bodyBoxS": {
+    "w": 40,
+    "h": 39
+  },
+  "attackReach": 35.5,
+  "tightBox": {
+    "w": 68,
+    "h": 74
+  },
+  "render": {
+    "supersample": 3,
+    "soften": 0.8,
+    "feather": 0.35,
+    "swayDeg": 3,
+    "swayPx": 1,
+    "filter": "box, premultiplied alpha",
+    "vfx": false
+  },
+  "cap": null,
+  "marks": null,
+  "paints": null,
+  "pose": null,
+  "edges": null,
+  "gun": null,
+  "carve": null,
+  "stats": {
+    "sIdle": {
+      "opaquePx": 1634,
+      "vMedian": 0.741,
+      "vAbove08": 0.403,
+      "satMedian": 0.441,
+      "bboxW": 52,
+      "bboxH": 52
+    },
+    "idleAspect": [
+      {
+        "w": 54,
+        "h": 54,
+        "r": 1
+      },
+      {
+        "w": 50,
+        "h": 59,
+        "r": 1.18
+      },
+      {
+        "w": 43,
+        "h": 59,
+        "r": 1.37
+      },
+      {
+        "w": 46,
+        "h": 60,
+        "r": 1.3
+      },
+      {
+        "w": 54,
+        "h": 51,
+        "r": 1.06
+      },
+      {
+        "w": 50,
+        "h": 62,
+        "r": 1.24
+      },
+      {
+        "w": 43,
+        "h": 62,
+        "r": 1.44
+      },
+      {
+        "w": 46,
+        "h": 60,
+        "r": 1.3
+      }
+    ],
+    "barrelErr": null
+  },
+  "pitch": 1.2,
+  "lightAng": -0.9,
+  "look": "dusk",
+  "modelHeight": 81.3,
+  "rosterVersion": 5,
+  "bakedBy": "tools/bake.js",
+  "gate": {
+    "limits": {},
+    "pass": true,
+    "fails": []
+  }
+}

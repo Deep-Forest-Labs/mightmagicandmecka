@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gauntlet Progress</title>
+<style>
+:root { --bg:#0b0d12; --panel:#141822; --line:#242a38; --txt:#d8dce6; --dim:#7d8597; --ok:#4fd18b; --bad:#ff5c6c; --warn:#f7c948; --info:#5bb8ff; --pick:#c77dff; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--txt); font:14px/1.45 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+header { position:sticky; top:0; z-index:5; background:var(--bg); border-bottom:1px solid var(--line); padding:12px 20px; display:flex; gap:16px; align-items:baseline; flex-wrap:wrap; }
+header h1 { margin:0; font-size:17px; letter-spacing:.04em; text-transform:uppercase; }
+header .meta { color:var(--dim); font-size:12px; }
+main { padding:16px 20px 80px; max-width:1500px; margin:0 auto; }
+h2 { font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); margin:28px 0 10px; }
+.board { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:10px; }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px 12px; cursor:pointer; }
+.card:hover { border-color:#3a4256; }
+.card .name { font-weight:600; font-size:15px; }
+.card .st { display:flex; justify-content:space-between; margin-top:6px; font-size:12px; color:var(--dim); }
+.card .gap { margin-top:6px; font-size:12px; color:var(--txt); max-height:3.2em; overflow:hidden; }
+.card.pass { border-left:4px solid var(--ok); } .card.fail { border-left:4px solid var(--bad); } .card.working { border-left:4px solid var(--warn); } .card.done { border-left:4px solid var(--info); } .card.pick { border-left:4px solid var(--pick); } .card.info { border-left:4px solid var(--line); }
+.spark { display:flex; gap:3px; margin-top:8px; align-items:flex-end; height:22px; }
+.spark i { display:block; width:9px; background:var(--dim); border-radius:2px 2px 0 0; }
+.feed { display:flex; flex-direction:column; gap:10px; }
+.entry { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px 12px; display:grid; grid-template-columns:150px 1fr; gap:12px; }
+.entry .who { font-size:12px; color:var(--dim); }
+.entry .who b { display:block; color:var(--txt); font-size:13px; }
+.entry .who .tag { display:inline-block; padding:1px 7px; border-radius:10px; font-size:11px; margin-top:4px; background:#1e2431; }
+.tag.pass{color:var(--ok)} .tag.fail{color:var(--bad)} .tag.working{color:var(--warn)} .tag.done{color:var(--info)} .tag.pick{color:var(--pick)}
+.entry .text { white-space:pre-wrap; word-break:break-word; }
+.entry .imgs { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+.entry .imgs a { display:block; }
+.entry .imgs img { height:120px; border:1px solid var(--line); border-radius:4px; background:#000; }
+.entry .imgs img.ab { height:160px; }
+.refs { display:flex; gap:8px; flex-wrap:wrap; }
+.refs img { height:90px; border:1px solid var(--line); border-radius:4px; }
+.filters { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+.filters button { background:var(--panel); color:var(--txt); border:1px solid var(--line); border-radius:14px; padding:3px 10px; font-size:12px; cursor:pointer; }
+.filters button.on { border-color:var(--info); color:var(--info); }
+#empty { color:var(--dim); padding:30px 0; }
+@media (max-width:640px){ .entry{grid-template-columns:1fr} main{padding:12px 16px 60px} }
+</style>
+</head>
+<body>
+<header>
+  <h1>Infested Planet Gauntlet</h1>
+  <span class="meta" id="meta">loading…</span>
+  <span class="meta">Bar: Steam app 204530 screenshots, 1920×1080, full frame. Critics are blind-A/B'd against it. Page polls every 4 s.</span>
+</header>
+<main>
+  <h2>Pieces</h2>
+  <div class="board" id="board"></div>
+  <h2>The bar</h2>
+  <div class="refs" id="refs"></div>
+  <h2>Feed</h2>
+  <div class="filters" id="filters"></div>
+  <div class="feed" id="feed"></div>
+  <div id="empty">No entries yet.</div>
+</main>
+<script>
+const REFS = Array.from({length:12},(_,i)=>`../../docs/ImageRefs/InfestedPlanet/ip_${String(i+1).padStart(2,'0')}.jpg`);
+document.getElementById('refs').innerHTML = REFS.map(r=>`<a href="${r}" target="_blank"><img src="${r}" loading="lazy"></a>`).join('');
+let filter = null, lastText = '';
+const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const imgSrc = p => p.startsWith('/') || p.startsWith('http') ? p : '../' + p;
+function render(entries){
+  const pieces = {};
+  for (const e of entries){ (pieces[e.piece] = pieces[e.piece] || []).push(e); }
+  const names = Object.keys(pieces);
+  const board = document.getElementById('board');
+  board.innerHTML = names.map(n=>{
+    const es = pieces[n]; const last = es[es.length-1];
+    const crit = es.filter(e=>e.role==='critic' && e.score!=null);
+    const lastCrit = crit[crit.length-1];
+    const spark = crit.map(c=>`<i title="r${c.round}: ${c.score}" style="height:${Math.max(2, c.score*2.2)}px;background:${c.status==='pass'?'var(--ok)':'var(--dim)'}"></i>`).join('');
+    return `<div class="card ${last.status}" data-p="${esc(n)}"><div class="name">${esc(n)}</div>
+      <div class="st"><span>round ${last.round} · ${esc(last.role)}</span><span>${esc(last.status)}${lastCrit?` · ${lastCrit.score}/10`:''}</span></div>
+      ${lastCrit?`<div class="gap">${esc(lastCrit.text.split('\n')[0]).slice(0,160)}</div>`:''}
+      <div class="spark">${spark}</div></div>`;
+  }).join('');
+  board.querySelectorAll('.card').forEach(c=>c.onclick=()=>{ filter = filter===c.dataset.p?null:c.dataset.p; render(entries); });
+  const fl = document.getElementById('filters');
+  fl.innerHTML = ['all', ...names].map(n=>`<button class="${(filter||'all')===n?'on':''}" data-p="${esc(n)}">${esc(n)}</button>`).join('');
+  fl.querySelectorAll('button').forEach(b=>b.onclick=()=>{ filter = b.dataset.p==='all'?null:b.dataset.p; render(entries); });
+  const shown = entries.filter(e=>!filter||e.piece===filter).slice().reverse();
+  document.getElementById('feed').innerHTML = shown.map(e=>`<div class="entry">
+    <div class="who"><b>${esc(e.piece)} · r${e.round}</b>${esc(e.role)}${e.model?` · ${esc(e.model)}`:''}<br><span class="tag ${e.status}">${esc(e.status)}${e.score!=null?` ${e.score}/10`:''}</span><br><span>${new Date(e.ts).toLocaleTimeString()}</span></div>
+    <div><div class="text">${esc(e.text)}</div>
+      ${(e.images&&e.images.length)||e.ab?`<div class="imgs">${(e.images||[]).map(p=>`<a href="${imgSrc(p)}" target="_blank"><img src="${imgSrc(p)}" loading="lazy" title="${esc(p)}"></a>`).join('')}
+      ${e.ab?['A','B'].map(k=>`<a href="${imgSrc(e.ab.replace(/\/?$/,'/'))}${k}.png" target="_blank"><img class="ab" src="${imgSrc(e.ab.replace(/\/?$/,'/'))}${k}.png" loading="lazy" title="${k}"></a>`).join(''):''}</div>`:''}
+    </div></div>`).join('');
+  document.getElementById('empty').style.display = shown.length?'none':'';
+  document.getElementById('meta').textContent = `${entries.length} entries · ${names.length} pieces · updated ${new Date().toLocaleTimeString()}`;
+}
+async function poll(){
+  try {
+    const t = await (await fetch('log.jsonl?'+Date.now(), {cache:'no-store'})).text();
+    if (t !== lastText){ lastText = t; render(t.split('\n').filter(Boolean).map(l=>{try{return JSON.parse(l)}catch(e){return null}}).filter(Boolean)); }
+  } catch(e){ document.getElementById('meta').textContent = 'log unreachable: ' + e.message; }
+}
+poll(); setInterval(poll, 4000);
+</script>
+</body>
+</html>

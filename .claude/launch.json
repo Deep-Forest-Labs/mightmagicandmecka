@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "gauntlet", "runtimeExecutable": "node", "runtimeArgs": ["tools/serve.js", "8711"], "port": 8711 }
+  ]
+}

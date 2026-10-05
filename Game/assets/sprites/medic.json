@@ -1,0 +1,431 @@
+{
+  "id": "medic",
+  "label": "MEDIC",
+  "role": "soldier",
+  "weapon": "medic",
+  "name": "Sgt. Tamsin \"Grit\"",
+  "cellWidth": 128,
+  "cellHeight": 128,
+  "scale": 1,
+  "rows": [
+    "S",
+    "SE",
+    "E",
+    "NE",
+    "N",
+    "NW",
+    "W",
+    "SW"
+  ],
+  "columns": [
+    "idle",
+    "walk0",
+    "walk1",
+    "walk2",
+    "walk3",
+    "walk4",
+    "walk5",
+    "walk6",
+    "walk7",
+    "attack0",
+    "attack1",
+    "attack2",
+    "attack3"
+  ],
+  "animations": {
+    "idle": {
+      "from": 0,
+      "count": 1
+    },
+    "walk": {
+      "from": 1,
+      "count": 8,
+      "loop": true
+    },
+    "attack": {
+      "from": 9,
+      "count": 4,
+      "loop": false
+    }
+  },
+  "anchor": {
+    "x": 64,
+    "y": 77
+  },
+  "clipped": false,
+  "blueprint": {
+    "v": 2,
+    "seed": 500,
+    "line": "human",
+    "role": "soldier",
+    "era": "scifi",
+    "style": "blend",
+    "head": "helm",
+    "shoulders": "light",
+    "weaponR": "pistol",
+    "weaponL": "none",
+    "extra": "backpack",
+    "bulk": 0.85,
+    "legLen": 1.25,
+    "tall": 0.93,
+    "armLen": 1.13,
+    "edge": 1.4,
+    "size": 1.17,
+    "palette": "Night Watch",
+    "colors": {
+      "human": true,
+      "styles": [
+        "grim",
+        "dark",
+        "real"
+      ],
+      "glass": "#8ff8ff",
+      "outline": "#07060f",
+      "primary": "#2a1a52",
+      "secondary": "#312460",
+      "tertiary": "#1c6f66",
+      "metal": "#4c5068",
+      "leather": "#241b3a",
+      "skin": "#a27e68",
+      "hair": "#19191f",
+      "accent": "#5ff0ff",
+      "bg": "#2a2e38",
+      "floor": "#242832"
+    },
+    "number": "884",
+    "name": "Sgt. Tamsin \"Grit\"",
+    "stride": "topdown"
+  },
+  "anchorMode": "feet; global box centred in the cell",
+  "ringAt": "center",
+  "center": {
+    "x": 64.1,
+    "y": 64.8
+  },
+  "idleBox": {
+    "w": 56,
+    "h": 60
+  },
+  "bodyBoxS": {
+    "w": 39,
+    "h": 34
+  },
+  "attackReach": 45.8,
+  "tightBox": {
+    "w": 92,
+    "h": 89
+  },
+  "render": {
+    "supersample": 3,
+    "soften": 0.8,
+    "feather": 0.35,
+    "swayDeg": 3,
+    "swayPx": 1,
+    "filter": "box, premultiplied alpha",
+    "vfx": false
+  },
+  "cap": {
+    "color": "#e8e8e4",
+    "mats": [
+      "primary",
+      "leather"
+    ]
+  },
+  "marks": [
+    {
+      "node": "pack",
+      "prim": 0,
+      "face": "top",
+      "color": "#c81e2a",
+      "boxes": [
+        [
+          8.5,
+          1.2,
+          2.8,
+          0,
+          0.9,
+          -0.4
+        ],
+        [
+          2.8,
+          1.2,
+          6.4,
+          0,
+          0.9,
+          -0.4
+        ]
+      ]
+    },
+    {
+      "node": "head",
+      "prim": "top",
+      "face": "top",
+      "color": "#c81e2a",
+      "boxes": [
+        [
+          4.6,
+          0.6,
+          1.5,
+          0,
+          0.1,
+          0
+        ],
+        [
+          1.5,
+          0.6,
+          4.6,
+          0,
+          0.1,
+          0
+        ]
+      ]
+    }
+  ],
+  "paints": [
+    {
+      "nodes": [
+        "pad-1",
+        "pad1"
+      ],
+      "mats": [
+        "secondary",
+        "leather"
+      ],
+      "color": "#14706a"
+    }
+  ],
+  "pose": {
+    "hold": 0.5,
+    "attack": [
+      0.8,
+      0.73,
+      0.67,
+      0.55
+    ],
+    "lean": 0.2,
+    "aim": "auto",
+    "twist": -0.25
+  },
+  "edges": null,
+  "gun": {
+    "color": "#2a2c3a",
+    "extend": 10,
+    "r": 1.3,
+    "dashes": [
+      [
+        2,
+        2.5
+      ],
+      [
+        6.5,
+        2.5
+      ]
+    ]
+  },
+  "carve": [
+    {
+      "ref": "chest",
+      "nodes": [
+        "chest",
+        "pad1",
+        "pad-1"
+      ],
+      "angle": 32,
+      "nose": 0.15,
+      "edge": {
+        "nodes": [
+          "chest"
+        ],
+        "w": 2.4,
+        "h": 0.8
+      }
+    },
+    {
+      "ref": "head",
+      "nodes": [
+        "head"
+      ],
+      "angle": 38,
+      "nose": 0.2
+    }
+  ],
+  "stats": {
+    "sIdle": {
+      "opaquePx": 823,
+      "vMedian": 0.431,
+      "vAbove08": 0.136,
+      "satMedian": 0.601,
+      "bboxW": 39,
+      "bboxH": 53
+    },
+    "idleAspect": [
+      {
+        "w": 41,
+        "h": 55,
+        "r": 1.34
+      },
+      {
+        "w": 42,
+        "h": 52,
+        "r": 1.24
+      },
+      {
+        "w": 56,
+        "h": 44,
+        "r": 1.27
+      },
+      {
+        "w": 56,
+        "h": 49,
+        "r": 1.14
+      },
+      {
+        "w": 40,
+        "h": 60,
+        "r": 1.5
+      },
+      {
+        "w": 42,
+        "h": 59,
+        "r": 1.4
+      },
+      {
+        "w": 56,
+        "h": 45,
+        "r": 1.24
+      },
+      {
+        "w": 56,
+        "h": 42,
+        "r": 1.33
+      }
+    ],
+    "barrelErr": [
+      0,
+      1,
+      4.2,
+      5.4,
+      0,
+      -5.4,
+      -4.2,
+      -1
+    ],
+    "bodyAspect": [
+      {
+        "w": 41,
+        "h": 35,
+        "r": 1.17
+      },
+      {
+        "w": 31,
+        "h": 41,
+        "r": 1.32
+      },
+      {
+        "w": 34,
+        "h": 44,
+        "r": 1.29
+      },
+      {
+        "w": 41,
+        "h": 39,
+        "r": 1.05
+      },
+      {
+        "w": 40,
+        "h": 39,
+        "r": 1.03
+      },
+      {
+        "w": 31,
+        "h": 44,
+        "r": 1.42
+      },
+      {
+        "w": 34,
+        "h": 45,
+        "r": 1.32
+      },
+      {
+        "w": 41,
+        "h": 41,
+        "r": 1
+      }
+    ],
+    "edgeFrac": 0.047,
+    "capFrac": 0.156,
+    "legs": {
+      "S": {
+        "strideL": 12.5,
+        "strideR": 13,
+        "visFramesL": 8,
+        "visFramesR": 8,
+        "visL": [
+          72,
+          14,
+          9,
+          8,
+          58,
+          97,
+          115,
+          102
+        ],
+        "visR": [
+          7,
+          14,
+          37,
+          20,
+          4,
+          3,
+          7,
+          4
+        ]
+      },
+      "N": {
+        "strideL": 10.5,
+        "strideR": 10.5,
+        "visFramesL": 7,
+        "visFramesR": 7,
+        "visL": [
+          47,
+          81,
+          96,
+          88,
+          54,
+          14,
+          0,
+          9
+        ],
+        "visR": [
+          54,
+          17,
+          0,
+          9,
+          51,
+          80,
+          94,
+          87
+        ]
+      }
+    }
+  },
+  "pitch": 1.2,
+  "lightAng": -0.9,
+  "look": "dusk",
+  "modelHeight": 63.4,
+  "rosterVersion": 5,
+  "bakedBy": "tools/bake.js",
+  "gate": {
+    "limits": {
+      "sIdleWMax": 40,
+      "opaqueMin": 800,
+      "opaqueMax": 900,
+      "edgeFracMax": 0.06,
+      "vMedianMax": 0.5,
+      "vAbove08Max": 0.15,
+      "barrelErrMax": 10
+    },
+    "pass": true,
+    "fails": []
+  }
+}

@@ -1,0 +1,37 @@
+/* Infested Planet Gauntlet: page shell. The 1920x1080 logical frame is letterboxed into the viewport by engine.js. */
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden; overscroll-behavior: none; }
+body { position: fixed; inset: 0; }
+#stage {
+  position: fixed; inset: 0; background: #000; overflow: hidden;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+  padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+  box-sizing: border-box;
+}
+/* fallback before engine.js lays out the frame */
+#frame {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(100vw, calc(100vh * 16 / 9)); height: min(100vh, calc(100vw * 9 / 16));
+  background: #0a0b0d; overflow: hidden;
+}
+#frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#hud { pointer-events: none; }
+#debug {
+  position: absolute; right: 8px; top: 8px; z-index: 5; pointer-events: none;
+  font: 12px/1.35 ui-monospace, Menlo, Consolas, monospace; color: #cfe8ee; white-space: pre;
+  background: rgba(0, 0, 0, 0.68); border: 1px solid rgba(127, 243, 255, 0.25); padding: 6px 8px; border-radius: 4px;
+}
+#debug[hidden] { display: none; }
+#fatal {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center;
+  font: 600 18px/1.4 system-ui, sans-serif; color: #ff8fa3; background: #0a0b0d;
+}
+/* phones held upright: the frame is letterboxed small, so hint at landscape (outside the frame, never captured) */
+#rotate { display: none; }
+@media (orientation: portrait) and (pointer: coarse) {
+  #rotate {
+    display: flex; flex-direction: column; align-items: center; gap: 10px; position: absolute; left: 0; right: 0; padding: 0 24px; text-align: center;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 12vh); pointer-events: none;
+    font: 600 15px/1.3 system-ui, sans-serif; letter-spacing: .04em; text-transform: uppercase; color: rgba(127, 243, 255, 0.75);
+  }
+  #rotate .ico { font-size: 34px; line-height: 1; color: #7ff3ff; }
+}

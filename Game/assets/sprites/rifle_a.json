@@ -1,0 +1,383 @@
+{
+  "id": "rifle_a",
+  "label": "RIFLE",
+  "role": "soldier",
+  "weapon": "rifle",
+  "name": "Pvt. Brandt \"Hammer\"",
+  "cellWidth": 128,
+  "cellHeight": 128,
+  "scale": 1,
+  "rows": [
+    "S",
+    "SE",
+    "E",
+    "NE",
+    "N",
+    "NW",
+    "W",
+    "SW"
+  ],
+  "columns": [
+    "idle",
+    "walk0",
+    "walk1",
+    "walk2",
+    "walk3",
+    "walk4",
+    "walk5",
+    "walk6",
+    "walk7",
+    "attack0",
+    "attack1",
+    "attack2",
+    "attack3"
+  ],
+  "animations": {
+    "idle": {
+      "from": 0,
+      "count": 1
+    },
+    "walk": {
+      "from": 1,
+      "count": 8,
+      "loop": true
+    },
+    "attack": {
+      "from": 9,
+      "count": 4,
+      "loop": false
+    }
+  },
+  "anchor": {
+    "x": 64,
+    "y": 72
+  },
+  "clipped": false,
+  "blueprint": {
+    "v": 2,
+    "seed": 103,
+    "line": "human",
+    "role": "soldier",
+    "era": "scifi",
+    "style": "blend",
+    "head": "helm",
+    "shoulders": "light",
+    "weaponR": "mg",
+    "weaponL": "none",
+    "extra": "none",
+    "bulk": 0.85,
+    "legLen": 1.25,
+    "tall": 0.94,
+    "armLen": 1.23,
+    "edge": 1,
+    "size": 1.19,
+    "palette": "Night Watch",
+    "colors": {
+      "human": true,
+      "styles": [
+        "grim",
+        "dark",
+        "real"
+      ],
+      "glass": "#8ff8ff",
+      "outline": "#07060f",
+      "primary": "#2a1a52",
+      "secondary": "#312460",
+      "tertiary": "#1c6f66",
+      "metal": "#4c5068",
+      "leather": "#241b3a",
+      "skin": "#a27e68",
+      "hair": "#19191f",
+      "accent": "#5ff0ff",
+      "bg": "#2a2e38",
+      "floor": "#242832"
+    },
+    "number": "895",
+    "name": "Pvt. Brandt \"Hammer\"",
+    "stride": "topdown"
+  },
+  "anchorMode": "feet; global box centred in the cell",
+  "ringAt": "center",
+  "center": {
+    "x": 64,
+    "y": 61.4
+  },
+  "idleBox": {
+    "w": 62,
+    "h": 64
+  },
+  "bodyBoxS": {
+    "w": 38,
+    "h": 32
+  },
+  "attackReach": 54.4,
+  "tightBox": {
+    "w": 109,
+    "h": 103
+  },
+  "render": {
+    "supersample": 3,
+    "soften": 0.8,
+    "feather": 0.35,
+    "swayDeg": 3,
+    "swayPx": 1,
+    "filter": "box, premultiplied alpha",
+    "vfx": false
+  },
+  "cap": {
+    "color": "#b8245e",
+    "mats": [
+      "primary",
+      "leather"
+    ]
+  },
+  "marks": null,
+  "paints": [
+    {
+      "nodes": [
+        "pad-1",
+        "pad1"
+      ],
+      "mats": [
+        "secondary",
+        "leather"
+      ],
+      "color": "#14706a"
+    }
+  ],
+  "pose": {
+    "hold": 0.5,
+    "attack": [
+      0.85,
+      0.6,
+      0.85,
+      0.5
+    ],
+    "lean": 0.2,
+    "aim": "auto",
+    "twist": -0.1
+  },
+  "edges": null,
+  "gun": {
+    "color": "#2a2c3a",
+    "extend": 10,
+    "r": 1.3,
+    "dashes": [
+      [
+        2,
+        2.5
+      ],
+      [
+        6.5,
+        2.5
+      ]
+    ]
+  },
+  "carve": [
+    {
+      "ref": "chest",
+      "nodes": [
+        "chest",
+        "pad1",
+        "pad-1"
+      ],
+      "angle": 32,
+      "nose": 0.15,
+      "edge": {
+        "nodes": [
+          "chest"
+        ],
+        "w": 2.4,
+        "h": 0.8
+      }
+    },
+    {
+      "ref": "head",
+      "nodes": [
+        "head"
+      ],
+      "angle": 38,
+      "nose": 0.2
+    }
+  ],
+  "stats": {
+    "sIdle": {
+      "opaquePx": 844,
+      "vMedian": 0.4,
+      "vAbove08": 0.026,
+      "satMedian": 0.606,
+      "bboxW": 38,
+      "bboxH": 62
+    },
+    "idleAspect": [
+      {
+        "w": 39,
+        "h": 64,
+        "r": 1.64
+      },
+      {
+        "w": 51,
+        "h": 62,
+        "r": 1.22
+      },
+      {
+        "w": 62,
+        "h": 45,
+        "r": 1.38
+      },
+      {
+        "w": 59,
+        "h": 50,
+        "r": 1.18
+      },
+      {
+        "w": 39,
+        "h": 64,
+        "r": 1.64
+      },
+      {
+        "w": 51,
+        "h": 60,
+        "r": 1.18
+      },
+      {
+        "w": 62,
+        "h": 45,
+        "r": 1.38
+      },
+      {
+        "w": 59,
+        "h": 55,
+        "r": 1.07
+      }
+    ],
+    "barrelErr": [
+      -0.1,
+      0.6,
+      3.7,
+      4.9,
+      -0.1,
+      -5.1,
+      -3.8,
+      -0.8
+    ],
+    "bodyAspect": [
+      {
+        "w": 39,
+        "h": 31,
+        "r": 1.26
+      },
+      {
+        "w": 34,
+        "h": 41,
+        "r": 1.21
+      },
+      {
+        "w": 27,
+        "h": 45,
+        "r": 1.67
+      },
+      {
+        "w": 30,
+        "h": 40,
+        "r": 1.33
+      },
+      {
+        "w": 39,
+        "h": 35,
+        "r": 1.11
+      },
+      {
+        "w": 34,
+        "h": 39,
+        "r": 1.15
+      },
+      {
+        "w": 27,
+        "h": 45,
+        "r": 1.67
+      },
+      {
+        "w": 30,
+        "h": 43,
+        "r": 1.43
+      }
+    ],
+    "edgeFrac": 0.04,
+    "capFrac": 0.118,
+    "legs": {
+      "S": {
+        "strideL": 18,
+        "strideR": 14.5,
+        "visFramesL": 7,
+        "visFramesR": 4,
+        "visL": [
+          29,
+          0,
+          11,
+          1,
+          13,
+          59,
+          74,
+          68
+        ],
+        "visR": [
+          9,
+          0,
+          1,
+          0,
+          12,
+          0,
+          5,
+          0
+        ]
+      },
+      "N": {
+        "strideL": 10.5,
+        "strideR": 9.5,
+        "visFramesL": 7,
+        "visFramesR": 6,
+        "visL": [
+          71,
+          95,
+          109,
+          105,
+          75,
+          25,
+          0,
+          13
+        ],
+        "visR": [
+          67,
+          4,
+          0,
+          0,
+          59,
+          91,
+          106,
+          99
+        ]
+      }
+    }
+  },
+  "pitch": 1.2,
+  "lightAng": -0.9,
+  "look": "dusk",
+  "modelHeight": 64.6,
+  "rosterVersion": 5,
+  "bakedBy": "tools/bake.js",
+  "gate": {
+    "limits": {
+      "sIdleWMax": 40,
+      "opaqueMin": 800,
+      "opaqueMax": 900,
+      "edgeFracMax": 0.06,
+      "vMedianMax": 0.5,
+      "vAbove08Max": 0.15,
+      "barrelErrMax": 8,
+      "reachMin": 45
+    },
+    "pass": true,
+    "fails": []
+  }
+}

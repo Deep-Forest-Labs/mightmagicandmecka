@@ -1,0 +1,13 @@
+{
+  "name": "mechafactory",
+  "private": true,
+  "description": "Mecha Factory art pipeline + Infested Planet style gauntlet game",
+  "scripts": {
+    "serve": "node tools/serve.js 8711",
+    "capture": "node tools/capture.js",
+    "bake": "node tools/bake.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}

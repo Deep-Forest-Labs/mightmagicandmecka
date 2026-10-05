@@ -1,0 +1,104 @@
+{
+ "name": "bug_drone_v1",
+ "cellWidth": 32,
+ "cellHeight": 32,
+ "scale": 1,
+ "rows": [
+  "S",
+  "SE",
+  "E",
+  "NE",
+  "N",
+  "NW",
+  "W",
+  "SW"
+ ],
+ "columns": [
+  "idle",
+  "walk0",
+  "walk1",
+  "walk2",
+  "walk3",
+  "walk4",
+  "walk5",
+  "walk6",
+  "walk7",
+  "attack0",
+  "attack1",
+  "attack2",
+  "attack3"
+ ],
+ "animations": {
+  "idle": {
+   "from": 0,
+   "count": 1
+  },
+  "walk": {
+   "from": 1,
+   "count": 8,
+   "loop": true
+  },
+  "attack": {
+   "from": 9,
+   "count": 4,
+   "loop": false
+  }
+ },
+ "anchor": {
+  "x": 16,
+  "y": 18
+ },
+ "clipped": false,
+ "blueprint": {
+  "v": 2,
+  "seed": 1101,
+  "line": "bug",
+  "species": "drone",
+  "carapace": "dome",
+  "head": "mandibles",
+  "abdomen": "segmented",
+  "markings": "none",
+  "legs": "spindly",
+  "shade": 0,
+  "variant": 1,
+  "bulk": 0.7,
+  "legLen": 1,
+  "tall": 1,
+  "armLen": 1,
+  "edge": 1.5,
+  "size": 1,
+  "palette": "Infested Teal",
+  "colors": {
+   "tertiary": "#c0306f",
+   "skin": "#3f7a6c",
+   "hair": "#b8e08c",
+   "leather": "#6e4a33",
+   "alien": true,
+   "primary": "#1c425c",
+   "secondary": "#2c5a78",
+   "metal": "#12293f",
+   "accent": "#9cc878",
+   "glass": "#9fd0dc",
+   "outline": "#0b1c33",
+   "bg": "#35361f",
+   "floor": "#454628"
+  },
+  "number": "366",
+  "name": "Tick 366"
+ },
+ "contentWidth": 32,
+ "contentHeight": 29,
+ "pitch": 1.2,
+ "centered": true,
+ "finish": true,
+ "bakedWith": "MF.Bugs.bakeSheet",
+ "shade": 1,
+ "variant": {
+  "index": 1,
+  "shade": 0.88,
+  "hue": 6,
+  "sat": 1.15,
+  "star": 3,
+  "specks": 2
+ }
+}

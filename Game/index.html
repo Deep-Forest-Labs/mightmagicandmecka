@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
+<title>Infested Planet Gauntlet</title>
+<link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+<div id="stage">
+  <div id="frame">
+    <canvas id="gl" width="1920" height="1080"></canvas>
+    <canvas id="hud" width="1920" height="1080"></canvas>
+  </div>
+  <div id="debug" hidden></div>
+  <div id="rotate" aria-hidden="true"><span class="ico">&#x21bb;</span>Rotate to landscape for the full battlefield</div>
+</div>
+<!-- Load order is the system order (DESIGN.md). Missing files are fine: only registered systems run. -->
+<script src="js/engine.js"></script>
+<script src="js/terrain.js"></script>
+<script src="js/swarm.js"></script>
+<script src="js/marines.js"></script>
+<script src="js/structures.js"></script>
+<script src="js/vfx.js"></script>
+<script src="js/hud.js"></script>
+<script src="js/game.js"></script>
+<script src="js/scenarios.js"></script>
+</body>
+</html>
